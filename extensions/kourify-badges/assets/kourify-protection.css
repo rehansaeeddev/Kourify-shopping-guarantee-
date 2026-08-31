@@ -1,0 +1,368 @@
+:root {
+  --kourify-accent: #008060;
+  --kourify-accent-dark: #065f46;
+  --kourify-accent-light: #d6f2e6;
+}
+
+.kourify-protection {
+  font-family: inherit;
+  max-width: 480px;
+}
+
+.kourify-protection__eyebrow,
+.kourify-protection__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--kourify-accent);
+  margin-bottom: 6px;
+}
+
+.kourify-protection__tag {
+  background: #ffffff;
+  border: 1px solid var(--kourify-accent);
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: var(--kourify-accent);
+}
+
+.kourify-protection__card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #f4faf7;
+  border: 1px solid var(--kourify-accent);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.kourify-protection__option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  cursor: pointer;
+}
+
+.kourify-protection__option input[type="checkbox"] {
+  margin-top: 3px;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--kourify-accent);
+}
+
+.kourify-protection--included .kourify-protection__option input[type="checkbox"] {
+  display: none;
+}
+
+.kourify-protection--included .kourify-protection__option {
+  cursor: default;
+}
+
+.kourify-protection__icon {
+  flex-shrink: 0;
+  color: var(--kourify-accent);
+  margin-top: 2px;
+}
+
+.kourify-protection__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.kourify-protection__heading {
+  font-weight: 600;
+  font-size: 14px;
+  color: #1a1a1a;
+}
+
+.kourify-protection__description {
+  font-size: 13px;
+  color: #565656;
+}
+
+.kourify-protection__price {
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.kourify-protection__link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--kourify-accent);
+  text-decoration: underline;
+  cursor: pointer;
+  width: fit-content;
+}
+
+.kourify-protection__footnote {
+  font-size: 12px;
+  color: #565656;
+  margin-top: 8px;
+}
+
+/* Modal */
+.kourify-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+}
+
+.kourify-modal-overlay[hidden] {
+  display: none;
+}
+
+.kourify-modal {
+  background: #fff;
+  border-radius: 12px;
+  max-width: 420px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 0 20px 20px;
+  position: relative;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  border-top: 4px solid var(--kourify-accent);
+}
+
+.kourify-modal__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  color: #565656;
+}
+
+.kourify-modal__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 0 4px;
+}
+
+.kourify-modal__header-icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--kourify-accent-light);
+  color: var(--kourify-accent-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kourify-modal__brand {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--kourify-accent-dark);
+}
+
+.kourify-modal__title {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 2px 0 4px;
+  color: #1a1a1a;
+}
+
+.kourify-modal__subtitle {
+  font-size: 12.5px;
+  color: #6b7280;
+  margin: 0 0 14px;
+  line-height: 1.4;
+}
+
+.kourify-modal__body {
+  font-size: 13px;
+  color: #444;
+  line-height: 1.5;
+}
+
+.kourify-modal__actions {
+  margin-top: 16px;
+}
+
+.kourify-modal__actions .kourify-btn {
+  width: 100%;
+}
+
+/* Stepper */
+.kourify-stepper {
+  display: flex;
+  justify-content: space-between;
+  margin: 16px 0 20px;
+  position: relative;
+}
+
+.kourify-stepper::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  background: #e3e3e3;
+  z-index: 0;
+}
+
+.kourify-stepper__step {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.kourify-stepper__dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #d8dae3;
+  box-sizing: border-box;
+}
+
+.kourify-stepper__step.is-active .kourify-stepper__dot {
+  background: #fff;
+  border-color: var(--kourify-accent);
+  box-shadow: 0 0 0 3px var(--kourify-accent-light);
+}
+
+.kourify-stepper__step.is-done .kourify-stepper__dot {
+  background: var(--kourify-accent);
+  border-color: var(--kourify-accent);
+}
+
+.kourify-stepper__label {
+  font-size: 10px;
+  color: #8c8c8c;
+  text-align: center;
+}
+
+.kourify-stepper__step.is-active .kourify-stepper__label {
+  color: var(--kourify-accent);
+  font-weight: 600;
+}
+
+.kourify-claim-step {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kourify-claim-step.is-active {
+  display: flex;
+}
+
+.kourify-claim-step label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a1a1a;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kourify-claim-step input,
+.kourify-claim-step select,
+.kourify-claim-step textarea {
+  font-size: 13px;
+  padding: 8px 10px;
+  border: 1px solid #c9cccf;
+  border-radius: 6px;
+  font-family: inherit;
+}
+
+.kourify-claim-evidence {
+  margin-top: 4px;
+}
+
+.kourify-claim-error {
+  color: #d03b3b;
+  font-size: 12px;
+  margin: 4px 0 0;
+}
+
+.kourify-claim-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 16px;
+  gap: 8px;
+}
+
+.kourify-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.kourify-btn--primary {
+  background: var(--kourify-accent);
+  color: #fff;
+}
+
+.kourify-btn--secondary {
+  background: #f0f0f0;
+  color: #1a1a1a;
+}
+
+.kourify-claim-success {
+  text-align: center;
+  padding: 12px 0;
+}
+
+/* Floating guarantee tab (site-wide app embed) */
+.kourify-guarantee-tab {
+  position: fixed;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  z-index: 9998;
+}
+
+.kourify-guarantee-tab__button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  cursor: pointer;
+  background: #1a1a1a;
+  color: #fff;
+  padding: 14px 8px;
+  border-radius: 8px 0 0 8px;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.kourify-guarantee-tab__button svg {
+  transform: rotate(90deg);
+}

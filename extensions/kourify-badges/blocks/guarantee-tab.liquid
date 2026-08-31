@@ -1,0 +1,16 @@
+<div class="kourify-guarantee-tab" data-kourify-guarantee-tab>
+  <button type="button" class="kourify-guarantee-tab__button" data-kourify-learn-more>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2L4 5v6c0 5.25 3.4 9.74 8 11 4.6-1.26 8-5.75 8-11V5l-8-3z" fill="currentColor"/><path d="M8.3 12.1l2.3 2.3 5-5" stroke="#065f46" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>Kourify Guarantee</span>
+  </button>
+</div>
+
+{{ 'kourify-protection.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'kourify-protection.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Kourify Guarantee Tab",
+  "target": "body"
+}
+{% endschema %}

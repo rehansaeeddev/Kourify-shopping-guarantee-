@@ -1,0 +1,39 @@
+.kourify-trust-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  width: fit-content;
+}
+
+.kourify-trust-badge--classic {
+  background: #f4f6f8;
+  color: #202223;
+  border: 1px solid #c9cccf;
+}
+
+.kourify-trust-badge--minimal {
+  background: transparent;
+  color: #202223;
+  border: none;
+}
+
+.kourify-trust-badge--bold {
+  background: #008060;
+  color: #ffffff;
+  border: none;
+}
+
+.kourify-trust-badge__icon {
+  flex-shrink: 0;
+  display: block;
+}
+
+.kourify-trust-badge--bold .kourify-trust-badge__icon {
+  background: #ffffff;
+  border-radius: 999px;
+  padding: 2px;
+}

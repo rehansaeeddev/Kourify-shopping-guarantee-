@@ -1,0 +1,99 @@
+<div
+  class="kourify-protection kourify-protection--cart"
+  data-kourify-protection
+  data-cap="{{ block.settings.coverage_cap }}"
+  data-basis-cents="{{ cart.total_price | default: 0 }}"
+  data-currency="{{ cart.currency.iso_code }}"
+  style="--kourify-accent: {{ block.settings.accent_color }};"
+>
+  <span class="kourify-protection__tag">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2L4 5v6c0 5.25 3.4 9.74 8 11 4.6-1.26 8-5.75 8-11V5l-8-3z" fill="#065f46"/><path d="M8.3 12.1l2.3 2.3 5-5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Kourify protection
+  </span>
+
+  <div class="kourify-protection__card">
+    <label class="kourify-protection__option">
+      <input type="checkbox" data-kourify-opt-in />
+      <span class="kourify-protection__icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2L4 5v6c0 5.25 3.4 9.74 8 11 4.6-1.26 8-5.75 8-11V5l-8-3z" fill="#065f46"/><path d="M8.3 12.1l2.3 2.3 5-5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+      <span class="kourify-protection__body">
+        <span class="kourify-protection__heading">{{ block.settings.heading }}</span>
+        <span class="kourify-protection__description">{{ block.settings.description }}</span>
+        {% if block.settings.show_learn_more %}
+          <button type="button" class="kourify-protection__link" data-kourify-learn-more>
+            Learn more
+          </button>
+        {% endif %}
+      </span>
+      {% if block.settings.show_price %}
+        <span class="kourify-protection__price">
+          {{ block.settings.preview_price_cents | money }}
+        </span>
+      {% endif %}
+    </label>
+  </div>
+
+  <p class="kourify-protection__footnote">
+    Available for orders up to ${{ block.settings.coverage_cap }}.00.
+    <br />
+    Already protected?
+    <button type="button" class="kourify-protection__link" data-kourify-file-claim>
+      File a claim →
+    </button>
+  </p>
+</div>
+
+{{ 'kourify-protection.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'kourify-protection.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Kourify Protect (Cart)",
+  "target": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Protect your order"
+    },
+    {
+      "type": "textarea",
+      "id": "description",
+      "label": "Description",
+      "default": "Coverage for loss, damage, or theft during delivery."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_learn_more",
+      "label": "Show Learn more",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_price",
+      "label": "Show price",
+      "default": true
+    },
+    {
+      "type": "number",
+      "id": "preview_price_cents",
+      "label": "Preview price in cents",
+      "default": 299
+    },
+    {
+      "type": "number",
+      "id": "coverage_cap",
+      "label": "Coverage cap ($)",
+      "default": 900
+    },
+    {
+      "type": "color",
+      "id": "accent_color",
+      "label": "Accent color",
+      "default": "#008060"
+    }
+  ]
+}
+{% endschema %}

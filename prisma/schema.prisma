@@ -1,0 +1,75 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Note that some adapters may set a maximum length for the String type by default, please ensure your strings are long
+// enough when changing adapters.
+// See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
+datasource db {
+  provider = "sqlite"
+  url      = "file:dev.sqlite"
+}
+
+model Session {
+  id            String    @id
+  shop          String
+  state         String
+  isOnline      Boolean   @default(false)
+  scope         String?
+  expires       DateTime?
+  accessToken   String
+  userId        BigInt?
+  firstName     String?
+  lastName      String?
+  email         String?
+  accountOwner  Boolean   @default(false)
+  locale        String?
+  collaborator  Boolean?  @default(false)
+  emailVerified Boolean?  @default(false)
+  refreshToken        String?
+  refreshTokenExpires DateTime?
+}
+
+model MerchantSettings {
+  id                String   @id @default(cuid())
+  shop              String   @unique
+  badgesEnabled     Boolean  @default(true)
+  badgeStyle        String   @default("classic") // classic | minimal | bold
+  showOnProduct     Boolean  @default(true)
+  showOnCart        Boolean  @default(true)
+  protectionPayer   String   @default("customer") // customer | merchant
+  enabledClaimTypes String   @default("lost,damaged,stolen,shortage,concealed,wrong_item") // comma-separated
+  claimWindows      String   @default("{\"lost\":{\"minDays\":0,\"maxDays\":30},\"damaged\":{\"minDays\":0,\"maxDays\":7},\"stolen\":{\"minDays\":3,\"maxDays\":15},\"shortage\":{\"minDays\":0,\"maxDays\":7},\"concealed\":{\"minDays\":0,\"maxDays\":14},\"wrong_item\":{\"minDays\":0,\"maxDays\":14}}") // JSON: { [issueType]: { minDays, maxDays } } since fulfillment
+  protectionFeeType         String @default("flat") // flat | percentage
+  protectionFlatFeeCents    Int    @default(299)
+  protectionPercentBasisPoints Int @default(200) // 200 = 2.00% of order value
+  protectionMinFeeCents     Int    @default(99)
+  protectionMaxFeeCents     Int    @default(999)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model ProtectionClaim {
+  id                String   @id @default(cuid())
+  shop              String
+  orderNumber       String
+  confirmationCode  String?
+  fullName          String
+  email             String
+  issueType         String // lost | damaged | stolen | shortage | concealed | wrong_item
+  details           String?
+  status            String   @default("submitted") // submitted | reviewing | resolved | denied
+  shopifyOrderId    String? // Admin GraphQL GID, captured once the order is verified
+  shopifyOrderName  String? // canonical order name from Shopify, e.g. "#1234"
+  orderRiskLevel    String? // LOW | MEDIUM | HIGH | null if lookup failed/unavailable
+  evidenceUrl       String? // Shopify-hosted image URL, required for damaged/concealed
+  resolvedAt        DateTime? // set the first time status becomes resolved or denied
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([shop])
+  @@index([shop, email])
+}

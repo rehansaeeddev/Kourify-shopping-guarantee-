@@ -1,0 +1,17 @@
+<div
+  class="kourify-trust-badge"
+  data-kourify-badge
+  data-placement="product"
+  data-shop="{{ shop.permanent_domain }}"
+></div>
+
+{{ 'kourify-badge.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'kourify-badge.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Kourify Trust Badge",
+  "target": "section",
+  "settings": []
+}
+{% endschema %}

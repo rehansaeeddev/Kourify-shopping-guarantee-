@@ -1,0 +1,91 @@
+<div
+  class="kourify-protection kourify-protection--product"
+  data-kourify-protection
+  data-cap="{{ block.settings.coverage_cap }}"
+  data-basis-cents="{{ product.price | default: 0 }}"
+  data-currency="{{ shop.currency }}"
+  style="--kourify-accent: {{ block.settings.accent_color }};"
+>
+  <span class="kourify-protection__eyebrow">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2L4 5v6c0 5.25 3.4 9.74 8 11 4.6-1.26 8-5.75 8-11V5l-8-3z" fill="#065f46"/><path d="M8.3 12.1l2.3 2.3 5-5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Managed by Kourify
+  </span>
+
+  <div class="kourify-protection__card">
+    <div class="kourify-protection__icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2L4 5v6c0 5.25 3.4 9.74 8 11 4.6-1.26 8-5.75 8-11V5l-8-3z" fill="#065f46"/><path d="M8.3 12.1l2.3 2.3 5-5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="kourify-protection__body">
+      <p class="kourify-protection__heading">{{ block.settings.heading }}</p>
+      <p class="kourify-protection__description">{{ block.settings.description }}</p>
+      {% if block.settings.show_learn_more %}
+        <button type="button" class="kourify-protection__link" data-kourify-learn-more>
+          Learn more
+        </button>
+      {% endif %}
+    </div>
+    {% if block.settings.show_price %}
+      <div class="kourify-protection__price">
+        {{ block.settings.preview_price_cents | money }}
+      </div>
+    {% endif %}
+  </div>
+
+  <p class="kourify-protection__footnote">
+    Order protection provided by Kourify.
+  </p>
+</div>
+
+{{ 'kourify-protection.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'kourify-protection.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Kourify Protection",
+  "target": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Protect your order"
+    },
+    {
+      "type": "textarea",
+      "id": "description",
+      "label": "Description",
+      "default": "Coverage for loss, damage, or theft during delivery."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_learn_more",
+      "label": "Show Learn more",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_price",
+      "label": "Show price",
+      "default": true
+    },
+    {
+      "type": "number",
+      "id": "preview_price_cents",
+      "label": "Preview price in cents",
+      "default": 299
+    },
+    {
+      "type": "number",
+      "id": "coverage_cap",
+      "label": "Coverage cap ($)",
+      "default": 900
+    },
+    {
+      "type": "color",
+      "id": "accent_color",
+      "label": "Accent color",
+      "default": "#008060"
+    }
+  ]
+}
+{% endschema %}
