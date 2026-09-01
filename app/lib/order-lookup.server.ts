@@ -1,3 +1,5 @@
+import { riskLevelFromRecommendation } from "./order-risk";
+
 type AdminGraphqlClient = {
   graphql: (query: string, options?: { variables?: Record<string, unknown> }) => Promise<Response>;
 };
@@ -72,7 +74,7 @@ export async function findOrderRiskLevel(
         query kourifyOrderRisk($id: ID!) {
           order(id: $id) {
             risk {
-              level
+              recommendation
             }
           }
         }`,
@@ -80,7 +82,9 @@ export async function findOrderRiskLevel(
     );
     const json = await response.json();
     if (json?.errors) return null;
-    return json?.data?.order?.risk?.level ?? null;
+    return riskLevelFromRecommendation(
+      json?.data?.order?.risk?.recommendation,
+    );
   } catch {
     return null;
   }

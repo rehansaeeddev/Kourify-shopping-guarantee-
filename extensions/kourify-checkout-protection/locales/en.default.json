@@ -1,0 +1,13 @@
+{
+  "protectionTitle": "Protect your order",
+  "protectionDescription": "Coverage for loss, damage, or theft while your package is in transit.",
+  "merchantCoversFee": "This order is automatically protected against loss, damage, or theft — on us, at no extra cost to you.",
+  "addProtection": "Add Kourify protection — {{price}}",
+  "includedInTotal": "Protection is included in the order total shown in the summary.",
+  "totalWillUpdate": "Your order total will update immediately when protection is selected.",
+  "cartChangesUnavailable": "Protection can't be changed for this checkout.",
+  "updateError": "We couldn't update protection. Please try again.",
+  "loadError": "We couldn't load the protection option.",
+  "setupRequired": "Kourify setup required",
+  "configureVariant": "Create an active product with the handle kourify-order-protection to enable this option."
+}

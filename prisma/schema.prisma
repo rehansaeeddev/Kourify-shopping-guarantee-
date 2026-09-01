@@ -9,8 +9,8 @@ generator client {
 // enough when changing adapters.
 // See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
 datasource db {
-  provider = "sqlite"
-  url      = "file:dev.sqlite"
+  provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
 model Session {
@@ -31,6 +31,8 @@ model Session {
   emailVerified Boolean?  @default(false)
   refreshToken        String?
   refreshTokenExpires DateTime?
+
+  @@index([shop])
 }
 
 model MerchantSettings {
@@ -42,7 +44,7 @@ model MerchantSettings {
   showOnCart        Boolean  @default(true)
   protectionPayer   String   @default("customer") // customer | merchant
   enabledClaimTypes String   @default("lost,damaged,stolen,shortage,concealed,wrong_item") // comma-separated
-  claimWindows      String   @default("{\"lost\":{\"minDays\":0,\"maxDays\":30},\"damaged\":{\"minDays\":0,\"maxDays\":7},\"stolen\":{\"minDays\":3,\"maxDays\":15},\"shortage\":{\"minDays\":0,\"maxDays\":7},\"concealed\":{\"minDays\":0,\"maxDays\":14},\"wrong_item\":{\"minDays\":0,\"maxDays\":14}}") // JSON: { [issueType]: { minDays, maxDays } } since fulfillment
+  claimWindows      String   @db.Text // JSON: { [issueType]: { minDays, maxDays } } since fulfillment
   protectionFeeType         String @default("flat") // flat | percentage
   protectionFlatFeeCents    Int    @default(299)
   protectionPercentBasisPoints Int @default(200) // 200 = 2.00% of order value
@@ -72,4 +74,54 @@ model ProtectionClaim {
 
   @@index([shop])
   @@index([shop, email])
+  @@index([shop, status])
+  @@index([shop, createdAt])
+}
+
+// NEW: Order caching for production scaling (see CODE_REVIEW.md)
+model Order {
+  id              String   @id // Shopify GraphQL ID
+  shop            String
+  name            String   // Order #1001
+  email           String
+  status          String   // fulfilled, pending, canceled, refunded
+  riskLevel       String?  // LOW, MEDIUM, HIGH
+  shippedAt       DateTime?
+  totalPrice      String?  // For future analytics
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([shop, name])
+  @@index([shop])
+  @@index([shop, email])
+  @@index([shop, status])
+}
+
+// NEW: Audit log for compliance (see CODE_REVIEW.md)
+model AuditLog {
+  id        String   @id @default(cuid())
+  shop      String
+  action    String   // claim_status_updated, settings_changed, etc
+  userId    String?  // Merchant user ID
+  resource  String   // claim:123, settings:shop
+  oldValue  Json?
+  newValue  Json?
+  createdAt DateTime @default(now())
+
+  @@index([shop])
+  @@index([shop, createdAt])
+  @@index([resource])
+}
+
+// NEW: Merchant consent tracking (see CODE_REVIEW.md)
+model MerchantConsent {
+  id              String   @id @default(cuid())
+  shop            String   @unique
+  acceptedTerms   Boolean  @default(false)
+  acceptedAt      DateTime?
+  version         String   @default("1.0")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([shop])
 }

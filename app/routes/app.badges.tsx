@@ -2,6 +2,7 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { useFetcher, useLoaderData } from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
+import { DEFAULT_CLAIM_WINDOWS } from "../lib/claim-window";
 import { PageHeader } from "../components/PageHeader";
 import { Card } from "../components/Card";
 import { AppButton } from "../components/AppButton";
@@ -15,7 +16,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const settings = await db.merchantSettings.upsert({
     where: { shop: session.shop },
     update: {},
-    create: { shop: session.shop },
+    create: { shop: session.shop, claimWindows: JSON.stringify(DEFAULT_CLAIM_WINDOWS) },
   });
 
   return { settings };

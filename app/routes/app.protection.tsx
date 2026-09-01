@@ -7,7 +7,7 @@ import { Card } from "../components/Card";
 import { AppButton } from "../components/AppButton";
 import { useFetcherToast } from "../hooks/useFetcherToast";
 import { ALL_ISSUE_TYPES } from "../lib/claim-issue-type";
-import { parseClaimWindows, type ClaimWindows } from "../lib/claim-window";
+import { DEFAULT_CLAIM_WINDOWS, parseClaimWindows, type ClaimWindows } from "../lib/claim-window";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -15,7 +15,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const settings = await db.merchantSettings.upsert({
     where: { shop: session.shop },
     update: {},
-    create: { shop: session.shop },
+    create: { shop: session.shop, claimWindows: JSON.stringify(DEFAULT_CLAIM_WINDOWS) },
   });
 
   return { settings };

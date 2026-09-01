@@ -3,6 +3,7 @@ import { useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
+import { DEFAULT_CLAIM_WINDOWS } from "../lib/claim-window";
 import { Card, StatTile } from "../components/Card";
 import { DashboardHeader } from "../components/DashboardHeader";
 import { GettingStarted } from "../components/GettingStarted";
@@ -24,7 +25,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const settings = await db.merchantSettings.upsert({
     where: { shop: session.shop },
     update: {},
-    create: { shop: session.shop },
+    create: { shop: session.shop, claimWindows: JSON.stringify(DEFAULT_CLAIM_WINDOWS) },
   });
 
   const [openClaims, totalClaims, recentClaims, telemetry] = await Promise.all([
@@ -62,6 +63,11 @@ export default function Index() {
       <DashboardHeader
         greeting={greeting}
         subtitle="Build shopper confidence from cart to delivery."
+        actions={
+          <AppButton href="/app/order-sync" variant="secondary">
+            Order sync
+          </AppButton>
+        }
       />
 
       <GettingStarted

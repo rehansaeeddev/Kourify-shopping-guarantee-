@@ -23,29 +23,34 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     return Response.json({ error: "Too many requests" }, { status: 429 });
   }
 
+  const corsHeaders = { "Access-Control-Allow-Origin": "*" };
+
   const { session } = await authenticate.public.appProxy(request);
   if (!session) {
-    return Response.json(DEFAULT_SETTINGS);
+    return Response.json(DEFAULT_SETTINGS, { headers: corsHeaders });
   }
 
   const settings = await db.merchantSettings.findUnique({
     where: { shop: session.shop },
   });
   if (!settings) {
-    return Response.json(DEFAULT_SETTINGS);
+    return Response.json(DEFAULT_SETTINGS, { headers: corsHeaders });
   }
 
-  return Response.json({
-    badgesEnabled: settings.badgesEnabled,
-    badgeStyle: settings.badgeStyle,
-    showOnProduct: settings.showOnProduct,
-    showOnCart: settings.showOnCart,
-    protectionPayer: settings.protectionPayer,
-    enabledClaimTypes: settings.enabledClaimTypes.split(",").filter(Boolean),
-    protectionFeeType: settings.protectionFeeType,
-    protectionFlatFeeCents: settings.protectionFlatFeeCents,
-    protectionPercentBasisPoints: settings.protectionPercentBasisPoints,
-    protectionMinFeeCents: settings.protectionMinFeeCents,
-    protectionMaxFeeCents: settings.protectionMaxFeeCents,
-  });
+  return Response.json(
+    {
+      badgesEnabled: settings.badgesEnabled,
+      badgeStyle: settings.badgeStyle,
+      showOnProduct: settings.showOnProduct,
+      showOnCart: settings.showOnCart,
+      protectionPayer: settings.protectionPayer,
+      enabledClaimTypes: settings.enabledClaimTypes.split(",").filter(Boolean),
+      protectionFeeType: settings.protectionFeeType,
+      protectionFlatFeeCents: settings.protectionFlatFeeCents,
+      protectionPercentBasisPoints: settings.protectionPercentBasisPoints,
+      protectionMinFeeCents: settings.protectionMinFeeCents,
+      protectionMaxFeeCents: settings.protectionMaxFeeCents,
+    },
+    { headers: corsHeaders },
+  );
 };

@@ -1,7 +1,8 @@
 import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
-import { findOrderByNumber, findOrderRiskLevel } from "../lib/order-lookup.server";
+import { findOrderRiskLevel } from "../lib/order-lookup.server";
+import { findOrderByNumberWithCache } from "../lib/order-sync.server";
 import { parseClaimWindows, EVIDENCE_REQUIRED_TYPES } from "../lib/claim-window";
 import { uploadEvidenceImage } from "../lib/upload-evidence.server";
 import { isRateLimited, clientIpFromRequest } from "../lib/rate-limit.server";
@@ -62,7 +63,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     );
   }
 
-  const order = await findOrderByNumber(admin, orderNumber);
+  const order = await findOrderByNumberWithCache(admin, session.shop, orderNumber);
   if (!order) {
     return Response.json(
       {
