@@ -1,8 +1,13 @@
 import { riskLevelFromRecommendation } from "./order-risk";
 
 type AdminGraphqlClient = {
-  graphql: (query: string, options?: { variables?: Record<string, unknown> }) => Promise<Response>;
+  graphql: (
+    query: string,
+    options?: { variables?: Record<string, unknown>; signal?: AbortSignal },
+  ) => Promise<Response>;
 };
+
+const GRAPHQL_TIMEOUT_MS = 10_000;
 
 export type VerifiedOrder = {
   id: string;
@@ -78,7 +83,7 @@ export async function findOrderRiskLevel(
             }
           }
         }`,
-      { variables: { id: orderId } },
+      { variables: { id: orderId }, signal: AbortSignal.timeout(GRAPHQL_TIMEOUT_MS) },
     );
     const json = await response.json();
     if (json?.errors) return null;

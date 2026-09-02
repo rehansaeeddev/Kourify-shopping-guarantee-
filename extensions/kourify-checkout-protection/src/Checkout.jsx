@@ -9,41 +9,13 @@ export default function extension() {
 function Extension() {
   const [variant, setVariant] = useState(null);
   const [payer, setPayer] = useState("customer");
+  const [enabled, setEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let active = true;
-
-    const variantQuery = shopify
-      .query(
-        `query KourifyProtectionVariant {
-          products(first: 1, query: "handle:kourify-order-protection") {
-            nodes {
-              variants(first: 1) {
-                nodes {
-                  id
-                  price {
-                    amount
-                    currencyCode
-                  }
-                }
-              }
-            }
-          }
-        }`,
-      )
-      .then(({data}) => {
-        const result = /** @type {any} */ (data);
-        if (active) {
-          setVariant(result?.products?.nodes?.[0]?.variants?.nodes?.[0] || null);
-        }
-      })
-      .catch((err) => {
-        console.error("[kourify] variant query failed", err);
-        if (active) setError(shopify.i18n.translate("loadError"));
-      });
 
     const settingsQuery = Promise.resolve()
       .then(() => {
@@ -53,13 +25,24 @@ function Extension() {
       .then((settingsUrl) => fetch(settingsUrl, {headers: {Accept: "application/json"}}))
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (active && data?.protectionPayer) setPayer(data.protectionPayer);
+        if (!active || !data) return;
+        setPayer(data.protectionPayer || "customer");
+        setEnabled(Boolean(data.protectionEnabled));
+        if (data.protectionVariantId) {
+          setVariant({
+            id: data.protectionVariantId,
+            price: {
+              amount: String((data.protectionFlatFeeCents || 0) / 100),
+              currencyCode: data.currency || "USD",
+            },
+          });
+        }
       })
       .catch((err) => {
         console.error("[kourify] settings fetch failed", err);
       });
 
-    Promise.all([variantQuery, settingsQuery]).finally(() => {
+    settingsQuery.finally(() => {
       if (active) setLoading(false);
     });
 
@@ -69,6 +52,8 @@ function Extension() {
   }, []);
 
   if (loading) return null;
+
+  if (!enabled) return null;
 
   if (!variant) {
     return (

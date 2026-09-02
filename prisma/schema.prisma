@@ -50,8 +50,44 @@ model MerchantSettings {
   protectionPercentBasisPoints Int @default(200) // 200 = 2.00% of order value
   protectionMinFeeCents     Int    @default(99)
   protectionMaxFeeCents     Int    @default(999)
+  protectionEnabled         Boolean @default(false)
+  plan                      String  @default("usage") // usage | unlimited
+  currency                  String  @default("USD")
+  protectionProductId       String?
+  protectionVariantId       String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+}
+
+model ProtectedOrder {
+  id                   String   @id @default(cuid())
+  shop                 String
+  shopifyOrderId       String
+  shopifyOrderName     String?
+  protectionPriceCents Int
+  currency             String
+  customerSelected     Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  usageEvents           UsageEvent[]
+
+  @@unique([shop, shopifyOrderId])
+  @@index([shop, createdAt])
+}
+
+model UsageEvent {
+  id               String         @id @default(cuid())
+  shop             String
+  protectedOrderId String
+  eventType         String         @default("protected_order")
+  amountCents       Int            @default(60)
+  status            String         @default("pending") // pending | billed | waived | failed
+  shopifyUsageId    String?
+  createdAt         DateTime       @default(now())
+  protectedOrder    ProtectedOrder @relation(fields: [protectedOrderId], references: [id], onDelete: Cascade)
+
+  @@unique([protectedOrderId, eventType])
+  @@index([shop, status, createdAt])
 }
 
 model ProtectionClaim {

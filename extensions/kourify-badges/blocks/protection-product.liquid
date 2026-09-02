@@ -4,16 +4,17 @@
   data-cap="{{ block.settings.coverage_cap }}"
   data-basis-cents="{{ product.price | default: 0 }}"
   data-currency="{{ shop.currency }}"
+  data-logo-url="{{ 'kourify-logo.png' | asset_url }}"
   style="--kourify-accent: {{ block.settings.accent_color }};"
 >
   <span class="kourify-protection__eyebrow">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2L4 5v6c0 5.25 3.4 9.74 8 11 4.6-1.26 8-5.75 8-11V5l-8-3z" fill="#065f46"/><path d="M8.3 12.1l2.3 2.3 5-5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <img src="{{ 'kourify-logo.png' | asset_url }}" width="12" height="12" alt="" style="display:block;object-fit:contain;" />
     Managed by Kourify
   </span>
 
   <div class="kourify-protection__card">
     <div class="kourify-protection__icon">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2L4 5v6c0 5.25 3.4 9.74 8 11 4.6-1.26 8-5.75 8-11V5l-8-3z" fill="#065f46"/><path d="M8.3 12.1l2.3 2.3 5-5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <img src="{{ 'kourify-logo.png' | asset_url }}" width="20" height="20" alt="" style="display:block;object-fit:contain;" />
     </div>
     <div class="kourify-protection__body">
       <p class="kourify-protection__heading">{{ block.settings.heading }}</p>

@@ -11,7 +11,7 @@ export function DashboardHeader({ greeting, subtitle, actions }: DashboardHeader
     <div className="app-dash-header">
       <div className="app-dash-header__brand">
         <div className="app-dash-header__brand-icon">
-          <s-icon type="shield-check-mark" />
+          <img src="/kourify-logo.png" alt="Kourify" />
         </div>
         <span>Kourify Shopping Guarantee</span>
       </div>

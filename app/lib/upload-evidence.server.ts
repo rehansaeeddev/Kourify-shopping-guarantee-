@@ -1,8 +1,52 @@
 type AdminGraphqlClient = {
-  graphql: (query: string, options?: { variables?: Record<string, unknown> }) => Promise<Response>;
+  graphql: (
+    query: string,
+    options?: { variables?: Record<string, unknown>; signal?: AbortSignal },
+  ) => Promise<Response>;
 };
 
 const MAX_EVIDENCE_BYTES = 5 * 1024 * 1024; // 5MB
+const UPLOAD_TIMEOUT_MS = 10_000;
+const FILE_READY_POLL_ATTEMPTS = 5;
+const FILE_READY_POLL_DELAY_MS = 1_000;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * fileCreate returns before Shopify finishes processing the image, so
+ * `image.url` on the immediate response is null. Poll the file by id until
+ * processing completes or we give up.
+ */
+async function pollFileUrl(admin: AdminGraphqlClient, fileId: string): Promise<string | null> {
+  for (let attempt = 0; attempt < FILE_READY_POLL_ATTEMPTS; attempt++) {
+    await sleep(FILE_READY_POLL_DELAY_MS);
+    const response = await admin.graphql(
+      `#graphql
+        query kourifyFileStatus($id: ID!) {
+          node(id: $id) {
+            ... on MediaImage {
+              fileStatus
+              image {
+                url
+              }
+            }
+          }
+        }`,
+      { variables: { id: fileId }, signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS) },
+    );
+    const json = await response.json();
+    const node = json?.data?.node;
+    if (node?.image?.url) return node.image.url;
+    if (node?.fileStatus === "FAILED") {
+      console.error("[uploadEvidenceImage] file processing failed", JSON.stringify(node));
+      return null;
+    }
+  }
+  console.error("[uploadEvidenceImage] file never finished processing", fileId);
+  return null;
+}
 
 /**
  * Uploads a base64 data-URL image to Shopify's own file storage (staged
@@ -55,11 +99,19 @@ export async function uploadEvidenceImage(
             },
           ],
         },
+        signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
       },
     );
     const stagedJson = await stagedResponse.json();
+    const stagedErrors = stagedJson?.data?.stagedUploadsCreate?.userErrors;
     const target = stagedJson?.data?.stagedUploadsCreate?.stagedTargets?.[0];
-    if (!target) return null;
+    if (!target) {
+      console.error(
+        "[uploadEvidenceImage] stagedUploadsCreate failed",
+        JSON.stringify({ errors: stagedJson?.errors, userErrors: stagedErrors }),
+      );
+      return null;
+    }
 
     const form = new FormData();
     for (const param of target.parameters as { name: string; value: string }[]) {
@@ -67,8 +119,19 @@ export async function uploadEvidenceImage(
     }
     form.append("file", new Blob([buffer], { type: mimeType }), filename);
 
-    const uploadResponse = await fetch(target.url, { method: "POST", body: form });
-    if (!uploadResponse.ok) return null;
+    const uploadResponse = await fetch(target.url, {
+      method: "POST",
+      body: form,
+      signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
+    });
+    if (!uploadResponse.ok) {
+      console.error(
+        "[uploadEvidenceImage] binary upload to staged target failed",
+        uploadResponse.status,
+        await uploadResponse.text().catch(() => ""),
+      );
+      return null;
+    }
 
     const createResponse = await admin.graphql(
       `#graphql
@@ -92,12 +155,23 @@ export async function uploadEvidenceImage(
         variables: {
           files: [{ originalSource: target.resourceUrl, contentType: "IMAGE" }],
         },
+        signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
       },
     );
     const createJson = await createResponse.json();
+    const createErrors = createJson?.data?.fileCreate?.userErrors;
     const file = createJson?.data?.fileCreate?.files?.[0];
-    return file?.image?.url ?? null;
-  } catch {
+    if (!file?.id) {
+      console.error(
+        "[uploadEvidenceImage] fileCreate failed",
+        JSON.stringify({ errors: createJson?.errors, userErrors: createErrors, file }),
+      );
+      return null;
+    }
+    if (file.image?.url) return file.image.url;
+    return await pollFileUrl(admin, file.id);
+  } catch (error) {
+    console.error("[uploadEvidenceImage] threw", error);
     return null;
   }
 }

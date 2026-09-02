@@ -4,10 +4,11 @@
   data-cap="{{ block.settings.coverage_cap }}"
   data-basis-cents="{{ cart.total_price | default: 0 }}"
   data-currency="{{ cart.currency.iso_code }}"
+  data-logo-url="{{ 'kourify-logo.png' | asset_url }}"
   style="--kourify-accent: {{ block.settings.accent_color }};"
 >
   <span class="kourify-protection__tag">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2L4 5v6c0 5.25 3.4 9.74 8 11 4.6-1.26 8-5.75 8-11V5l-8-3z" fill="#065f46"/><path d="M8.3 12.1l2.3 2.3 5-5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <img src="{{ 'kourify-logo.png' | asset_url }}" width="12" height="12" alt="" style="display:block;object-fit:contain;" />
     Kourify protection
   </span>
 
@@ -15,7 +16,7 @@
     <label class="kourify-protection__option">
       <input type="checkbox" data-kourify-opt-in />
       <span class="kourify-protection__icon">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2L4 5v6c0 5.25 3.4 9.74 8 11 4.6-1.26 8-5.75 8-11V5l-8-3z" fill="#065f46"/><path d="M8.3 12.1l2.3 2.3 5-5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <img src="{{ 'kourify-logo.png' | asset_url }}" width="18" height="18" alt="" style="display:block;object-fit:contain;" />
       </span>
       <span class="kourify-protection__body">
         <span class="kourify-protection__heading">{{ block.settings.heading }}</span>

@@ -12,6 +12,7 @@ import { issueTypeLabel } from "../lib/claim-issue-type";
 import { AppButton } from "../components/AppButton";
 import { EmptyState } from "../components/EmptyState";
 import { getProtectionTelemetry } from "../lib/protection-telemetry.server";
+import { getBillingState } from "../lib/billing-state.server";
 
 function greetingForHour(hour: number): string {
   if (hour < 12) return "Good morning";
@@ -20,7 +21,7 @@ function greetingForHour(hour: number): string {
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session, admin } = await authenticate.admin(request);
+  const { session, admin, billing } = await authenticate.admin(request);
 
   const settings = await db.merchantSettings.upsert({
     where: { shop: session.shop },
@@ -28,7 +29,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     create: { shop: session.shop, claimWindows: JSON.stringify(DEFAULT_CLAIM_WINDOWS) },
   });
 
-  const [openClaims, totalClaims, recentClaims, telemetry] = await Promise.all([
+  const [openClaims, totalClaims, recentClaims, telemetry, { hasActiveBilling }] = await Promise.all([
     db.protectionClaim.count({
       where: { shop: session.shop, status: { in: ["submitted", "reviewing"] } },
     }),
@@ -39,16 +40,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       take: 5,
     }),
     getProtectionTelemetry(session.shop, admin),
+    getBillingState(billing),
   ]);
 
   const shopName = session.shop.replace(/\.myshopify\.com$/, "");
   const greeting = `${greetingForHour(new Date().getHours())}, ${shopName}`;
 
-  return { greeting, settings, openClaims, totalClaims, recentClaims, telemetry };
+  return { greeting, settings, openClaims, totalClaims, recentClaims, telemetry, hasActiveBilling };
 };
 
 export default function Index() {
-  const { greeting, settings, openClaims, totalClaims, recentClaims, telemetry } =
+  const { greeting, settings, openClaims, totalClaims, recentClaims, telemetry, hasActiveBilling } =
     useLoaderData<typeof loader>();
 
   const feeSummary =
@@ -57,6 +59,12 @@ export default function Index() {
       : settings.protectionFeeType === "percentage"
         ? `${(settings.protectionPercentBasisPoints / 100).toFixed(1)}% of order · customer pays`
         : `$${(settings.protectionFlatFeeCents / 100).toFixed(2)} flat · customer pays`;
+
+  const protectionStatus = !hasActiveBilling
+    ? { tone: "warning" as const, value: "Locked · choose a plan" }
+    : !settings.protectionEnabled
+      ? { tone: "default" as const, value: "Off" }
+      : { tone: "success" as const, value: `Live · ${feeSummary}` };
 
   return (
     <s-page>
@@ -111,8 +119,8 @@ export default function Index() {
           <StatTile
             icon="check-circle"
             label="Package protection"
-            tone="success"
-            value={`Live · ${feeSummary}`}
+            tone={protectionStatus.tone}
+            value={protectionStatus.value}
             href="/app/protection"
           />
         </div>

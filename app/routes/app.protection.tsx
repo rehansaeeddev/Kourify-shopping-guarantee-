@@ -5,12 +5,17 @@ import db from "../db.server";
 import { PageHeader } from "../components/PageHeader";
 import { Card } from "../components/Card";
 import { AppButton } from "../components/AppButton";
+import { BillingStatusCard } from "../components/BillingStatusCard";
 import { useFetcherToast } from "../hooks/useFetcherToast";
 import { ALL_ISSUE_TYPES } from "../lib/claim-issue-type";
 import { DEFAULT_CLAIM_WINDOWS, parseClaimWindows, type ClaimWindows } from "../lib/claim-window";
+import { syncProtectionProduct } from "../lib/protection-product.server";
+import { getProtectionAnalytics } from "../lib/protection-orders.server";
+import { getBillingState } from "../lib/billing-state.server";
+import { StatTile } from "../components/Card";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { session, billing } = await authenticate.admin(request);
 
   const settings = await db.merchantSettings.upsert({
     where: { shop: session.shop },
@@ -18,31 +23,54 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     create: { shop: session.shop, claimWindows: JSON.stringify(DEFAULT_CLAIM_WINDOWS) },
   });
 
-  return { settings };
+  const { hasActiveBilling, activePlan } = await getBillingState(billing);
+  const currentSettings =
+    activePlan && settings.plan !== activePlan
+      ? await db.merchantSettings.update({ where: { shop: session.shop }, data: { plan: activePlan } })
+      : settings;
+  const analytics = await getProtectionAnalytics(session.shop);
+  return { settings: currentSettings, analytics, hasActiveBilling };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { session, admin, billing } = await authenticate.admin(request);
   const formData = await request.formData();
+  const current = await db.merchantSettings.findUniqueOrThrow({ where: { shop: session.shop } });
 
-  const protectionPayer = String(formData.get("protectionPayer") ?? "customer");
-  const enabledClaimTypes = String(formData.get("enabledClaimTypes") ?? "");
-  const claimWindows = String(formData.get("claimWindows") ?? "");
-  const protectionFeeType = String(formData.get("protectionFeeType") ?? "flat");
-  const protectionFlatFeeCents = Math.max(
-    0,
-    Math.round(Number(formData.get("protectionFlatFeeCents")) || 0),
-  );
-  const protectionPercentBasisPoints = Math.min(
-    10000,
-    Math.max(0, Math.round(Number(formData.get("protectionPercentBasisPoints")) || 0)),
-  );
-  const protectionMinFeeCents = Math.max(
-    0,
-    Math.round(Number(formData.get("protectionMinFeeCents")) || 0),
-  );
-  const protectionMaxFeeCentsRaw = Math.round(Number(formData.get("protectionMaxFeeCents")) || 0);
-  const protectionMaxFeeCents = Math.max(protectionMinFeeCents, protectionMaxFeeCentsRaw);
+  const { hasActiveBilling } = await getBillingState(billing);
+
+  const protectionPayer = hasActiveBilling
+    ? String(formData.get("protectionPayer") ?? "customer")
+    : current.protectionPayer;
+  const enabledClaimTypes = hasActiveBilling
+    ? String(formData.get("enabledClaimTypes") ?? "")
+    : current.enabledClaimTypes;
+  const claimWindows = hasActiveBilling
+    ? String(formData.get("claimWindows") ?? "")
+    : current.claimWindows;
+  const protectionFeeType = hasActiveBilling
+    ? String(formData.get("protectionFeeType") ?? "flat")
+    : current.protectionFeeType;
+  const protectionFlatFeeCents = hasActiveBilling
+    ? Math.max(0, Math.round(Number(formData.get("protectionFlatFeeCents")) || 0))
+    : current.protectionFlatFeeCents;
+  const protectionPercentBasisPoints = hasActiveBilling
+    ? Math.min(10000, Math.max(0, Math.round(Number(formData.get("protectionPercentBasisPoints")) || 0)))
+    : current.protectionPercentBasisPoints;
+  const protectionMinFeeCents = hasActiveBilling
+    ? Math.max(0, Math.round(Number(formData.get("protectionMinFeeCents")) || 0))
+    : current.protectionMinFeeCents;
+  const protectionMaxFeeCents = hasActiveBilling
+    ? Math.max(protectionMinFeeCents, Math.round(Number(formData.get("protectionMaxFeeCents")) || 0))
+    : current.protectionMaxFeeCents;
+  const protectionEnabled = hasActiveBilling
+    ? formData.get("protectionEnabled") === "true"
+    : current.protectionEnabled;
+  const plan = formData.get("plan") === "unlimited" ? "unlimited" : "usage";
+
+  if (formData.get("protectionEnabled") === "true" && !current.protectionEnabled && !hasActiveBilling) {
+    return { settings: current, error: "Approve a Kourify plan before enabling protection." };
+  }
 
   const settings = await db.merchantSettings.update({
     where: { shop: session.shop },
@@ -55,17 +83,44 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       protectionPercentBasisPoints,
       protectionMinFeeCents,
       protectionMaxFeeCents,
+      protectionEnabled,
+      plan,
     },
   });
 
-  return { settings };
+  try {
+    const productSettings =
+      protectionEnabled &&
+      (!current.protectionEnabled ||
+        current.protectionFlatFeeCents !== protectionFlatFeeCents ||
+        !current.protectionVariantId)
+        ? await syncProtectionProduct(session.shop, admin, protectionFlatFeeCents)
+        : settings;
+    return { settings: productSettings };
+  } catch (error) {
+    await db.merchantSettings.update({
+      where: { shop: session.shop },
+      data: { protectionEnabled: false },
+    });
+    return {
+      settings: { ...settings, protectionEnabled: false },
+      error: error instanceof Error ? error.message : "Could not configure the protection product.",
+    };
+  }
 };
 
 export default function Protection() {
-  const { settings } = useLoaderData<typeof loader>();
-  const settingsFetcher = useFetcher<{ settings?: typeof settings }>();
+  const { settings, analytics, hasActiveBilling } = useLoaderData<typeof loader>();
+  const settingsFetcher = useFetcher<{ settings?: typeof settings; error?: string }>();
 
-  useFetcherToast(settingsFetcher, () => "Protection settings saved.");
+  const startBilling = (plan: string) => {
+    const url = new URL(window.location.href);
+    url.pathname = "/app/billing";
+    url.searchParams.set("plan", plan);
+    window.location.assign(url.toString());
+  };
+
+  useFetcherToast(settingsFetcher, (data) => data.error ?? "Protection settings saved.");
 
   const currentSettings = settingsFetcher.data?.settings ?? settings;
   const enabledTypes = new Set(
@@ -83,6 +138,8 @@ export default function Protection() {
     protectionPercentBasisPoints?: number;
     protectionMinFeeCents?: number;
     protectionMaxFeeCents?: number;
+    protectionEnabled?: boolean;
+    plan?: string;
   }) => {
     const nextPayer = overrides.protectionPayer ?? currentSettings.protectionPayer;
     const nextTypes = overrides.enabledClaimTypes ?? enabledTypes;
@@ -105,6 +162,8 @@ export default function Protection() {
         protectionMaxFeeCents: String(
           overrides.protectionMaxFeeCents ?? currentSettings.protectionMaxFeeCents,
         ),
+        protectionEnabled: String(overrides.protectionEnabled ?? currentSettings.protectionEnabled),
+        plan: overrides.plan ?? currentSettings.plan,
       },
       { method: "POST" },
     );
@@ -148,16 +207,68 @@ export default function Protection() {
         }
       />
 
-      <s-banner tone="info">
-        The "Protect your order" widget is live on your product page and
-        cart. It's an honest, self-funded guarantee right now — there's no
-        real shipping-insurance underwriting behind it yet, so claims are
-        reviewed manually rather than paid out automatically. Connect a real
-        insurance partner (like EasyPost) before promising guaranteed
-        payouts to customers.
-      </s-banner>
+      {settingsFetcher.data?.error && (
+        <s-banner tone="critical" heading="Protection could not be enabled">
+          {settingsFetcher.data.error}
+        </s-banner>
+      )}
 
-      <Card heading="Who pays the protection fee">
+      <BillingStatusCard
+        hasActiveBilling={hasActiveBilling}
+        protectionEnabled={currentSettings.protectionEnabled}
+        onChoosePlan={() => startBilling(currentSettings.plan)}
+      />
+
+      <Card heading="Enable protection">
+        <s-stack direction="inline" gap="base" alignItems="center" justifyContent="space-between">
+          <s-text color="subdued">
+            Offer customers protection against loss, damage, and theft at checkout.
+          </s-text>
+          <s-switch
+            label="Enable protection at checkout"
+            checked={currentSettings.protectionEnabled}
+            disabled={settingsFetcher.state !== "idle" || !hasActiveBilling}
+            onChange={(e: any) => saveSettings({ protectionEnabled: e.target.checked })}
+          />
+        </s-stack>
+      </Card>
+
+      <Card heading="Plan">
+        <s-choice-list
+          label="Kourify billing plan"
+          name="plan"
+          values={[currentSettings.plan]}
+          onChange={(e: any) => {
+            const plan = e.currentTarget.values?.[0] ?? "usage";
+            startBilling(plan);
+          }}
+        >
+          <s-choice value="usage">$10/month + $0.60 per protected order</s-choice>
+          <s-choice value="unlimited">$20/month · unlimited protected orders</s-choice>
+        </s-choice-list>
+      </Card>
+
+      <Card heading="Protection performance">
+        <div className="app-card-row">
+          <StatTile icon="shield-check-mark" label="Protected orders" value={String(analytics.protectedOrders)} />
+          <StatTile icon="chart-line" label="Selection rate" value={`${analytics.conversionRate.toFixed(1)}%`} />
+          <StatTile icon="cash-dollar" label="Protection sales" value={`$${(analytics.protectionRevenueCents / 100).toFixed(2)}`} />
+          <StatTile icon="receipt-dollar" label="Kourify usage fees" value={`$${(analytics.usageFeesCents / 100).toFixed(2)}`} />
+        </div>
+      </Card>
+
+      <Card heading="Protection provider">
+        <s-paragraph>
+          The "Protect your order" widget is live on your product page and
+          cart. It's an honest, self-funded guarantee right now — there's no
+          real shipping-insurance underwriting behind it yet, so claims are
+          reviewed manually rather than paid out automatically. Connect a real
+          insurance partner (like EasyPost) before promising guaranteed
+          payouts to customers.
+        </s-paragraph>
+      </Card>
+
+      <Card heading="Who pays the protection fee" locked={!hasActiveBilling}>
         <s-stack direction="inline" gap="base" alignItems="center" justifyContent="space-between">
           <s-text>
             Customer pays at checkout, or you cover it for every order at no
@@ -167,6 +278,7 @@ export default function Protection() {
             <s-select
               label="Who pays"
               labelAccessibilityVisibility="exclusive"
+              disabled={!hasActiveBilling}
               value={currentSettings.protectionPayer}
               onChange={(e: any) => saveSettings({ protectionPayer: e.target.value })}
             >
@@ -177,7 +289,7 @@ export default function Protection() {
         </s-stack>
       </Card>
 
-      <Card heading="Pricing">
+      <Card heading="Pricing" locked={!hasActiveBilling}>
         <s-paragraph>
           How the protection fee is calculated. A flat fee is simplest; a
           percentage of order value scales fairly across cheap and
@@ -197,7 +309,7 @@ export default function Protection() {
               <s-select
                 label="Fee structure"
                 labelAccessibilityVisibility="exclusive"
-                disabled={merchantPays}
+                disabled={!hasActiveBilling || merchantPays}
                 value={currentSettings.protectionFeeType}
                 onChange={(e: any) => saveSettings({ protectionFeeType: e.target.value })}
               >
@@ -214,7 +326,7 @@ export default function Protection() {
                 <s-number-field
                   label="Flat fee"
                   labelAccessibilityVisibility="exclusive"
-                  disabled={merchantPays}
+                  disabled={!hasActiveBilling || merchantPays}
                   prefix="$"
                   min={0}
                   step={0.01}
@@ -235,7 +347,7 @@ export default function Protection() {
                   <s-number-field
                     label="Percentage"
                     labelAccessibilityVisibility="exclusive"
-                    disabled={merchantPays}
+                    disabled={!hasActiveBilling || merchantPays}
                     suffix="%"
                     min={0}
                     max={100}
@@ -256,7 +368,7 @@ export default function Protection() {
                   <s-number-field
                     label="Minimum fee"
                     labelAccessibilityVisibility="exclusive"
-                    disabled={merchantPays}
+                    disabled={!hasActiveBilling || merchantPays}
                     prefix="$"
                     min={0}
                     step={0.01}
@@ -275,7 +387,7 @@ export default function Protection() {
                   <s-number-field
                     label="Maximum fee"
                     labelAccessibilityVisibility="exclusive"
-                    disabled={merchantPays}
+                    disabled={!hasActiveBilling || merchantPays}
                     prefix="$"
                     min={0}
                     step={0.01}
@@ -293,7 +405,7 @@ export default function Protection() {
         </s-stack>
       </Card>
 
-      <Card heading="Claim reasons customers can select">
+      <Card heading="Claim reasons customers can select" locked={!hasActiveBilling}>
         <s-paragraph>
           Choose which reasons show up in the "File a claim" form on your
           storefront.
@@ -310,13 +422,14 @@ export default function Protection() {
               key={type.value}
               label={type.label}
               checked={enabledTypes.has(type.value)}
+              disabled={!hasActiveBilling}
               onChange={(e: any) => toggleClaimType(type.value, e.target.checked)}
             />
           ))}
         </s-stack>
       </Card>
 
-      <Card heading="Claim filing windows">
+      <Card heading="Claim filing windows" locked={!hasActiveBilling}>
         <s-paragraph>
           How many days after an order ships a customer can file each type
           of claim. We check this against the order's real fulfillment date
@@ -340,6 +453,7 @@ export default function Protection() {
                       label="Min days"
                       labelAccessibilityVisibility="exclusive"
                       min={0}
+                      disabled={!hasActiveBilling}
                       value={String(w.minDays)}
                       onChange={(e: any) =>
                         updateWindow(type.value, "minDays", Number(e.target.value) || 0)
@@ -352,6 +466,7 @@ export default function Protection() {
                       label="Max days"
                       labelAccessibilityVisibility="exclusive"
                       min={0}
+                      disabled={!hasActiveBilling}
                       value={String(w.maxDays)}
                       onChange={(e: any) =>
                         updateWindow(type.value, "maxDays", Number(e.target.value) || 0)

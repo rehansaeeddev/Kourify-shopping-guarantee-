@@ -74,6 +74,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     );
   }
 
+  if (order.email && order.email.trim().toLowerCase() !== email.trim().toLowerCase()) {
+    return Response.json(
+      {
+        error:
+          "That email doesn't match the one used for this order. Please use the email from your order confirmation.",
+      },
+      { status: 400 },
+    );
+  }
+
   if (!order.shippedAt) {
     return Response.json(
       { error: "This order hasn't shipped yet — claims can be filed once it's on its way." },

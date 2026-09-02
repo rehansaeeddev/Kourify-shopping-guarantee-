@@ -2,13 +2,19 @@ import type { ReactNode } from "react";
 
 type CardProps = {
   heading?: string;
+  locked?: boolean;
   children: ReactNode;
 };
 
-export function Card({ heading, children }: CardProps) {
+export function Card({ heading, locked, children }: CardProps) {
   return (
     <s-section>
-      {heading && <h3 className="app-card__heading">{heading}</h3>}
+      {heading && (
+        <s-stack direction="inline" gap="small-200" alignItems="center">
+          <h3 className="app-card__heading">{heading}</h3>
+          {locked && <s-badge tone="warning">🔒 Locked</s-badge>}
+        </s-stack>
+      )}
       {children}
     </s-section>
   );
@@ -30,36 +36,26 @@ const TONE_TO_ICON_TONE: Record<string, "neutral" | "success" | "warning" | "cri
 };
 
 export function StatTile({ label, value, icon, tone = "default", href }: StatTileProps) {
+  const className = `app-stat-tile app-stat-tile--${tone}`;
   const content = (
-    <s-stack direction="inline" gap="base" alignItems="center">
-      <s-box padding="small-200" borderRadius="base" background="subdued">
+    <>
+      <div className="app-stat-tile__icon">
         <s-icon type={icon as never} tone={TONE_TO_ICON_TONE[tone]} />
-      </s-box>
-      <s-stack direction="block" gap="small-200">
-        <s-text color="subdued">{label}</s-text>
-        <s-text type="strong">{value}</s-text>
-      </s-stack>
-    </s-stack>
+      </div>
+      <div className="app-stat-tile__body">
+        <span className="app-stat-tile__label">{label}</span>
+        <span className="app-stat-tile__value">{value}</span>
+      </div>
+    </>
   );
 
   if (href) {
     return (
-      <s-clickable
-        href={href}
-        padding="base"
-        borderWidth="base"
-        borderColor="base"
-        borderRadius="base"
-        background="base"
-      >
+      <a className={`${className} app-stat-tile--clickable`} href={href}>
         {content}
-      </s-clickable>
+      </a>
     );
   }
 
-  return (
-    <s-box padding="base" borderWidth="base" borderColor="base" borderRadius="base" background="base">
-      {content}
-    </s-box>
-  );
+  return <div className={className}>{content}</div>;
 }

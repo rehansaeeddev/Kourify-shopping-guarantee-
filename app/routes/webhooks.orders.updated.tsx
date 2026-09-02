@@ -1,23 +1,22 @@
 import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import { cacheOrder } from "../lib/order-sync.server";
+import { recordProtectionSelection } from "../lib/protection-orders.server";
+import { billUsageEvent } from "../lib/usage-billing.server";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { shop, topic } = await authenticate.webhook(request);
+  const { shop, admin, payload } = await authenticate.webhook(request);
 
-  if (request.method !== "POST") {
-    return new Response("Method not allowed", { status: 405 });
-  }
-
-  const body = await request.json().catch(() => null);
-  if (!body || typeof body !== "object") {
+  if (!payload || typeof payload !== "object") {
     return new Response("Invalid payload", { status: 400 });
   }
 
-  const data = body as Record<string, unknown>;
+  const data = payload as Record<string, unknown>;
 
-  // Extract order data from webhook payload
-  const orderId = data.id as string;
+  // Extract order data from webhook payload — the DB stores the GraphQL GID
+  // (matches recordProtectionSelection's id shape), not the REST payload's
+  // plain numeric `id`.
+  const orderId = String(data.admin_graphql_api_id ?? data.id ?? "");
   const orderName = data.name as string;
   const orderEmail = ((data.email as string) ?? ((data.contact as Record<string, unknown>)?.email as string) ?? "") as string;
   const orderStatus = (data.fulfillment_status as string) ?? "pending";
@@ -45,6 +44,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       shippedAt,
       totalPrice,
     });
+    const usageEvent = await recordProtectionSelection(shop, data);
+    if (usageEvent?.status === "pending" && admin) {
+      await billUsageEvent(usageEvent.id, admin);
+    }
 
     console.log(`✓ Cached order ${orderName} (${orderId}) for shop ${shop}`);
   } catch (error) {
