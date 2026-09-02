@@ -15,6 +15,10 @@ const DEFAULT_SETTINGS = {
   protectionPercentBasisPoints: 200,
   protectionMinFeeCents: 99,
   protectionMaxFeeCents: 999,
+  protectionEnabled: false,
+  protectionVariantId: null as string | null,
+  protectionVariantLegacyId: null as string | null,
+  currency: "USD",
 };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -50,6 +54,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       protectionPercentBasisPoints: settings.protectionPercentBasisPoints,
       protectionMinFeeCents: settings.protectionMinFeeCents,
       protectionMaxFeeCents: settings.protectionMaxFeeCents,
+      protectionEnabled: settings.protectionEnabled,
+      protectionVariantId: settings.protectionVariantId,
+      protectionVariantLegacyId: settings.protectionVariantId?.split("/").pop() ?? null,
+      currency: settings.currency,
     },
     { headers: corsHeaders },
   );

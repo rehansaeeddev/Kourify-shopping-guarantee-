@@ -2,8 +2,13 @@ import db from "../db.server";
 import { riskLevelFromRecommendation } from "./order-risk";
 
 type AdminGraphqlClient = {
-  graphql: (query: string, options?: { variables?: Record<string, unknown> }) => Promise<Response>;
+  graphql: (
+    query: string,
+    options?: { variables?: Record<string, unknown>; signal?: AbortSignal },
+  ) => Promise<Response>;
 };
+
+const GRAPHQL_TIMEOUT_MS = 10_000;
 
 export type CachedOrder = {
   id: string;
@@ -108,7 +113,10 @@ export async function findOrderByNumberWithCache(
           }
         }
       }`,
-    { variables: { query: `name:${normalized} OR name:#${normalized}` } },
+    {
+      variables: { query: `name:${normalized} OR name:#${normalized}` },
+      signal: AbortSignal.timeout(GRAPHQL_TIMEOUT_MS),
+    },
   );
 
   const json = await response.json();
