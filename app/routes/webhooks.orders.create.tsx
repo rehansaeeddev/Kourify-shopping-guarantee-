@@ -18,7 +18,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   // plain numeric `id`.
   const orderId = String(data.admin_graphql_api_id ?? data.id ?? "");
   const orderName = data.name as string;
-  const orderEmail = ((data.email as string) ?? ((data.contact as Record<string, unknown>)?.email as string) ?? "") as string;
+  const orderEmail = ((data.email as string) ??
+    ((data.contact as Record<string, unknown>)?.email as string) ??
+    "") as string;
+  const customer = (data.customer as Record<string, unknown> | null) ?? null;
+  const customerName = customer
+    ? [customer.first_name, customer.last_name].filter(Boolean).join(" ") ||
+      null
+    : null;
   const totalPrice = (data.total_price as string | null) ?? null;
 
   try {
@@ -26,6 +33,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       id: orderId,
       name: orderName,
       email: orderEmail,
+      customerName,
       status: "pending",
       riskLevel: null,
       shippedAt: null, // Will be set when fulfillment is created
@@ -36,7 +44,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       await billUsageEvent(usageEvent.id, admin);
     }
 
-    console.log(`✓ Cached new order ${orderName} (${orderId}) for shop ${shop}`);
+    console.log(
+      `✓ Cached new order ${orderName} (${orderId}) for shop ${shop}`,
+    );
   } catch (error) {
     console.error(`Failed to cache order ${orderId}:`, error);
     // Return 200 anyway so Shopify doesn't retry the webhook

@@ -53,6 +53,8 @@ model MerchantSettings {
   protectionEnabled         Boolean @default(false)
   plan                      String  @default("usage") // usage | unlimited
   currency                  String  @default("USD")
+  storefrontFallbackLanguage String @default("en")
+  storefrontLanguages        String @default("en,fr")
   protectionProductId       String?
   protectionVariantId       String?
   createdAt         DateTime @default(now())
@@ -120,9 +122,11 @@ model Order {
   shop            String
   name            String   // Order #1001
   email           String
+  customerName    String?
   status          String   // fulfilled, pending, canceled, refunded
   riskLevel       String?  // LOW, MEDIUM, HIGH
   shippedAt       DateTime?
+  deliveredAt     DateTime?
   totalPrice      String?  // For future analytics
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -160,4 +164,32 @@ model MerchantConsent {
   updatedAt       DateTime @updatedAt
 
   @@index([shop])
+}
+
+model RateLimitBucket {
+  key         String   @id
+  count       Int
+  windowStart DateTime
+  expiresAt   DateTime
+
+  @@index([expiresAt])
+}
+
+model ProtectionOffer {
+  id                     String   @id @default(cuid())
+  shop                   String
+  originalOrderId        String
+  originalOrderName      String
+  customerEmail          String
+  tokenHash              String   @unique
+  status                 String   @default("offer_sent")
+  protectionPriceCents   Int
+  currency               String
+  protectionPurchaseId   String?
+  expiresAt              DateTime
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([shop, status, createdAt])
+  @@index([shop, originalOrderId])
 }

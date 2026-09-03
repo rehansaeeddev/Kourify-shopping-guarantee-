@@ -1,0 +1,19 @@
+{% doc %}
+Provides localized strings and the active storefront locale to the protection JavaScript.
+{% enddoc %}
+
+<span
+  hidden
+  data-kourify-i18n
+  data-locale="{{ request.locale.iso_code | escape }}"
+  data-guarantee="{{ 'protection.guarantee' | t | escape }}"
+  data-managed="{{ 'protection.managed' | t | escape }}"
+  data-learn-more="{{ 'protection.learn_more' | t | escape }}"
+  data-file-claim="{{ 'protection.file_claim' | t | escape }}"
+  data-included="{{ 'protection.included' | t | escape }}"
+  data-included-heading="{{ 'protection.included_heading' | t | escape }}"
+  data-modal-title="{{ 'protection.modal_title' | t | escape }}"
+  data-modal-description="{{ 'protection.modal_description' | t | escape }}"
+  data-modal-terms="{{ 'protection.modal_terms' | t | escape }}"
+  data-update-error="{{ 'protection.update_error' | t | escape }}"
+></span>

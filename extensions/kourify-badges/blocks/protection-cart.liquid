@@ -7,9 +7,10 @@
   data-logo-url="{{ 'kourify-logo.png' | asset_url }}"
   style="--kourify-accent: {{ block.settings.accent_color }};"
 >
+  {% render 'protection-translations' %}
   <span class="kourify-protection__tag">
     <img src="{{ 'kourify-logo.png' | asset_url }}" width="12" height="12" alt="" style="display:block;object-fit:contain;" />
-    Kourify protection
+    {{ 'protection.guarantee' | t }}
   </span>
 
   <div class="kourify-protection__card">
@@ -23,7 +24,7 @@
         <span class="kourify-protection__description">{{ block.settings.description }}</span>
         {% if block.settings.show_learn_more %}
           <button type="button" class="kourify-protection__link" data-kourify-learn-more>
-            Learn more
+            {{ 'protection.learn_more' | t }}
           </button>
         {% endif %}
       </span>
@@ -38,9 +39,9 @@
   <p class="kourify-protection__footnote">
     Available for orders up to ${{ block.settings.coverage_cap }}.00.
     <br />
-    Already protected?
+    {{ 'protection.already_protected' | t }}
     <button type="button" class="kourify-protection__link" data-kourify-file-claim>
-      File a claim →
+      {{ 'protection.file_claim' | t }} →
     </button>
   </p>
 </div>

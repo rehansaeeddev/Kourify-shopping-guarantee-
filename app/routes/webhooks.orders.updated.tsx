@@ -18,13 +18,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   // plain numeric `id`.
   const orderId = String(data.admin_graphql_api_id ?? data.id ?? "");
   const orderName = data.name as string;
-  const orderEmail = ((data.email as string) ?? ((data.contact as Record<string, unknown>)?.email as string) ?? "") as string;
+  const orderEmail = ((data.email as string) ??
+    ((data.contact as Record<string, unknown>)?.email as string) ??
+    "") as string;
+  const customer = (data.customer as Record<string, unknown> | null) ?? null;
+  const customerName = customer
+    ? [customer.first_name, customer.last_name].filter(Boolean).join(" ") ||
+      null
+    : null;
   const orderStatus = (data.fulfillment_status as string) ?? "pending";
   const totalPrice = (data.total_price as string | null) ?? null;
 
   // Extract shipped_at (updated when fulfillment is delivered)
   let shippedAt: string | null = null;
-  const fulfillments = (data.fulfillments as Array<Record<string, unknown>>) ?? [];
+  const fulfillments =
+    (data.fulfillments as Array<Record<string, unknown>>) ?? [];
   if (fulfillments.length > 0) {
     const mostRecent = fulfillments.sort((a, b) => {
       const aDate = new Date(a.updated_at as string).getTime();
@@ -39,6 +47,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       id: orderId,
       name: orderName,
       email: orderEmail,
+      customerName,
       status: orderStatus,
       riskLevel: null, // Will be fetched on-demand if needed
       shippedAt,

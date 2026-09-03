@@ -1,0 +1,20 @@
+{
+  "protection": {
+    "guarantee": "Protection Kourify",
+    "managed": "Géré par Kourify",
+    "learn_more": "En savoir plus",
+    "file_claim": "Déposer une réclamation",
+    "already_protected": "Déjà protégé ?",
+    "provided_by": "Protection de commande fournie par Kourify.",
+    "included": "Inclus",
+    "included_heading": "Protégé sans frais supplémentaires",
+    "modal_title": "Garantie d'achat Kourify",
+    "modal_description": "Ajoutez une protection facultative et déposez une réclamation en cas de problème de livraison admissible.",
+    "modal_terms": "La protection est facultative et gérée directement par Kourify, et non par la boutique.",
+    "update_error": "Impossible de mettre à jour la protection. Veuillez réessayer."
+  },
+  "ratings": {
+    "stars": { "label": "Évaluations" },
+    "home": { "recommendationText": "Produit recommandé !" }
+  }
+}

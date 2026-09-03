@@ -22,8 +22,18 @@ const shopify = shopifyApp({
   sessionStorage: new PrismaSessionStorage(prisma),
   distribution: AppDistribution.AppStore,
   webhooks: {
-    ORDERS_CREATE: { deliveryMethod: DeliveryMethod.Http, callbackUrl: "/webhooks/orders/create" },
-    ORDERS_UPDATED: { deliveryMethod: DeliveryMethod.Http, callbackUrl: "/webhooks/orders/updated" },
+    ORDERS_CREATE: {
+      deliveryMethod: DeliveryMethod.Http,
+      callbackUrl: "/webhooks/orders/create",
+    },
+    ORDERS_UPDATED: {
+      deliveryMethod: DeliveryMethod.Http,
+      callbackUrl: "/webhooks/orders/updated",
+    },
+    ORDERS_PAID: {
+      deliveryMethod: DeliveryMethod.Http,
+      callbackUrl: "/webhooks/orders/paid",
+    },
   },
   hooks: {
     afterAuth: async ({ session }) => {
@@ -39,7 +49,11 @@ const shopify = shopifyApp({
   billing: {
     [USAGE_PLAN]: {
       lineItems: [
-        { amount: 10, currencyCode: "USD", interval: BillingInterval.Every30Days },
+        {
+          amount: 10,
+          currencyCode: "USD",
+          interval: BillingInterval.Every30Days,
+        },
         {
           amount: 500,
           currencyCode: "USD",
@@ -50,7 +64,11 @@ const shopify = shopifyApp({
     },
     [UNLIMITED_PLAN]: {
       lineItems: [
-        { amount: 20, currencyCode: "USD", interval: BillingInterval.Every30Days },
+        {
+          amount: 20,
+          currencyCode: "USD",
+          interval: BillingInterval.Every30Days,
+        },
       ],
     },
   },
@@ -74,10 +92,16 @@ export const authenticate = {
       if (error instanceof Response) {
         console.error(
           `[authenticate.admin] ${request.method} ${request.url} -> ${error.status} ${error.statusText}`,
-          await error.clone().text().catch(() => ""),
+          await error
+            .clone()
+            .text()
+            .catch(() => ""),
         );
       } else {
-        console.error(`[authenticate.admin] ${request.method} ${request.url} threw`, error);
+        console.error(
+          `[authenticate.admin] ${request.method} ${request.url} threw`,
+          error,
+        );
       }
       throw error;
     }

@@ -1,4 +1,18 @@
 {
+  "protection": {
+    "guarantee": "Kourify protection",
+    "managed": "Managed by Kourify",
+    "learn_more": "Learn more",
+    "file_claim": "File a claim",
+    "already_protected": "Already protected?",
+    "provided_by": "Order protection provided by Kourify.",
+    "included": "Included",
+    "included_heading": "Protected at no extra charge",
+    "modal_title": "Kourify Shopping Guarantee",
+    "modal_description": "Add protection at checkout and, if your package is lost, damaged, or stolen in transit, submit a claim for human review.",
+    "modal_terms": "Protection is optional and is managed directly by Kourify, not the store.",
+    "update_error": "Couldn't update protection — please try again."
+  },
   "ratings": {
     "stars": {
       "label": "Ratings"

@@ -3,16 +3,19 @@ import { useFetcher, useLoaderData } from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { PageHeader } from "../components/PageHeader";
-import { Card } from "../components/Card";
+import { Card, StatTile } from "../components/Card";
 import { AppButton } from "../components/AppButton";
 import { BillingStatusCard } from "../components/BillingStatusCard";
 import { useFetcherToast } from "../hooks/useFetcherToast";
 import { ALL_ISSUE_TYPES } from "../lib/claim-issue-type";
-import { DEFAULT_CLAIM_WINDOWS, parseClaimWindows, type ClaimWindows } from "../lib/claim-window";
+import {
+  DEFAULT_CLAIM_WINDOWS,
+  parseClaimWindows,
+  type ClaimWindows,
+} from "../lib/claim-window";
 import { syncProtectionProduct } from "../lib/protection-product.server";
 import { getProtectionAnalytics } from "../lib/protection-orders.server";
 import { getBillingState } from "../lib/billing-state.server";
-import { StatTile } from "../components/Card";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session, billing } = await authenticate.admin(request);
@@ -20,13 +23,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const settings = await db.merchantSettings.upsert({
     where: { shop: session.shop },
     update: {},
-    create: { shop: session.shop, claimWindows: JSON.stringify(DEFAULT_CLAIM_WINDOWS) },
+    create: {
+      shop: session.shop,
+      claimWindows: JSON.stringify(DEFAULT_CLAIM_WINDOWS),
+    },
   });
 
   const { hasActiveBilling, activePlan } = await getBillingState(billing);
   const currentSettings =
     activePlan && settings.plan !== activePlan
-      ? await db.merchantSettings.update({ where: { shop: session.shop }, data: { plan: activePlan } })
+      ? await db.merchantSettings.update({
+          where: { shop: session.shop },
+          data: { plan: activePlan },
+        })
       : settings;
   const analytics = await getProtectionAnalytics(session.shop);
   return { settings: currentSettings, analytics, hasActiveBilling };
@@ -35,7 +44,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { session, admin, billing } = await authenticate.admin(request);
   const formData = await request.formData();
-  const current = await db.merchantSettings.findUniqueOrThrow({ where: { shop: session.shop } });
+  const current = await db.merchantSettings.findUniqueOrThrow({
+    where: { shop: session.shop },
+  });
 
   const { hasActiveBilling } = await getBillingState(billing);
 
@@ -52,24 +63,46 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     ? String(formData.get("protectionFeeType") ?? "flat")
     : current.protectionFeeType;
   const protectionFlatFeeCents = hasActiveBilling
-    ? Math.max(0, Math.round(Number(formData.get("protectionFlatFeeCents")) || 0))
+    ? Math.max(
+        0,
+        Math.round(Number(formData.get("protectionFlatFeeCents")) || 0),
+      )
     : current.protectionFlatFeeCents;
   const protectionPercentBasisPoints = hasActiveBilling
-    ? Math.min(10000, Math.max(0, Math.round(Number(formData.get("protectionPercentBasisPoints")) || 0)))
+    ? Math.min(
+        10000,
+        Math.max(
+          0,
+          Math.round(Number(formData.get("protectionPercentBasisPoints")) || 0),
+        ),
+      )
     : current.protectionPercentBasisPoints;
   const protectionMinFeeCents = hasActiveBilling
-    ? Math.max(0, Math.round(Number(formData.get("protectionMinFeeCents")) || 0))
+    ? Math.max(
+        0,
+        Math.round(Number(formData.get("protectionMinFeeCents")) || 0),
+      )
     : current.protectionMinFeeCents;
   const protectionMaxFeeCents = hasActiveBilling
-    ? Math.max(protectionMinFeeCents, Math.round(Number(formData.get("protectionMaxFeeCents")) || 0))
+    ? Math.max(
+        protectionMinFeeCents,
+        Math.round(Number(formData.get("protectionMaxFeeCents")) || 0),
+      )
     : current.protectionMaxFeeCents;
   const protectionEnabled = hasActiveBilling
     ? formData.get("protectionEnabled") === "true"
     : current.protectionEnabled;
   const plan = formData.get("plan") === "unlimited" ? "unlimited" : "usage";
 
-  if (formData.get("protectionEnabled") === "true" && !current.protectionEnabled && !hasActiveBilling) {
-    return { settings: current, error: "Approve a Kourify plan before enabling protection." };
+  if (
+    formData.get("protectionEnabled") === "true" &&
+    !current.protectionEnabled &&
+    !hasActiveBilling
+  ) {
+    return {
+      settings: current,
+      error: "Approve a Kourify plan before enabling protection.",
+    };
   }
 
   const settings = await db.merchantSettings.update({
@@ -94,7 +127,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       (!current.protectionEnabled ||
         current.protectionFlatFeeCents !== protectionFlatFeeCents ||
         !current.protectionVariantId)
-        ? await syncProtectionProduct(session.shop, admin, protectionFlatFeeCents)
+        ? await syncProtectionProduct(
+            session.shop,
+            admin,
+            protectionFlatFeeCents,
+          )
         : settings;
     return { settings: productSettings };
   } catch (error) {
@@ -104,14 +141,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     });
     return {
       settings: { ...settings, protectionEnabled: false },
-      error: error instanceof Error ? error.message : "Could not configure the protection product.",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Could not configure the protection product.",
     };
   }
 };
 
 export default function Protection() {
-  const { settings, analytics, hasActiveBilling } = useLoaderData<typeof loader>();
-  const settingsFetcher = useFetcher<{ settings?: typeof settings; error?: string }>();
+  const { settings, analytics, hasActiveBilling } =
+    useLoaderData<typeof loader>();
+  const settingsFetcher = useFetcher<{
+    settings?: typeof settings;
+    error?: string;
+  }>();
 
   const startBilling = (plan: string) => {
     const url = new URL(window.location.href);
@@ -120,7 +164,10 @@ export default function Protection() {
     window.location.assign(url.toString());
   };
 
-  useFetcherToast(settingsFetcher, (data) => data.error ?? "Protection settings saved.");
+  useFetcherToast(
+    settingsFetcher,
+    (data) => data.error ?? "Protection settings saved.",
+  );
 
   const currentSettings = settingsFetcher.data?.settings ?? settings;
   const enabledTypes = new Set(
@@ -141,7 +188,8 @@ export default function Protection() {
     protectionEnabled?: boolean;
     plan?: string;
   }) => {
-    const nextPayer = overrides.protectionPayer ?? currentSettings.protectionPayer;
+    const nextPayer =
+      overrides.protectionPayer ?? currentSettings.protectionPayer;
     const nextTypes = overrides.enabledClaimTypes ?? enabledTypes;
     const nextWindows = overrides.claimWindows ?? claimWindows;
     settingsFetcher.submit(
@@ -149,20 +197,27 @@ export default function Protection() {
         protectionPayer: nextPayer,
         enabledClaimTypes: Array.from(nextTypes).join(","),
         claimWindows: JSON.stringify(nextWindows),
-        protectionFeeType: overrides.protectionFeeType ?? currentSettings.protectionFeeType,
+        protectionFeeType:
+          overrides.protectionFeeType ?? currentSettings.protectionFeeType,
         protectionFlatFeeCents: String(
-          overrides.protectionFlatFeeCents ?? currentSettings.protectionFlatFeeCents,
+          overrides.protectionFlatFeeCents ??
+            currentSettings.protectionFlatFeeCents,
         ),
         protectionPercentBasisPoints: String(
-          overrides.protectionPercentBasisPoints ?? currentSettings.protectionPercentBasisPoints,
+          overrides.protectionPercentBasisPoints ??
+            currentSettings.protectionPercentBasisPoints,
         ),
         protectionMinFeeCents: String(
-          overrides.protectionMinFeeCents ?? currentSettings.protectionMinFeeCents,
+          overrides.protectionMinFeeCents ??
+            currentSettings.protectionMinFeeCents,
         ),
         protectionMaxFeeCents: String(
-          overrides.protectionMaxFeeCents ?? currentSettings.protectionMaxFeeCents,
+          overrides.protectionMaxFeeCents ??
+            currentSettings.protectionMaxFeeCents,
         ),
-        protectionEnabled: String(overrides.protectionEnabled ?? currentSettings.protectionEnabled),
+        protectionEnabled: String(
+          overrides.protectionEnabled ?? currentSettings.protectionEnabled,
+        ),
         plan: overrides.plan ?? currentSettings.plan,
       },
       { method: "POST" },
@@ -179,12 +234,18 @@ export default function Protection() {
     saveSettings({ enabledClaimTypes: next });
   };
 
-  const updateWindow = (type: string, field: "minDays" | "maxDays", value: number) => {
+  const updateWindow = (
+    type: string,
+    field: "minDays" | "maxDays",
+    value: number,
+  ) => {
     const next: ClaimWindows = {
       ...claimWindows,
       [type]: {
-        minDays: field === "minDays" ? value : (claimWindows[type]?.minDays ?? 0),
-        maxDays: field === "maxDays" ? value : (claimWindows[type]?.maxDays ?? 30),
+        minDays:
+          field === "minDays" ? value : (claimWindows[type]?.minDays ?? 0),
+        maxDays:
+          field === "maxDays" ? value : (claimWindows[type]?.maxDays ?? 30),
       },
     };
     saveSettings({ claimWindows: next });
@@ -220,15 +281,23 @@ export default function Protection() {
       />
 
       <Card heading="Enable protection">
-        <s-stack direction="inline" gap="base" alignItems="center" justifyContent="space-between">
+        <s-stack
+          direction="inline"
+          gap="base"
+          alignItems="center"
+          justifyContent="space-between"
+        >
           <s-text color="subdued">
-            Offer customers protection against loss, damage, and theft at checkout.
+            Offer customers protection against loss, damage, and theft at
+            checkout.
           </s-text>
           <s-switch
             label="Enable protection at checkout"
             checked={currentSettings.protectionEnabled}
             disabled={settingsFetcher.state !== "idle" || !hasActiveBilling}
-            onChange={(e: any) => saveSettings({ protectionEnabled: e.target.checked })}
+            onChange={(e) =>
+              saveSettings({ protectionEnabled: e.currentTarget.checked })
+            }
           />
         </s-stack>
       </Card>
@@ -238,38 +307,63 @@ export default function Protection() {
           label="Kourify billing plan"
           name="plan"
           values={[currentSettings.plan]}
-          onChange={(e: any) => {
+          onChange={(e) => {
             const plan = e.currentTarget.values?.[0] ?? "usage";
             startBilling(plan);
           }}
         >
-          <s-choice value="usage">$10/month + $0.60 per protected order</s-choice>
-          <s-choice value="unlimited">$20/month · unlimited protected orders</s-choice>
+          <s-choice value="usage">
+            $10/month + $0.60 per protected order
+          </s-choice>
+          <s-choice value="unlimited">
+            $20/month · unlimited protected orders
+          </s-choice>
         </s-choice-list>
       </Card>
 
       <Card heading="Protection performance">
         <div className="app-card-row">
-          <StatTile icon="shield-check-mark" label="Protected orders" value={String(analytics.protectedOrders)} />
-          <StatTile icon="chart-line" label="Selection rate" value={`${analytics.conversionRate.toFixed(1)}%`} />
-          <StatTile icon="cash-dollar" label="Protection sales" value={`$${(analytics.protectionRevenueCents / 100).toFixed(2)}`} />
-          <StatTile icon="receipt-dollar" label="Kourify usage fees" value={`$${(analytics.usageFeesCents / 100).toFixed(2)}`} />
+          <StatTile
+            icon="shield-check-mark"
+            label="Protected orders"
+            value={String(analytics.protectedOrders)}
+          />
+          <StatTile
+            icon="chart-line"
+            label="Selection rate"
+            value={`${analytics.conversionRate.toFixed(1)}%`}
+          />
+          <StatTile
+            icon="cash-dollar"
+            label="Protection sales"
+            value={`$${(analytics.protectionRevenueCents / 100).toFixed(2)}`}
+          />
+          <StatTile
+            icon="receipt-dollar"
+            label="Kourify usage fees"
+            value={`$${(analytics.usageFeesCents / 100).toFixed(2)}`}
+          />
         </div>
       </Card>
 
       <Card heading="Protection provider">
         <s-paragraph>
-          The "Protect your order" widget is live on your product page and
-          cart. It's an honest, self-funded guarantee right now — there's no
-          real shipping-insurance underwriting behind it yet, so claims are
-          reviewed manually rather than paid out automatically. Connect a real
-          insurance partner (like EasyPost) before promising guaranteed
-          payouts to customers.
+          The "Protect your order" widget is live on your product page and cart.
+          It's an honest, self-funded guarantee right now — there's no real
+          shipping-insurance underwriting behind it yet, so claims are reviewed
+          manually rather than paid out automatically. Connect a real insurance
+          partner (like EasyPost) before promising guaranteed payouts to
+          customers.
         </s-paragraph>
       </Card>
 
       <Card heading="Who pays the protection fee" locked={!hasActiveBilling}>
-        <s-stack direction="inline" gap="base" alignItems="center" justifyContent="space-between">
+        <s-stack
+          direction="inline"
+          gap="base"
+          alignItems="center"
+          justifyContent="space-between"
+        >
           <s-text>
             Customer pays at checkout, or you cover it for every order at no
             extra charge to shoppers.
@@ -280,7 +374,9 @@ export default function Protection() {
               labelAccessibilityVisibility="exclusive"
               disabled={!hasActiveBilling}
               value={currentSettings.protectionPayer}
-              onChange={(e: any) => saveSettings({ protectionPayer: e.target.value })}
+              onChange={(e) =>
+                saveSettings({ protectionPayer: e.currentTarget.value })
+              }
             >
               <s-option value="customer">Customer pays</s-option>
               <s-option value="merchant">You pay (free to customer)</s-option>
@@ -292,18 +388,23 @@ export default function Protection() {
       <Card heading="Pricing" locked={!hasActiveBilling}>
         <s-paragraph>
           How the protection fee is calculated. A flat fee is simplest; a
-          percentage of order value scales fairly across cheap and
-          expensive orders, with a floor and ceiling so it never charges a
-          nonsense amount.
+          percentage of order value scales fairly across cheap and expensive
+          orders, with a floor and ceiling so it never charges a nonsense
+          amount.
         </s-paragraph>
         {merchantPays && (
           <s-banner tone="info">
-            You're covering the protection fee, so customers aren't charged
-            and this pricing doesn't apply.
+            You're covering the protection fee, so customers aren't charged and
+            this pricing doesn't apply.
           </s-banner>
         )}
         <s-stack direction="block" gap="base" paddingBlockStart="base">
-          <s-stack direction="inline" gap="base" alignItems="center" justifyContent="space-between">
+          <s-stack
+            direction="inline"
+            gap="base"
+            alignItems="center"
+            justifyContent="space-between"
+          >
             <s-text>Fee structure</s-text>
             <div style={{ inlineSize: "220px", flex: "0 0 auto" }}>
               <s-select
@@ -311,7 +412,9 @@ export default function Protection() {
                 labelAccessibilityVisibility="exclusive"
                 disabled={!hasActiveBilling || merchantPays}
                 value={currentSettings.protectionFeeType}
-                onChange={(e: any) => saveSettings({ protectionFeeType: e.target.value })}
+                onChange={(e) =>
+                  saveSettings({ protectionFeeType: e.currentTarget.value })
+                }
               >
                 <s-option value="flat">Flat fee</s-option>
                 <s-option value="percentage">Percentage of order</s-option>
@@ -320,7 +423,12 @@ export default function Protection() {
           </s-stack>
 
           {currentSettings.protectionFeeType === "flat" ? (
-            <s-stack direction="inline" gap="base" alignItems="center" justifyContent="space-between">
+            <s-stack
+              direction="inline"
+              gap="base"
+              alignItems="center"
+              justifyContent="space-between"
+            >
               <s-text>Flat fee</s-text>
               <div style={{ inlineSize: "140px", flex: "0 0 auto" }}>
                 <s-number-field
@@ -330,10 +438,13 @@ export default function Protection() {
                   prefix="$"
                   min={0}
                   step={0.01}
-                  value={(currentSettings.protectionFlatFeeCents / 100).toFixed(2)}
-                  onChange={(e: any) =>
+                  value={(currentSettings.protectionFlatFeeCents / 100).toFixed(
+                    2,
+                  )}
+                  onChange={(e) =>
                     saveSettings({
-                      protectionFlatFeeCents: Math.round(Number(e.target.value) * 100) || 0,
+                      protectionFlatFeeCents:
+                        Math.round(Number(e.currentTarget.value) * 100) || 0,
                     })
                   }
                 />
@@ -341,7 +452,12 @@ export default function Protection() {
             </s-stack>
           ) : (
             <>
-              <s-stack direction="inline" gap="base" alignItems="center" justifyContent="space-between">
+              <s-stack
+                direction="inline"
+                gap="base"
+                alignItems="center"
+                justifyContent="space-between"
+              >
                 <s-text>Percentage of order value</s-text>
                 <div style={{ inlineSize: "140px", flex: "0 0 auto" }}>
                   <s-number-field
@@ -352,17 +468,24 @@ export default function Protection() {
                     min={0}
                     max={100}
                     step={0.1}
-                    value={(currentSettings.protectionPercentBasisPoints / 100).toFixed(1)}
-                    onChange={(e: any) =>
+                    value={(
+                      currentSettings.protectionPercentBasisPoints / 100
+                    ).toFixed(1)}
+                    onChange={(e) =>
                       saveSettings({
                         protectionPercentBasisPoints:
-                          Math.round(Number(e.target.value) * 100) || 0,
+                          Math.round(Number(e.currentTarget.value) * 100) || 0,
                       })
                     }
                   />
                 </div>
               </s-stack>
-              <s-stack direction="inline" gap="base" alignItems="center" justifyContent="space-between">
+              <s-stack
+                direction="inline"
+                gap="base"
+                alignItems="center"
+                justifyContent="space-between"
+              >
                 <s-text>Minimum fee</s-text>
                 <div style={{ inlineSize: "140px", flex: "0 0 auto" }}>
                   <s-number-field
@@ -372,16 +495,24 @@ export default function Protection() {
                     prefix="$"
                     min={0}
                     step={0.01}
-                    value={(currentSettings.protectionMinFeeCents / 100).toFixed(2)}
-                    onChange={(e: any) =>
+                    value={(
+                      currentSettings.protectionMinFeeCents / 100
+                    ).toFixed(2)}
+                    onChange={(e) =>
                       saveSettings({
-                        protectionMinFeeCents: Math.round(Number(e.target.value) * 100) || 0,
+                        protectionMinFeeCents:
+                          Math.round(Number(e.currentTarget.value) * 100) || 0,
                       })
                     }
                   />
                 </div>
               </s-stack>
-              <s-stack direction="inline" gap="base" alignItems="center" justifyContent="space-between">
+              <s-stack
+                direction="inline"
+                gap="base"
+                alignItems="center"
+                justifyContent="space-between"
+              >
                 <s-text>Maximum fee</s-text>
                 <div style={{ inlineSize: "140px", flex: "0 0 auto" }}>
                   <s-number-field
@@ -391,10 +522,13 @@ export default function Protection() {
                     prefix="$"
                     min={0}
                     step={0.01}
-                    value={(currentSettings.protectionMaxFeeCents / 100).toFixed(2)}
-                    onChange={(e: any) =>
+                    value={(
+                      currentSettings.protectionMaxFeeCents / 100
+                    ).toFixed(2)}
+                    onChange={(e) =>
                       saveSettings({
-                        protectionMaxFeeCents: Math.round(Number(e.target.value) * 100) || 0,
+                        protectionMaxFeeCents:
+                          Math.round(Number(e.currentTarget.value) * 100) || 0,
                       })
                     }
                   />
@@ -405,15 +539,18 @@ export default function Protection() {
         </s-stack>
       </Card>
 
-      <Card heading="Claim reasons customers can select" locked={!hasActiveBilling}>
+      <Card
+        heading="Claim reasons customers can select"
+        locked={!hasActiveBilling}
+      >
         <s-paragraph>
           Choose which reasons show up in the "File a claim" form on your
           storefront.
         </s-paragraph>
         {enabledTypes.size === 0 && (
           <s-banner tone="warning">
-            Nothing's checked, so the storefront will fall back to showing
-            all six reasons until you enable at least one here.
+            Nothing's checked, so the storefront will fall back to showing all
+            six reasons until you enable at least one here.
           </s-banner>
         )}
         <s-stack direction="block" gap="small-200" paddingBlockStart="base">
@@ -423,7 +560,9 @@ export default function Protection() {
               label={type.label}
               checked={enabledTypes.has(type.value)}
               disabled={!hasActiveBilling}
-              onChange={(e: any) => toggleClaimType(type.value, e.target.checked)}
+              onChange={(e) =>
+                toggleClaimType(type.value, e.currentTarget.checked ?? false)
+              }
             />
           ))}
         </s-stack>
@@ -431,9 +570,9 @@ export default function Protection() {
 
       <Card heading="Claim filing windows" locked={!hasActiveBilling}>
         <s-paragraph>
-          How many days after an order ships a customer can file each type
-          of claim. We check this against the order's real fulfillment date
-          — a claim outside the window is rejected automatically.
+          How many days after an order ships a customer can file each type of
+          claim. We check this against the order's real fulfillment date — a
+          claim outside the window is rejected automatically.
         </s-paragraph>
         <s-stack direction="block" gap="base" paddingBlockStart="base">
           {ALL_ISSUE_TYPES.map((type) => {
@@ -455,8 +594,12 @@ export default function Protection() {
                       min={0}
                       disabled={!hasActiveBilling}
                       value={String(w.minDays)}
-                      onChange={(e: any) =>
-                        updateWindow(type.value, "minDays", Number(e.target.value) || 0)
+                      onChange={(e) =>
+                        updateWindow(
+                          type.value,
+                          "minDays",
+                          Number(e.currentTarget.value) || 0,
+                        )
                       }
                     />
                   </div>
@@ -468,8 +611,12 @@ export default function Protection() {
                       min={0}
                       disabled={!hasActiveBilling}
                       value={String(w.maxDays)}
-                      onChange={(e: any) =>
-                        updateWindow(type.value, "maxDays", Number(e.target.value) || 0)
+                      onChange={(e) =>
+                        updateWindow(
+                          type.value,
+                          "maxDays",
+                          Number(e.currentTarget.value) || 0,
+                        )
                       }
                     />
                   </div>

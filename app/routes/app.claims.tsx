@@ -45,23 +45,27 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     where.resolvedAt = { gte: startOfToday };
   }
 
-  const [claims, allClaimsForCounts, openClaims, resolvedClaims] = await Promise.all([
-    db.protectionClaim.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      take: 50,
-    }),
-    db.protectionClaim.findMany({
-      where: { shop: session.shop },
-      select: { email: true, createdAt: true, resolvedAt: true },
-    }),
-    db.protectionClaim.count({
-      where: { shop: session.shop, status: { in: ["submitted", "reviewing"] } },
-    }),
-    db.protectionClaim.count({
-      where: { shop: session.shop, status: "resolved" },
-    }),
-  ]);
+  const [claims, allClaimsForCounts, openClaims, resolvedClaims] =
+    await Promise.all([
+      db.protectionClaim.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      }),
+      db.protectionClaim.findMany({
+        where: { shop: session.shop },
+        select: { email: true, createdAt: true, resolvedAt: true },
+      }),
+      db.protectionClaim.count({
+        where: {
+          shop: session.shop,
+          status: { in: ["submitted", "reviewing"] },
+        },
+      }),
+      db.protectionClaim.count({
+        where: { shop: session.shop, status: "resolved" },
+      }),
+    ]);
 
   return {
     claims,
@@ -94,12 +98,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     data: {
       status,
       resolvedAt:
-        TERMINAL_STATUSES.includes(status) && !existing?.resolvedAt ? new Date() : undefined,
+        TERMINAL_STATUSES.includes(status) && !existing?.resolvedAt
+          ? new Date()
+          : undefined,
     },
   });
 
   if (existing && existing.status !== status) {
-    notifyClaimStatusChanged({
+    await notifyClaimStatusChanged({
       email: existing.email,
       fullName: existing.fullName,
       orderNumber: existing.shopifyOrderName ?? existing.orderNumber,
@@ -111,8 +117,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function Claims() {
-  const { claims, openClaims, resolvedClaims, totalClaims, tab, emailClaimNumbers } =
-    useLoaderData<typeof loader>();
+  const {
+    claims,
+    openClaims,
+    resolvedClaims,
+    totalClaims,
+    tab,
+    emailClaimNumbers,
+  } = useLoaderData<typeof loader>();
   const claimFetcher = useFetcher();
   const [searchParams] = useSearchParams();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -140,14 +152,22 @@ export default function Claims() {
         }
       />
 
-      <div className="app-card-row" style={{ marginTop: "1.25rem", marginBottom: "1.25rem" }}>
+      <div
+        className="app-card-row"
+        style={{ marginTop: "1.25rem", marginBottom: "1.25rem" }}
+      >
         <StatTile
           icon="clock"
           label="Open claims"
           tone={openClaims > 0 ? "warning" : "default"}
           value={String(openClaims)}
         />
-        <StatTile icon="check-circle" label="Resolved" tone="success" value={String(resolvedClaims)} />
+        <StatTile
+          icon="check-circle"
+          label="Resolved"
+          tone="success"
+          value={String(resolvedClaims)}
+        />
       </div>
 
       <Card heading={`Claims (${totalClaims})`}>
@@ -163,13 +183,20 @@ export default function Claims() {
               <AppButton
                 key={t.value}
                 variant={tab === t.value ? "primary" : "secondary"}
-                href={t.value === "all" ? "/app/claims" : `/app/claims?tab=${t.value}`}
+                href={
+                  t.value === "all"
+                    ? "/app/claims"
+                    : `/app/claims?tab=${t.value}`
+                }
               >
                 {t.label}
               </AppButton>
             ))}
           </s-stack>
-          <AppButton href={`/app/claims/export?${exportParams.toString()}`} variant="secondary">
+          <AppButton
+            href={`/app/claims/export?${exportParams.toString()}`}
+            variant="secondary"
+          >
             Export CSV
           </AppButton>
         </s-stack>
@@ -240,9 +267,12 @@ export default function Claims() {
                             {ordinal(claimNumberForEmail)} claim from this email
                           </s-badge>
                         )}
-                        {claim.orderRiskLevel && claim.orderRiskLevel !== "LOW" && (
-                          <s-badge tone="critical">{claim.orderRiskLevel} risk order</s-badge>
-                        )}
+                        {claim.orderRiskLevel &&
+                          claim.orderRiskLevel !== "LOW" && (
+                            <s-badge tone="critical">
+                              {claim.orderRiskLevel} risk order
+                            </s-badge>
+                          )}
                       </s-stack>
                     </s-table-cell>
                     <s-table-cell>
@@ -250,31 +280,54 @@ export default function Claims() {
                     </s-table-cell>
                     <s-table-cell>
                       <s-stack direction="block" gap="small-200">
-                        <s-stack direction="inline" gap="small-200" alignItems="center">
-                          <StatusBadge status={claim.status} />
-                          <div style={{ inlineSize: "140px", flex: "0 0 auto" }}>
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "88px 160px",
+                            alignItems: "center",
+                            columnGap: "12px",
+                            minInlineSize: "260px",
+                          }}
+                        >
+                          <div style={{ inlineSize: "88px" }}>
+                            <StatusBadge status={claim.status} />
+                          </div>
+                          <div
+                            style={{
+                              inlineSize: "160px",
+                              minInlineSize: "160px",
+                              maxInlineSize: "160px",
+                            }}
+                          >
                             <s-select
                               label="Status"
                               labelAccessibilityVisibility="exclusive"
                               value={claim.status}
-                              onChange={(e: any) => updateStatus(claim.id, e.target.value)}
+                              onChange={(e) =>
+                                updateStatus(
+                                  claim.id,
+                                  e.currentTarget.value ?? claim.status,
+                                )
+                              }
                             >
                               {STATUSES.map((status) => (
                                 <s-option key={status} value={status}>
-                                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                                  {status.charAt(0).toUpperCase() +
+                                    status.slice(1)}
                                 </s-option>
                               ))}
                             </s-select>
                           </div>
-                        </s-stack>
-                        {claim.status === "resolved" && claim.shopifyOrderId && (
-                          <s-link
-                            href={`shopify://admin/orders/${claim.shopifyOrderId.split("/").pop()}`}
-                            target="_top"
-                          >
-                            Process refund/replacement →
-                          </s-link>
-                        )}
+                        </div>
+                        {claim.status === "resolved" &&
+                          claim.shopifyOrderId && (
+                            <s-link
+                              href={`shopify://admin/orders/${claim.shopifyOrderId.split("/").pop()}`}
+                              target="_top"
+                            >
+                              Process refund/replacement →
+                            </s-link>
+                          )}
                       </s-stack>
                     </s-table-cell>
                   </s-table-row>
@@ -287,7 +340,11 @@ export default function Claims() {
 
       <s-modal id="kourify-evidence-modal" heading="Evidence photo">
         {previewUrl && (
-          <img src={previewUrl} alt="Claim evidence" style={{ maxWidth: "100%", borderRadius: "8px" }} />
+          <img
+            src={previewUrl}
+            alt="Claim evidence"
+            style={{ maxWidth: "100%", borderRadius: "8px" }}
+          />
         )}
       </s-modal>
     </s-page>

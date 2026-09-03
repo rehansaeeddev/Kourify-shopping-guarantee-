@@ -1,4 +1,8 @@
-import type { ActionFunctionArgs, HeadersFunction, LoaderFunctionArgs } from "react-router";
+import type {
+  ActionFunctionArgs,
+  HeadersFunction,
+  LoaderFunctionArgs,
+} from "react-router";
 import { useFetcher, useLoaderData, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 
@@ -23,6 +27,7 @@ type OrderSyncEdge = {
     id: string;
     name: string;
     displayFulfillmentStatus?: string | null;
+    email?: string | null;
     risk?: { recommendation?: string | null } | null;
     totalPriceSet?: { shopMoney?: { amount?: string | null } | null } | null;
     fulfillments?: Array<{ createdAt?: string | null }> | null;
@@ -60,14 +65,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   };
 };
 
-export const action = async ({ request }: ActionFunctionArgs): Promise<SyncResult> => {
+export const action = async ({
+  request,
+}: ActionFunctionArgs): Promise<SyncResult> => {
   const { admin, session } = await authenticate.admin(request);
   const formData = await request.formData();
 
   if (process.env.ORDER_SYNC_ENABLED !== "true") {
     return {
       ok: false,
-      error: "Order sync requires Shopify approval for protected customer data.",
+      error:
+        "Order sync requires Shopify approval for protected customer data.",
     };
   }
 
@@ -91,6 +99,7 @@ export const action = async ({ request }: ActionFunctionArgs): Promise<SyncResul
                   id
                   name
                   displayFulfillmentStatus
+                  email
                   risk { recommendation }
                   totalPriceSet { shopMoney { amount } }
                   fulfillments(first: 10) { createdAt }
@@ -104,7 +113,9 @@ export const action = async ({ request }: ActionFunctionArgs): Promise<SyncResul
 
       const json = (await response.json()) as OrderSyncGraphqlResult;
       if (json.errors?.length) {
-        throw new Error(json.errors[0]?.message ?? "Shopify could not return orders.");
+        throw new Error(
+          json.errors[0]?.message ?? "Shopify could not return orders.",
+        );
       }
 
       const connection: OrderSyncConnection = json.data?.orders ?? {
@@ -125,8 +136,12 @@ export const action = async ({ request }: ActionFunctionArgs): Promise<SyncResul
         await cacheOrder(session.shop, {
           id: node.id,
           name: node.name,
-          email: "",
-          status: String(node.displayFulfillmentStatus ?? "unfulfilled").toLowerCase(),
+          email: node.email ?? "",
+          // customerName requires Protected Customer Data approval; omitted until granted.
+          customerName: null,
+          status: String(
+            node.displayFulfillmentStatus ?? "unfulfilled",
+          ).toLowerCase(),
           riskLevel: riskLevelFromRecommendation(node.risk?.recommendation),
           shippedAt,
           totalPrice: node.totalPriceSet?.shopMoney?.amount ?? null,
@@ -160,7 +175,7 @@ export default function OrderSync() {
   useFetcherToast(syncFetcher, (data) =>
     data.ok
       ? `${data.synced ?? 0} orders synchronized.`
-      : data.error ?? "Order sync failed.",
+      : (data.error ?? "Order sync failed."),
   );
 
   const lastUpdated = lastUpdatedAt
@@ -193,7 +208,9 @@ export default function OrderSync() {
           <StatTile
             icon="order"
             label="Cached orders"
-            value={String(syncFetcher.data?.ok ? syncFetcher.data.synced : orderCount)}
+            value={String(
+              syncFetcher.data?.ok ? syncFetcher.data.synced : orderCount,
+            )}
           />
           <StatTile
             icon="clock"

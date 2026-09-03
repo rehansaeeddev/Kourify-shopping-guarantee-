@@ -14,6 +14,7 @@ export type CachedOrder = {
   id: string;
   name: string;
   email: string;
+  customerName?: string | null;
   status: string;
   riskLevel: string | null;
   shippedAt: string | null;
@@ -29,6 +30,7 @@ export async function cacheOrder(
     id: string;
     name: string;
     email: string;
+    customerName?: string | null;
     status: string;
     riskLevel: string | null;
     shippedAt: string | null;
@@ -39,6 +41,7 @@ export async function cacheOrder(
     where: { id: data.id },
     update: {
       email: data.email,
+      customerName: data.customerName ?? null,
       status: data.status,
       riskLevel: data.riskLevel,
       shippedAt: data.shippedAt ? new Date(data.shippedAt) : null,
@@ -50,6 +53,7 @@ export async function cacheOrder(
       shop,
       name: data.name,
       email: data.email,
+      customerName: data.customerName ?? null,
       status: data.status,
       riskLevel: data.riskLevel,
       shippedAt: data.shippedAt ? new Date(data.shippedAt) : null,
@@ -127,7 +131,9 @@ export async function findOrderByNumberWithCache(
   const fulfillments = node.fulfillments ?? [];
   const shippedAt =
     fulfillments
-      .map((fulfillment: { createdAt?: string | null }) => fulfillment.createdAt)
+      .map(
+        (fulfillment: { createdAt?: string | null }) => fulfillment.createdAt,
+      )
       .filter((createdAt: string | null | undefined): createdAt is string =>
         Boolean(createdAt),
       )
@@ -138,6 +144,7 @@ export async function findOrderByNumberWithCache(
     id: node.id,
     name: node.name,
     email: node.email ?? "",
+    customerName: null,
     status: fulfillments.length > 0 ? "fulfilled" : "pending",
     riskLevel: riskLevelFromRecommendation(node.risk?.recommendation),
     shippedAt,
@@ -148,6 +155,7 @@ export async function findOrderByNumberWithCache(
     id: order.id,
     name: order.name,
     email: order.email,
+    customerName: null,
     status: order.status,
     riskLevel: order.riskLevel,
     shippedAt: order.shippedAt,

@@ -1,23 +1,31 @@
-/**
- * In-memory sliding-window rate limiter. Resets on server restart and does
- * not share state across multiple server processes — fine for current
- * scale, revisit with a shared store (Redis) if this app runs behind more
- * than one process.
- */
-const hits = new Map<string, number[]>();
+import db from "../db.server";
 
-export function isRateLimited(key: string, maxRequests: number, windowMs: number): boolean {
-  const now = Date.now();
-  const timestamps = (hits.get(key) ?? []).filter((t) => now - t < windowMs);
+/** A database-backed fixed-window limiter shared by every app instance. */
+export async function isRateLimited(
+  key: string,
+  maxRequests: number,
+  windowMs: number,
+): Promise<boolean> {
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + windowMs);
 
-  if (timestamps.length >= maxRequests) {
-    hits.set(key, timestamps);
-    return true;
-  }
+  const bucket = await db.$transaction(async (tx) => {
+    const existing = await tx.rateLimitBucket.findUnique({ where: { key } });
+    if (!existing || existing.expiresAt <= now) {
+      return tx.rateLimitBucket.upsert({
+        where: { key },
+        create: { key, count: 1, windowStart: now, expiresAt },
+        update: { count: 1, windowStart: now, expiresAt },
+      });
+    }
 
-  timestamps.push(now);
-  hits.set(key, timestamps);
-  return false;
+    return tx.rateLimitBucket.update({
+      where: { key },
+      data: { count: { increment: 1 } },
+    });
+  });
+
+  return bucket.count > maxRequests;
 }
 
 export function clientIpFromRequest(request: Request): string {
