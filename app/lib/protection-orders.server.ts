@@ -4,16 +4,21 @@ type WebhookLineItem = {
   title?: string;
   quantity?: number;
   price?: string;
-  properties?: Array<{ name?: string; value?: string }> | Record<string, string>;
+  properties?:
+    Array<{ name?: string; value?: string }> | Record<string, string>;
 };
 
 function isProtectionLine(line: WebhookLineItem): boolean {
   if (line.title === "Kourify Order Protection") return true;
   const properties = Array.isArray(line.properties)
     ? line.properties
-    : Object.entries(line.properties ?? {}).map(([name, value]) => ({ name, value }));
+    : Object.entries(line.properties ?? {}).map(([name, value]) => ({
+        name,
+        value,
+      }));
   return properties.some(
-    (property) => property.name === "_kourify_protection" && property.value === "true",
+    (property) =>
+      property.name === "_kourify_protection" && property.value === "true",
   );
 }
 
@@ -24,17 +29,21 @@ export async function recordProtectionSelection(
   const orderId = String(order.admin_graphql_api_id ?? order.id ?? "");
   if (!orderId) return null;
 
+  const financialStatus = String(order.financial_status ?? "").toLowerCase();
+  if (financialStatus !== "paid") return null;
+
   const settings = await db.merchantSettings.findUnique({ where: { shop } });
-  const protectionLine = ((order.line_items as WebhookLineItem[] | undefined) ?? []).find(
-    isProtectionLine,
-  );
+  const protectionLine = (
+    (order.line_items as WebhookLineItem[] | undefined) ?? []
+  ).find(isProtectionLine);
 
   if (!protectionLine) {
     return null;
   }
 
   const quantity = Math.max(1, Number(protectionLine.quantity ?? 1));
-  const priceCents = Math.round(Number(protectionLine.price ?? 0) * 100) * quantity;
+  const priceCents =
+    Math.round(Number(protectionLine.price ?? 0) * 100) * quantity;
   const protectedOrder = await db.protectedOrder.upsert({
     where: { shop_shopifyOrderId: { shop, shopifyOrderId: orderId } },
     update: {
@@ -50,6 +59,11 @@ export async function recordProtectionSelection(
       protectionPriceCents: priceCents,
       currency: String(order.currency ?? settings?.currency ?? "USD"),
     },
+  });
+
+  await db.protectionOffer.updateMany({
+    where: { shop, originalOrderId: orderId, status: "awaiting_payment" },
+    data: { status: "payment_confirmed", protectionPurchaseId: orderId },
   });
 
   return db.usageEvent.upsert({

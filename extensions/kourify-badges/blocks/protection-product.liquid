@@ -7,9 +7,10 @@
   data-logo-url="{{ 'kourify-logo.png' | asset_url }}"
   style="--kourify-accent: {{ block.settings.accent_color }};"
 >
+  {% render 'protection-translations' %}
   <span class="kourify-protection__eyebrow">
     <img src="{{ 'kourify-logo.png' | asset_url }}" width="12" height="12" alt="" style="display:block;object-fit:contain;" />
-    Managed by Kourify
+    {{ 'protection.managed' | t }}
   </span>
 
   <div class="kourify-protection__card">
@@ -21,7 +22,7 @@
       <p class="kourify-protection__description">{{ block.settings.description }}</p>
       {% if block.settings.show_learn_more %}
         <button type="button" class="kourify-protection__link" data-kourify-learn-more>
-          Learn more
+          {{ 'protection.learn_more' | t }}
         </button>
       {% endif %}
     </div>
@@ -33,7 +34,7 @@
   </div>
 
   <p class="kourify-protection__footnote">
-    Order protection provided by Kourify.
+    {{ 'protection.provided_by' | t }}
   </p>
 </div>
 

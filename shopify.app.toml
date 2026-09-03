@@ -7,7 +7,7 @@ name = "kourify-shopping-guarantee"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_orders,read_publications,write_publications,write_products,write_metaobjects,write_metaobject_definitions,write_files"
+scopes = "read_customers,read_orders,write_orders,write_order_edits,write_fulfillments,read_publications,write_publications,write_metaobject_definitions,write_metaobjects,write_products,write_files,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders"
 
 [product.metafields.app.demo_info]
 type = "single_line_text_field"
@@ -56,6 +56,10 @@ api_version = "2026-10"
   [[webhooks.subscriptions]]
   uri = "/webhooks/orders/updated"
   topics = [ "orders/updated" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/orders/paid"
+  topics = [ "orders/paid" ]
 
   [[webhooks.subscriptions]]
   uri = "/webhooks/customers/data_request"

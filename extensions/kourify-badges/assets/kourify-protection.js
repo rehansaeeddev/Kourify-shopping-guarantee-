@@ -2,6 +2,11 @@
   var SHIELD_ICON_SVG =
     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2L4 5v6c0 5.25 3.4 9.74 8 11 4.6-1.26 8-5.75 8-11V5l-8-3z" fill="#065f46"/><path d="M8.3 12.1l2.3 2.3 5-5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
+  function translation(name, fallback) {
+    var source = document.querySelector("[data-kourify-i18n]");
+    return (source && source.getAttribute("data-" + name)) || fallback;
+  }
+
   // The real logo is a theme asset, only resolvable via Liquid's asset_url —
   // this plain JS file can't call that, so it reads the URL off whichever
   // Kourify block Liquid already rendered it into (see data-logo-url on
@@ -11,7 +16,12 @@
     var url = host && host.getAttribute("data-logo-url");
     if (url) {
       return (
-        '<img src="' + url + '" width="' + size + '" height="' + size +
+        '<img src="' +
+        url +
+        '" width="' +
+        size +
+        '" height="' +
+        size +
         '" alt="" style="display:block;object-fit:contain;" />'
       );
     }
@@ -36,7 +46,9 @@
       '<p class="kourify-modal__title">' +
       title +
       "</p>" +
-      (subtitle ? '<p class="kourify-modal__subtitle">' + subtitle + "</p>" : "")
+      (subtitle
+        ? '<p class="kourify-modal__subtitle">' + subtitle + "</p>"
+        : "")
     );
   }
 
@@ -46,13 +58,27 @@
     overlay.innerHTML =
       '<div class="kourify-modal" role="dialog" aria-modal="true">' +
       '<button type="button" class="kourify-modal__close" data-kourify-close aria-label="Close">✕</button>' +
-      modalHeaderHtml("Kourify Shopping Guarantee") +
+      modalHeaderHtml(
+        translation("modal-title", "Kourify Shopping Guarantee"),
+      ) +
       '<div class="kourify-modal__body">' +
-      "<p>Add protection at checkout and if your package is lost, damaged, or stolen in transit, submit a claim and our team will review it and follow up by email.</p>" +
-      "<p>Protection is optional, covers the order total up to the coverage cap shown at checkout, and is managed directly by Kourify — not the store.</p>" +
+      "<p>" +
+      translation(
+        "modal-description",
+        "Add optional protection for eligible delivery problems.",
+      ) +
+      "</p>" +
+      "<p>" +
+      translation(
+        "modal-terms",
+        "Protection is optional and managed directly by Kourify.",
+      ) +
+      "</p>" +
       "</div>" +
       '<div class="kourify-modal__actions">' +
-      '<button type="button" class="kourify-btn kourify-btn--primary" data-kourify-file-claim>Already protected? File a claim</button>' +
+      '<button type="button" class="kourify-btn kourify-btn--primary" data-kourify-file-claim>' +
+      translation("file-claim", "File a claim") +
+      "</button>" +
       "</div></div>";
     document.body.appendChild(overlay);
     return overlay;
@@ -68,9 +94,11 @@
   }
 
   function closeAllModals() {
-    document.querySelectorAll(".kourify-modal-overlay").forEach(function (overlay) {
-      closeModal(overlay);
-    });
+    document
+      .querySelectorAll(".kourify-modal-overlay")
+      .forEach(function (overlay) {
+        closeModal(overlay);
+      });
   }
 
   function ensureGuaranteeTab() {
@@ -82,7 +110,9 @@
     tab.innerHTML =
       '<button type="button" class="kourify-guarantee-tab__button" data-kourify-learn-more>' +
       logoImgHtml(14) +
-      '<span>Kourify<br>Shopping<br>Guarantee</span>' +
+      "<span>" +
+      translation("guarantee", "Kourify Guarantee") +
+      "</span>" +
       "</button>";
 
     document.body.appendChild(tab);
@@ -91,7 +121,9 @@
 
   function computeFeeCents(settings, basisCents) {
     if (settings.protectionFeeType === "percentage") {
-      var raw = Math.round((basisCents * (settings.protectionPercentBasisPoints || 0)) / 10000);
+      var raw = Math.round(
+        (basisCents * (settings.protectionPercentBasisPoints || 0)) / 10000,
+      );
       var min = settings.protectionMinFeeCents || 0;
       var max = settings.protectionMaxFeeCents || min;
       return Math.min(Math.max(raw, min), max);
@@ -112,31 +144,43 @@
 
   function applyPayerState(settings) {
     var merchantPays = settings.protectionPayer === "merchant";
-    document.querySelectorAll(".kourify-protection").forEach(function (container) {
-      container.classList.toggle("kourify-protection--included", merchantPays);
-      var heading = container.querySelector(".kourify-protection__heading");
-      var price = container.querySelector(".kourify-protection__price");
+    document
+      .querySelectorAll(".kourify-protection")
+      .forEach(function (container) {
+        container.classList.toggle(
+          "kourify-protection--included",
+          merchantPays,
+        );
+        var heading = container.querySelector(".kourify-protection__heading");
+        var price = container.querySelector(".kourify-protection__price");
 
-      if (merchantPays) {
-        if (heading) heading.textContent = "Protected at no extra charge";
-        if (price) price.textContent = "Included";
-        return;
-      }
+        if (merchantPays) {
+          if (heading)
+            heading.textContent = translation(
+              "included-heading",
+              "Protected at no extra charge",
+            );
+          if (price) price.textContent = translation("included", "Included");
+          return;
+        }
 
-      if (price) {
-        var basisCents = Number(container.getAttribute("data-basis-cents")) || 0;
-        var currency = container.getAttribute("data-currency");
-        var feeCents = computeFeeCents(settings, basisCents);
-        price.textContent = formatMoney(feeCents, currency);
-      }
-    });
+        if (price) {
+          var basisCents =
+            Number(container.getAttribute("data-basis-cents")) || 0;
+          var currency = container.getAttribute("data-currency");
+          var feeCents = computeFeeCents(settings, basisCents);
+          price.textContent = formatMoney(feeCents, currency);
+        }
+      });
   }
 
   var currentSettings = null;
   var currentCart = null;
 
   function fetchSettings() {
-    return fetch("/apps/kourify/settings", { headers: { Accept: "application/json" } })
+    return fetch("/apps/kourify/settings", {
+      headers: { Accept: "application/json" },
+    })
       .then(function (res) {
         return res.ok ? res.json() : null;
       })
@@ -180,12 +224,14 @@
 
   function syncAllCheckboxes() {
     var protectionLine = findProtectionLine(currentCart);
-    document.querySelectorAll("[data-kourify-protection]").forEach(function (block) {
-      var checkbox = block.querySelector("[data-kourify-opt-in]");
-      if (!checkbox) return;
-      checkbox.checked = Boolean(protectionLine);
-      block.classList.toggle("is-selected", Boolean(protectionLine));
-    });
+    document
+      .querySelectorAll("[data-kourify-protection]")
+      .forEach(function (block) {
+        var checkbox = block.querySelector("[data-kourify-opt-in]");
+        if (!checkbox) return;
+        checkbox.checked = Boolean(protectionLine);
+        block.classList.toggle("is-selected", Boolean(protectionLine));
+      });
   }
 
   function showBlockError(block, message) {
@@ -204,7 +250,11 @@
 
   function handleProtectionToggle(block, checkbox) {
     var id = legacyVariantId();
-    if (!id || !currentSettings || currentSettings.protectionPayer === "merchant") {
+    if (
+      !id ||
+      !currentSettings ||
+      currentSettings.protectionPayer === "merchant"
+    ) {
       return;
     }
 
@@ -223,7 +273,10 @@
           }
           return fetch("/cart/add.js", {
             method: "POST",
-            headers: { "Content-Type": "application/json", Accept: "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
             body: JSON.stringify({
               items: [
                 {
@@ -245,7 +298,10 @@
         }
         return fetch("/cart/change.js", {
           method: "POST",
-          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
           body: JSON.stringify({ id: existingLine.key, quantity: 0 }),
         }).then(function (res) {
           return res.json().then(function (body) {
@@ -255,7 +311,10 @@
       })
       .then(function (result) {
         if (!result || !result.ok) {
-          throw new Error((result && result.body && result.body.description) || "Cart update failed");
+          throw new Error(
+            (result && result.body && result.body.description) ||
+              "Cart update failed",
+          );
         }
         return fetchCart();
       })
@@ -267,7 +326,13 @@
       .catch(function () {
         checkbox.checked = previousChecked;
         checkbox.disabled = false;
-        showBlockError(block, "Couldn't update protection — please try again.");
+        showBlockError(
+          block,
+          translation(
+            "update-error",
+            "Couldn't update protection — please try again.",
+          ),
+        );
       });
   }
 
@@ -322,7 +387,9 @@
       wireProtectionBlock(root);
     }
     if (root.querySelectorAll) {
-      root.querySelectorAll("[data-kourify-protection]").forEach(wireProtectionBlock);
+      root
+        .querySelectorAll("[data-kourify-protection]")
+        .forEach(wireProtectionBlock);
     }
   }
 
@@ -335,7 +402,11 @@
 
     function openClaim() {
       closeAllModals();
-      window.location.href = "/apps/kourify/claims";
+      var localeSource = document.querySelector("[data-kourify-i18n]");
+      var locale = localeSource && localeSource.getAttribute("data-locale");
+      window.location.href =
+        "/apps/kourify/claims" +
+        (locale ? "?locale=" + encodeURIComponent(locale) : "");
     }
 
     // Delegated so this also works for buttons rendered later (e.g. the

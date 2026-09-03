@@ -11,6 +11,7 @@ export const DEFAULT_CLAIM_WINDOWS: ClaimWindows = {
 };
 
 export const EVIDENCE_REQUIRED_TYPES = ["damaged", "concealed"];
+export const CLAIM_ISSUE_TYPES = Object.keys(DEFAULT_CLAIM_WINDOWS);
 
 export function parseClaimWindows(raw: string): ClaimWindows {
   try {

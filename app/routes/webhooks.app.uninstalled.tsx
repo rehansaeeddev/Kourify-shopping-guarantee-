@@ -7,6 +7,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   console.log(`Received ${topic} webhook for ${shop}`);
 
+  // In development, `shopify app dev` uninstalls/reinstalls the app frequently
+  // (every `--reset`, app reinstall, or store re-auth), and each one fires this
+  // webhook. Purging here would wipe all local test data (orders, protected
+  // orders, claims) on every cycle. Only delete for real production uninstalls,
+  // where removing the merchant's data is required.
+  if (process.env.NODE_ENV !== "production") {
+    console.log(
+      `[webhooks/app/uninstalled] Skipping data purge for ${shop} (NODE_ENV=${process.env.NODE_ENV ?? "undefined"})`,
+    );
+    return new Response();
+  }
+
   // Webhook requests can trigger multiple times and after an app has already been uninstalled.
   // If this webhook already ran, the session may have been deleted previously.
   if (session) {

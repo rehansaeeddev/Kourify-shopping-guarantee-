@@ -3,7 +3,11 @@ import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { findOrderRiskLevel } from "../lib/order-lookup.server";
 import { findOrderByNumberWithCache } from "../lib/order-sync.server";
-import { parseClaimWindows, EVIDENCE_REQUIRED_TYPES } from "../lib/claim-window";
+import {
+  CLAIM_ISSUE_TYPES,
+  parseClaimWindows,
+  EVIDENCE_REQUIRED_TYPES,
+} from "../lib/claim-window";
 import { uploadEvidenceImage } from "../lib/upload-evidence.server";
 import { isRateLimited, clientIpFromRequest } from "../lib/rate-limit.server";
 import { notifyClaimSubmitted } from "../lib/notify.server";
@@ -18,13 +22,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   const contentLength = Number(request.headers.get("content-length") ?? 0);
   if (contentLength > MAX_BODY_BYTES) {
-    return Response.json({ error: "That request is too large." }, { status: 413 });
+    return Response.json(
+      { error: "That request is too large." },
+      { status: 413 },
+    );
   }
 
   const ip = clientIpFromRequest(request);
-  if (isRateLimited(`claim:${ip}`, 5, 10 * 60 * 1000)) {
+  if (await isRateLimited(`claim:${ip}`, 5, 10 * 60 * 1000)) {
     return Response.json(
-      { error: "Too many claim submissions from this connection. Please try again later." },
+      {
+        error:
+          "Too many claim submissions from this connection. Please try again later.",
+      },
       { status: 429 },
     );
   }
@@ -40,8 +50,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return Response.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  const { orderNumber, confirmationCode, fullName, email, issueType, details, evidenceImage } =
-    body as Record<string, unknown>;
+  const {
+    orderNumber,
+    confirmationCode,
+    fullName,
+    email,
+    issueType,
+    details,
+    evidenceImage,
+  } = body as Record<string, unknown>;
 
   if (
     typeof orderNumber !== "string" ||
@@ -56,14 +73,57 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return Response.json({ error: "Missing required fields" }, { status: 400 });
   }
 
-  if (typeof evidenceImage === "string" && evidenceImage.length > MAX_EVIDENCE_BASE64_CHARS) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const normalizedIssueType = issueType.trim();
+  if (
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail) ||
+    normalizedEmail.length > 254
+  ) {
+    return Response.json(
+      { error: "Enter a valid email address" },
+      { status: 400 },
+    );
+  }
+  if (!CLAIM_ISSUE_TYPES.includes(normalizedIssueType)) {
+    return Response.json({ error: "Invalid claim type" }, { status: 400 });
+  }
+  if (fullName.trim().length > 200 || orderNumber.trim().length > 100) {
+    return Response.json(
+      { error: "One or more fields are too long" },
+      { status: 400 },
+    );
+  }
+  if (
+    typeof confirmationCode === "string" &&
+    confirmationCode.trim().length > 200
+  ) {
+    return Response.json(
+      { error: "Confirmation code is too long" },
+      { status: 400 },
+    );
+  }
+  if (typeof details === "string" && details.trim().length > 5_000) {
+    return Response.json(
+      { error: "Claim details must be 5,000 characters or fewer" },
+      { status: 400 },
+    );
+  }
+
+  if (
+    typeof evidenceImage === "string" &&
+    evidenceImage.length > MAX_EVIDENCE_BASE64_CHARS
+  ) {
     return Response.json(
       { error: "That photo is too large. Please attach an image under 5MB." },
       { status: 413 },
     );
   }
 
-  const order = await findOrderByNumberWithCache(admin, session.shop, orderNumber);
+  const order = await findOrderByNumberWithCache(
+    admin,
+    session.shop,
+    orderNumber,
+  );
   if (!order) {
     return Response.json(
       {
@@ -74,7 +134,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     );
   }
 
-  if (order.email && order.email.trim().toLowerCase() !== email.trim().toLowerCase()) {
+  if (order.email && order.email.trim().toLowerCase() !== normalizedEmail) {
     return Response.json(
       {
         error:
@@ -86,7 +146,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   if (!order.shippedAt) {
     return Response.json(
-      { error: "This order hasn't shipped yet — claims can be filed once it's on its way." },
+      {
+        error:
+          "This order hasn't shipped yet — claims can be filed once it's on its way.",
+      },
       { status: 400 },
     );
   }
@@ -94,9 +157,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const daysSinceShipped =
     (Date.now() - new Date(order.shippedAt).getTime()) / (1000 * 60 * 60 * 24);
 
-  const settings = await db.merchantSettings.findUnique({ where: { shop: session.shop } });
+  const settings = await db.merchantSettings.findUnique({
+    where: { shop: session.shop },
+  });
   const windows = parseClaimWindows(settings?.claimWindows ?? "");
-  const window = windows[issueType.trim()];
+  const window = windows[normalizedIssueType];
 
   if (window) {
     if (daysSinceShipped < window.minDays) {
@@ -120,13 +185,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   let evidenceUrl: string | null = null;
-  if (typeof evidenceImage === "string" && evidenceImage.startsWith("data:image/")) {
+  if (
+    typeof evidenceImage === "string" &&
+    evidenceImage.startsWith("data:image/")
+  ) {
     evidenceUrl = await uploadEvidenceImage(admin, evidenceImage);
   }
 
-  if (EVIDENCE_REQUIRED_TYPES.includes(issueType.trim()) && !evidenceUrl) {
+  if (EVIDENCE_REQUIRED_TYPES.includes(normalizedIssueType) && !evidenceUrl) {
     return Response.json(
-      { error: "A photo is required for this claim type. Please attach one and try again." },
+      {
+        error:
+          "A photo is required for this claim type. Please attach one and try again.",
+      },
       { status: 400 },
     );
   }
@@ -140,8 +211,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       confirmationCode:
         typeof confirmationCode === "string" ? confirmationCode.trim() : null,
       fullName: fullName.trim(),
-      email: email.trim(),
-      issueType: issueType.trim(),
+      email: normalizedEmail,
+      issueType: normalizedIssueType,
       details: typeof details === "string" ? details.trim() : null,
       shopifyOrderId: order.id,
       shopifyOrderName: order.name,
@@ -150,7 +221,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     },
   });
 
-  notifyClaimSubmitted({
+  await notifyClaimSubmitted({
     email: claim.email,
     fullName: claim.fullName,
     orderNumber: claim.shopifyOrderName ?? claim.orderNumber,

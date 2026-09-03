@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "05f95f63f2b874fd2f6103a4ebb7d697"
-name = "kourify-shopping-guaranteey\r"
+name = "kourify-shopping-guaranteey"
 application_url = "https://example.com"
 embedded = true
 
@@ -15,6 +15,10 @@ api_version = "2026-10"
   [[webhooks.subscriptions]]
   uri = "/webhooks/orders/updated"
   topics = [ "orders/updated" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/orders/paid"
+  topics = [ "orders/paid" ]
 
   [[webhooks.subscriptions]]
   uri = "/webhooks/app/uninstalled"
@@ -38,10 +42,10 @@ api_version = "2026-10"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_orders,read_publications,write_publications,write_metaobject_definitions,write_metaobjects,write_products,write_files"
+scopes = "read_customers,read_orders,write_orders,write_order_edits,write_fulfillments,read_publications,write_publications,write_metaobject_definitions,write_metaobjects,write_products,write_files,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders"
 
 [app_proxy]
-url = "/proxy"
+url = "https://example.com/proxy"
 subpath = "kourify"
 prefix = "apps"
 

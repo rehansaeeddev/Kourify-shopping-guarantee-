@@ -23,7 +23,7 @@ const DEFAULT_SETTINGS = {
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const ip = clientIpFromRequest(request);
-  if (isRateLimited(`settings:${ip}`, 60, 60 * 1000)) {
+  if (await isRateLimited(`settings:${ip}`, 60, 60 * 1000)) {
     return Response.json({ error: "Too many requests" }, { status: 429 });
   }
 
@@ -56,7 +56,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       protectionMaxFeeCents: settings.protectionMaxFeeCents,
       protectionEnabled: settings.protectionEnabled,
       protectionVariantId: settings.protectionVariantId,
-      protectionVariantLegacyId: settings.protectionVariantId?.split("/").pop() ?? null,
+      protectionVariantLegacyId:
+        settings.protectionVariantId?.split("/").pop() ?? null,
       currency: settings.currency,
     },
     { headers: corsHeaders },

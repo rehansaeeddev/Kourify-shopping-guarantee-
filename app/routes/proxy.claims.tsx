@@ -4,6 +4,69 @@ import db from "../db.server";
 import { ALL_ISSUE_TYPES, issueTypeLabel } from "../lib/claim-issue-type";
 import { authenticate } from "../shopify.server";
 
+const FRENCH_COPY: Record<string, string> = {
+  "File a claim · Kourify": "Déposer une réclamation · Kourify",
+  "Protection that follows through.": "Une protection qui tient ses promesses.",
+  "When delivery does not go as planned, tell us what happened. A real person will review your claim and follow up by email.":
+    "Si la livraison ne se passe pas comme prévu, dites-nous ce qui s'est passé. Une personne examinera votre réclamation et vous répondra par e-mail.",
+  "Secure verification": "Vérification sécurisée",
+  "We match your details to the store order.":
+    "Nous vérifions vos informations avec la commande.",
+  "Human review": "Examen humain",
+  "Every claim is considered individually.":
+    "Chaque réclamation est examinée individuellement.",
+  "Clear communication": "Communication claire",
+  "Updates are sent to your order email.":
+    "Les mises à jour sont envoyées à l'adresse e-mail de la commande.",
+  "Shopping guarantee": "Garantie d'achat",
+  "File a claim": "Déposer une réclamation",
+  "Most submissions take only a few minutes.":
+    "La plupart des demandes ne prennent que quelques minutes.",
+  "Claim progress": "Progression de la réclamation",
+  "Order info": "Commande",
+  Contact: "Coordonnées",
+  "Issue details": "Détails",
+  Review: "Vérification",
+  "Find your protected order": "Trouvez votre commande protégée",
+  "Use the details shown in your confirmation email.":
+    "Utilisez les informations de votre e-mail de confirmation.",
+  "Order number": "Numéro de commande",
+  "Confirmation code": "Code de confirmation",
+  "How can we reach you?": "Comment pouvons-nous vous joindre ?",
+  "Use the email attached to your Shopify order.":
+    "Utilisez l'adresse e-mail associée à votre commande Shopify.",
+  "Full name": "Nom complet",
+  "Order email": "E-mail de la commande",
+  "What happened?": "Que s'est-il passé ?",
+  "Choose the closest match and share the useful details.":
+    "Choisissez l'option la plus proche et ajoutez les détails utiles.",
+  Issue: "Problème",
+  Details: "Détails",
+  "Photo evidence": "Preuve photographique",
+  "Required for damaged or concealed-damage claims. Maximum 5 MB.":
+    "Requise pour les dommages visibles ou cachés. Maximum 5 Mo.",
+  "Review your claim": "Vérifiez votre réclamation",
+  "Make sure these details are correct before submitting.":
+    "Vérifiez ces informations avant l'envoi.",
+  "Submitting a claim does not guarantee approval or an automatic payout. Kourify reviews each claim under the merchant's configured protection terms.":
+    "L'envoi d'une réclamation ne garantit ni son approbation ni un remboursement automatique. Kourify l'examine selon les conditions du marchand.",
+  Back: "Retour",
+  Continue: "Continuer",
+  "Submit claim": "Envoyer la réclamation",
+  "Your information is used only to verify and review this protection claim.":
+    "Vos informations servent uniquement à vérifier et examiner cette réclamation.",
+  "Never arrived (lost in transit)": "Jamais arrivé (perdu en transit)",
+  "Arrived damaged": "Arrivé endommagé",
+  "Stolen after delivery": "Volé après la livraison",
+  "Items missing from package": "Articles manquants",
+  "Concealed damage": "Dommage caché",
+  "Wrong item received": "Mauvais article reçu",
+};
+
+function localize(value: string, locale: string): string {
+  return locale === "fr" ? (FRENCH_COPY[value] ?? value) : value;
+}
+
 function escapeHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -15,22 +78,33 @@ function escapeHtml(value: string) {
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { liquid, session } = await authenticate.public.appProxy(request);
+  const requestedLocale = (
+    new URL(request.url).searchParams.get("locale") ?? "en"
+  )
+    .toLowerCase()
+    .split("-")[0];
 
   const settings = session
     ? await db.merchantSettings.findUnique({ where: { shop: session.shop } })
     : null;
+  const availableLanguages = settings?.storefrontLanguages
+    .split(",")
+    .filter(Boolean) ?? ["en"];
+  const locale = availableLanguages.includes(requestedLocale)
+    ? requestedLocale
+    : (settings?.storefrontFallbackLanguage ?? "en");
   const enabledTypes =
     settings?.enabledClaimTypes.split(",").filter(Boolean) ??
     ALL_ISSUE_TYPES.map((type) => type.value);
   const issueOptions = enabledTypes
     .map(
       (value) =>
-        `<option value="${escapeHtml(value)}">${escapeHtml(issueTypeLabel(value))}</option>`,
+        `<option value="${escapeHtml(value)}">${escapeHtml(localize(issueTypeLabel(value), locale))}</option>`,
     )
     .join("");
 
   const page = `<!doctype html>
-<html lang="en">
+<html lang="${escapeHtml(locale)}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -129,5 +203,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 </body>
 </html>`;
 
-  return liquid(page, { layout: false });
+  const localizedPage =
+    locale === "fr"
+      ? Object.entries(FRENCH_COPY).reduce(
+          (html, [english, translated]) => html.replaceAll(english, translated),
+          page,
+        )
+      : page;
+  return liquid(localizedPage, { layout: false });
 };
