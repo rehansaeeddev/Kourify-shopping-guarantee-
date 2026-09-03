@@ -18,7 +18,7 @@ model Session {
   shop          String
   state         String
   isOnline      Boolean   @default(false)
-  scope         String?
+  scope         String?   @db.Text
   expires       DateTime?
   accessToken   String
   userId        BigInt?
@@ -192,4 +192,19 @@ model ProtectionOffer {
 
   @@index([shop, status, createdAt])
   @@index([shop, originalOrderId])
+}
+
+model StorefrontTranslation {
+  id        String   @id @default(cuid())
+  shop      String
+  locale    String // "en", "fr", "ar", "hi"
+  label     String // switcher display name, e.g. "العربية"
+  direction String   @default("ltr") // "ltr" | "rtl"
+  enabled   Boolean  @default(true)
+  strings   String   @db.Text // JSON: { "<key>": "<value>" }
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([shop, locale])
+  @@index([shop])
 }
