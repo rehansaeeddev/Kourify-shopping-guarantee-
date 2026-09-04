@@ -373,22 +373,32 @@ function AddLanguage({
             seeded from English for you to translate.
           </s-paragraph>
           <s-stack direction="inline" gap="base" alignItems="end">
-            <s-text-field label="Language code" name="locale" placeholder="ar" />
-            <s-text-field
-              label="Display name"
-              name="label"
-              placeholder="العربية"
-            />
-            <s-select
-              label="Direction"
-              value={direction}
-              onChange={(event) =>
-                setDirection(event.currentTarget.value ?? "ltr")
-              }
-            >
-              <s-option value="ltr">Left to right</s-option>
-              <s-option value="rtl">Right to left</s-option>
-            </s-select>
+            <div style={{ inlineSize: "120px", flex: "0 0 auto" }}>
+              <s-text-field
+                label="Language code"
+                name="locale"
+                placeholder="ar"
+              />
+            </div>
+            <div style={{ inlineSize: "200px", flex: "0 0 auto" }}>
+              <s-text-field
+                label="Display name"
+                name="label"
+                placeholder="العربية"
+              />
+            </div>
+            <div style={{ inlineSize: "160px", flex: "0 0 auto" }}>
+              <s-select
+                label="Direction"
+                value={direction}
+                onChange={(event) =>
+                  setDirection(event.currentTarget.value ?? "ltr")
+                }
+              >
+                <s-option value="ltr">Left to right</s-option>
+                <s-option value="rtl">Right to left</s-option>
+              </s-select>
+            </div>
             <AppButton
               type="submit"
               variant="primary"
@@ -443,21 +453,25 @@ function LanguageEditor({
 
         <Card heading="Language settings">
           <s-stack direction="block" gap="base">
-            <s-text-field
-              label="Display name"
-              name="label"
-              value={editing.label}
-            />
-            <s-select
-              label="Direction"
-              value={direction}
-              onChange={(event) =>
-                setDirection(event.currentTarget.value ?? editing.direction)
-              }
-            >
-              <s-option value="ltr">Left to right</s-option>
-              <s-option value="rtl">Right to left</s-option>
-            </s-select>
+            <div style={{ maxInlineSize: "320px" }}>
+              <s-text-field
+                label="Display name"
+                name="label"
+                value={editing.label}
+              />
+            </div>
+            <div style={{ maxInlineSize: "220px" }}>
+              <s-select
+                label="Direction"
+                value={direction}
+                onChange={(event) =>
+                  setDirection(event.currentTarget.value ?? editing.direction)
+                }
+              >
+                <s-option value="ltr">Left to right</s-option>
+                <s-option value="rtl">Right to left</s-option>
+              </s-select>
+            </div>
             <s-checkbox
               label="Show this language in the switcher"
               name="enabled"
@@ -474,13 +488,15 @@ function LanguageEditor({
                 <s-text color="subdued">
                   {key} — “{referenceEn[key]}”
                 </s-text>
-                <s-text-field
-                  label={key}
-                  labelAccessibilityVisibility="exclusive"
-                  name={`s:${key}`}
-                  value={editing.strings[key] ?? ""}
-                  placeholder={referenceEn[key]}
-                />
+                <div style={{ maxInlineSize: "560px" }}>
+                  <s-text-field
+                    label={key}
+                    labelAccessibilityVisibility="exclusive"
+                    name={`s:${key}`}
+                    value={editing.strings[key] ?? ""}
+                    placeholder={referenceEn[key]}
+                  />
+                </div>
               </s-stack>
             ))}
             <div>

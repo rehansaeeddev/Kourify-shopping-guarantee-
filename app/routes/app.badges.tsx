@@ -178,18 +178,20 @@ export default function Badges() {
               save({ storefrontLanguages: [...languages].join(",") });
             }}
           />
-          <s-select
-            label="Fallback language"
-            value={current.storefrontFallbackLanguage}
-            onChange={(event) =>
-              save({
-                storefrontFallbackLanguage: event.currentTarget.value ?? "en",
-              })
-            }
-          >
-            <s-option value="en">English</s-option>
-            <s-option value="fr">French</s-option>
-          </s-select>
+          <div style={{ maxInlineSize: "260px" }}>
+            <s-select
+              label="Fallback language"
+              value={current.storefrontFallbackLanguage}
+              onChange={(event) =>
+                save({
+                  storefrontFallbackLanguage: event.currentTarget.value ?? "en",
+                })
+              }
+            >
+              <s-option value="en">English</s-option>
+              <s-option value="fr">French</s-option>
+            </s-select>
+          </div>
         </s-stack>
       </Card>
 
