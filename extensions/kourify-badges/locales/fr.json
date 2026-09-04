@@ -11,7 +11,9 @@
     "modal_title": "Garantie d'achat Kourify",
     "modal_description": "Ajoutez une protection facultative et déposez une réclamation en cas de problème de livraison admissible.",
     "modal_terms": "La protection est facultative et gérée directement par Kourify, et non par la boutique.",
-    "update_error": "Impossible de mettre à jour la protection. Veuillez réessayer."
+    "update_error": "Impossible de mettre à jour la protection. Veuillez réessayer.",
+    "safe_checkout": "Paiement sécurisé garanti",
+    "coverage_up_to": "Disponible pour les commandes jusqu'à {{ amount }}."
   },
   "ratings": {
     "stars": { "label": "Évaluations" },
