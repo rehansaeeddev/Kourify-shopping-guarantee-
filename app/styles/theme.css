@@ -344,6 +344,32 @@ body {
   margin-top: 0.9rem;
 }
 
+/* ---- Search field ---- */
+.app-search {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.app-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid #c9cccf;
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+  font-family: var(--font);
+  font-size: 0.875rem;
+  color: var(--color-text);
+  background: var(--color-white);
+}
+
+.app-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgba(0, 128, 96, 0.15);
+}
+
 /* ---- Plan chooser (activation state) ---- */
 .app-plan-grid {
   display: grid;

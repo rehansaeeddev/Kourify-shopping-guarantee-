@@ -21,9 +21,11 @@ export default function App() {
   return (
     <div className={styles.index}>
       <div className={styles.content}>
-        <h1 className={styles.heading}>A short heading about [your app]</h1>
+        <h1 className={styles.heading}>Kourify Shopping Guarantee</h1>
         <p className={styles.text}>
-          A tagline about [your app] that describes your value proposition.
+          Package protection and a buyer guarantee for your Shopify store —
+          build checkout confidence, cut chargebacks, and resolve loss, damage,
+          and theft claims in one place.
         </p>
         {showForm && (
           <Form className={styles.form} method="post" action="/auth/login">
@@ -39,16 +41,17 @@ export default function App() {
         )}
         <ul className={styles.list}>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>Protection at checkout</strong>. Offer optional package
+            protection and let shoppers cover loss, damage, and theft as they
+            buy.
           </li>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>Claims, handled</strong>. Customers file claims from your
+            storefront; you review and resolve them from one dashboard.
           </li>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>Trust badges</strong>. Show buyer-guarantee badges on your
+            product and cart pages to reassure shoppers before they check out.
           </li>
         </ul>
       </div>
