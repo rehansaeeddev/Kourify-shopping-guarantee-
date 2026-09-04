@@ -37,27 +37,41 @@ export async function recordProtectionSelection(
     (order.line_items as WebhookLineItem[] | undefined) ?? []
   ).find(isProtectionLine);
 
-  if (!protectionLine) {
+  // An order becomes protected two ways:
+  //  1. The customer selected the protection line at checkout (customer-pays).
+  //  2. The merchant covers protection for every order (merchant-pays): there's
+  //     no line item and no customer charge, but the order is still protected
+  //     and still incurs the per-order usage fee that Kourify bills the merchant.
+  const merchantPays =
+    Boolean(settings?.protectionEnabled) &&
+    settings?.protectionPayer === "merchant";
+
+  if (!protectionLine && !merchantPays) {
     return null;
   }
 
-  const quantity = Math.max(1, Number(protectionLine.quantity ?? 1));
-  const priceCents =
-    Math.round(Number(protectionLine.price ?? 0) * 100) * quantity;
+  const customerSelected = Boolean(protectionLine);
+  const priceCents = protectionLine
+    ? Math.round(Number(protectionLine.price ?? 0) * 100) *
+      Math.max(1, Number(protectionLine.quantity ?? 1))
+    : 0; // merchant-pays: no customer-facing charge
+
+  const currency = String(order.currency ?? settings?.currency ?? "USD");
   const protectedOrder = await db.protectedOrder.upsert({
     where: { shop_shopifyOrderId: { shop, shopifyOrderId: orderId } },
     update: {
       shopifyOrderName: String(order.name ?? ""),
       protectionPriceCents: priceCents,
-      currency: String(order.currency ?? settings?.currency ?? "USD"),
-      customerSelected: true,
+      currency,
+      customerSelected,
     },
     create: {
       shop,
       shopifyOrderId: orderId,
       shopifyOrderName: String(order.name ?? ""),
       protectionPriceCents: priceCents,
-      currency: String(order.currency ?? settings?.currency ?? "USD"),
+      currency,
+      customerSelected,
     },
   });
 
