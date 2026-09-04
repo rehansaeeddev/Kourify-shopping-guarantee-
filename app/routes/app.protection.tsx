@@ -5,7 +5,6 @@ import db from "../db.server";
 import { PageHeader } from "../components/PageHeader";
 import { Card, StatTile } from "../components/Card";
 import { AppButton } from "../components/AppButton";
-import { BillingStatusCard } from "../components/BillingStatusCard";
 import { useFetcherToast } from "../hooks/useFetcherToast";
 import { ALL_ISSUE_TYPES } from "../lib/claim-issue-type";
 import {
@@ -323,8 +322,8 @@ export default function Protection() {
   return (
     <s-page>
       <PageHeader
-        title="Protection settings"
-        subtitle="Configure how the package protection widget behaves on your storefront."
+        title="Protection"
+        subtitle="Package protection and claims for your storefront."
         actions={
           <>
             <AppButton href="/app/claims" variant="secondary">
@@ -343,367 +342,468 @@ export default function Protection() {
         </s-banner>
       )}
 
-      <BillingStatusCard
-        hasActiveBilling={hasActiveBilling}
-        protectionEnabled={currentSettings.protectionEnabled}
-        onChoosePlan={() => startBilling(currentSettings.plan)}
-      />
-
-      <Card heading="Enable protection">
-        <s-stack
-          direction="inline"
-          gap="base"
-          alignItems="center"
-          justifyContent="space-between"
-        >
-          <s-text color="subdued">
-            Offer customers protection against loss, damage, and theft at
-            checkout.
-          </s-text>
-          <s-switch
-            label="Enable protection at checkout"
-            checked={currentSettings.protectionEnabled}
-            disabled={settingsFetcher.state !== "idle" || !hasActiveBilling}
-            onChange={(e) =>
-              saveSettings({ protectionEnabled: e.currentTarget.checked })
-            }
-          />
-        </s-stack>
-      </Card>
-
-      <Card heading="Plan">
-        <s-choice-list
-          label="Kourify billing plan"
-          name="plan"
-          values={[currentSettings.plan]}
-          onChange={(e) => {
-            const plan = e.currentTarget.values?.[0] ?? "usage";
-            startBilling(plan);
-          }}
-        >
-          <s-choice value="usage">
-            $10/month + $0.60 per protected order
-          </s-choice>
-          <s-choice value="unlimited">
-            $20/month · unlimited protected orders
-          </s-choice>
-        </s-choice-list>
-      </Card>
-
-      <Card heading="Protection performance">
-        <div className="app-card-row">
-          <StatTile
-            icon="shield-check-mark"
-            label="Protected orders"
-            value={String(analytics.protectedOrders)}
-          />
-          <StatTile
-            icon="chart-line"
-            label="Selection rate"
-            value={`${analytics.conversionRate.toFixed(1)}%`}
-          />
-          <StatTile
-            icon="cash-dollar"
-            label="Protection sales"
-            value={`$${(analytics.protectionRevenueCents / 100).toFixed(2)}`}
-          />
-          <StatTile
-            icon="receipt-dollar"
-            label="Kourify usage fees"
-            value={`$${(analytics.usageFeesCents / 100).toFixed(2)}`}
-          />
-        </div>
-      </Card>
-
-      <Card heading="Protection provider">
-        <s-paragraph>
-          The "Protect your order" widget is live on your product page and cart.
-          It's an honest, self-funded guarantee right now — there's no real
-          shipping-insurance underwriting behind it yet, so claims are reviewed
-          manually rather than paid out automatically. Connect a real insurance
-          partner (like EasyPost) before promising guaranteed payouts to
-          customers.
-        </s-paragraph>
-      </Card>
-
-      <Card heading="Who pays the protection fee" locked={!hasActiveBilling}>
-        <s-stack
-          direction="inline"
-          gap="base"
-          alignItems="center"
-          justifyContent="space-between"
-        >
-          <s-text>
-            Customer pays at checkout, or you cover it for every order at no
-            extra charge to shoppers.
-          </s-text>
-          <div style={{ inlineSize: "200px", flex: "0 0 auto" }}>
-            <s-select
-              label="Who pays"
-              labelAccessibilityVisibility="exclusive"
-              disabled={!hasActiveBilling}
-              value={currentSettings.protectionPayer}
-              onChange={(e) =>
-                saveSettings({ protectionPayer: e.currentTarget.value })
-              }
-            >
-              <s-option value="customer">Customer pays</s-option>
-              <s-option value="merchant">You pay (free to customer)</s-option>
-            </s-select>
-          </div>
-        </s-stack>
-      </Card>
-
-      <Card heading="Pricing" locked={!hasActiveBilling}>
-        <s-paragraph>
-          How the protection fee is calculated. A flat fee is simplest; a
-          percentage of order value scales fairly across cheap and expensive
-          orders, with a floor and ceiling so it never charges a nonsense
-          amount.
-        </s-paragraph>
-        {merchantPays && (
-          <s-banner tone="info">
-            You're covering the protection fee, so customers aren't charged and
-            this pricing doesn't apply.
-          </s-banner>
-        )}
-        {percentageUnsupported && !merchantPays && (
-          <s-banner tone="warning">
-            Percentage pricing only takes effect at checkout on Shopify Plus. On
-            your current plan customers are charged the flat fee instead — switch
-            to a flat fee so what they pay matches what's shown, or cover it
-            yourself with merchant-pays.
-          </s-banner>
-        )}
-        <s-stack direction="block" gap="base" paddingBlockStart="base">
-          <s-stack
-            direction="inline"
-            gap="base"
-            alignItems="center"
-            justifyContent="space-between"
-          >
-            <s-text>Fee structure</s-text>
-            <div style={{ inlineSize: "220px", flex: "0 0 auto" }}>
-              <s-select
-                label="Fee structure"
-                labelAccessibilityVisibility="exclusive"
-                disabled={!hasActiveBilling || merchantPays}
-                value={currentSettings.protectionFeeType}
-                onChange={(e) =>
-                  saveSettings({ protectionFeeType: e.currentTarget.value })
-                }
+      {!hasActiveBilling ? (
+        <ActivateProtection
+          currentPlan={currentSettings.plan}
+          onChoose={startBilling}
+        />
+      ) : (
+        <>
+          <Card heading="Shopping Guarantee">
+            <s-stack direction="block" gap="base">
+              <s-stack
+                direction="inline"
+                gap="base"
+                alignItems="center"
+                justifyContent="space-between"
               >
-                <s-option value="flat">Flat fee</s-option>
-                <s-option value="percentage">Percentage of order</s-option>
-              </s-select>
-            </div>
-          </s-stack>
+                <s-stack direction="block" gap="small-200">
+                  <s-text>Protection at checkout</s-text>
+                  <s-text color="subdued">
+                    {currentSettings.protectionEnabled
+                      ? "Live — customers can add package protection at checkout."
+                      : "Turn on to offer package protection at checkout."}
+                  </s-text>
+                </s-stack>
+                <s-switch
+                  label="Enable protection at checkout"
+                  checked={currentSettings.protectionEnabled}
+                  disabled={settingsFetcher.state !== "idle"}
+                  onChange={(e) =>
+                    saveSettings({ protectionEnabled: e.currentTarget.checked })
+                  }
+                />
+              </s-stack>
+              <s-stack direction="inline" gap="small-200" alignItems="center">
+                <s-badge tone="success">Billing active</s-badge>
+                <s-badge
+                  tone={
+                    currentSettings.protectionEnabled ? "success" : "neutral"
+                  }
+                >
+                  {currentSettings.protectionEnabled
+                    ? "Protection on"
+                    : "Protection off"}
+                </s-badge>
+                <s-badge tone="warning">Manual guarantee</s-badge>
+              </s-stack>
+            </s-stack>
+          </Card>
 
-          {currentSettings.protectionFeeType === "flat" ? (
+          <Card heading="Performance">
+            <div className="app-card-row">
+              <StatTile
+                icon="shield-check-mark"
+                label="Protected orders"
+                value={String(analytics.protectedOrders)}
+              />
+              <StatTile
+                icon="chart-line"
+                label="Selection rate"
+                value={`${analytics.conversionRate.toFixed(1)}%`}
+              />
+              <StatTile
+                icon="cash-dollar"
+                label="Protection sales"
+                value={`$${(analytics.protectionRevenueCents / 100).toFixed(2)}`}
+              />
+              <StatTile
+                icon="receipt-dollar"
+                label="Kourify usage fees"
+                value={`$${(analytics.usageFeesCents / 100).toFixed(2)}`}
+              />
+            </div>
+          </Card>
+
+          <Card heading="Pricing">
+            <s-paragraph>
+              Who pays for protection, and how the fee is calculated.
+            </s-paragraph>
+            <s-stack direction="block" gap="base" paddingBlockStart="base">
+              <s-stack
+                direction="inline"
+                gap="base"
+                alignItems="center"
+                justifyContent="space-between"
+              >
+                <s-text>Who pays</s-text>
+                <div style={{ inlineSize: "220px", flex: "0 0 auto" }}>
+                  <s-select
+                    label="Who pays"
+                    labelAccessibilityVisibility="exclusive"
+                    value={currentSettings.protectionPayer}
+                    onChange={(e) =>
+                      saveSettings({ protectionPayer: e.currentTarget.value })
+                    }
+                  >
+                    <s-option value="customer">Customer pays</s-option>
+                    <s-option value="merchant">
+                      You pay (free to customer)
+                    </s-option>
+                  </s-select>
+                </div>
+              </s-stack>
+
+              {merchantPays ? (
+                <s-banner tone="info">
+                  You&apos;re covering the protection fee, so customers
+                  aren&apos;t charged and this pricing doesn&apos;t apply.
+                </s-banner>
+              ) : (
+                <>
+                  {percentageUnsupported && (
+                    <s-banner tone="warning">
+                      Percentage pricing only takes effect at checkout on Shopify
+                      Plus. On your current plan customers are charged the flat
+                      fee instead — switch to a flat fee so what they pay matches
+                      what&apos;s shown, or cover it yourself with merchant-pays.
+                    </s-banner>
+                  )}
+                  <s-stack
+                    direction="inline"
+                    gap="base"
+                    alignItems="center"
+                    justifyContent="space-between"
+                  >
+                    <s-text>Fee structure</s-text>
+                    <div style={{ inlineSize: "220px", flex: "0 0 auto" }}>
+                      <s-select
+                        label="Fee structure"
+                        labelAccessibilityVisibility="exclusive"
+                        value={currentSettings.protectionFeeType}
+                        onChange={(e) =>
+                          saveSettings({
+                            protectionFeeType: e.currentTarget.value,
+                          })
+                        }
+                      >
+                        <s-option value="flat">Flat fee</s-option>
+                        <s-option value="percentage">
+                          Percentage of order
+                        </s-option>
+                      </s-select>
+                    </div>
+                  </s-stack>
+
+                  {currentSettings.protectionFeeType === "flat" ? (
+                    <s-stack
+                      direction="inline"
+                      gap="base"
+                      alignItems="center"
+                      justifyContent="space-between"
+                    >
+                      <s-text>Flat fee</s-text>
+                      <div style={{ inlineSize: "140px", flex: "0 0 auto" }}>
+                        <s-number-field
+                          label="Flat fee"
+                          labelAccessibilityVisibility="exclusive"
+                          prefix="$"
+                          min={0}
+                          step={0.01}
+                          value={(
+                            currentSettings.protectionFlatFeeCents / 100
+                          ).toFixed(2)}
+                          onChange={(e) =>
+                            saveSettings({
+                              protectionFlatFeeCents:
+                                Math.round(Number(e.currentTarget.value) * 100) ||
+                                0,
+                            })
+                          }
+                        />
+                      </div>
+                    </s-stack>
+                  ) : (
+                    <>
+                      <s-stack
+                        direction="inline"
+                        gap="base"
+                        alignItems="center"
+                        justifyContent="space-between"
+                      >
+                        <s-text>Percentage of order value</s-text>
+                        <div style={{ inlineSize: "140px", flex: "0 0 auto" }}>
+                          <s-number-field
+                            label="Percentage"
+                            labelAccessibilityVisibility="exclusive"
+                            suffix="%"
+                            min={0}
+                            max={100}
+                            step={0.1}
+                            value={(
+                              currentSettings.protectionPercentBasisPoints / 100
+                            ).toFixed(1)}
+                            onChange={(e) =>
+                              saveSettings({
+                                protectionPercentBasisPoints:
+                                  Math.round(
+                                    Number(e.currentTarget.value) * 100,
+                                  ) || 0,
+                              })
+                            }
+                          />
+                        </div>
+                      </s-stack>
+                      <s-stack
+                        direction="inline"
+                        gap="base"
+                        alignItems="center"
+                        justifyContent="space-between"
+                      >
+                        <s-text>Minimum fee</s-text>
+                        <div style={{ inlineSize: "140px", flex: "0 0 auto" }}>
+                          <s-number-field
+                            label="Minimum fee"
+                            labelAccessibilityVisibility="exclusive"
+                            prefix="$"
+                            min={0}
+                            step={0.01}
+                            value={(
+                              currentSettings.protectionMinFeeCents / 100
+                            ).toFixed(2)}
+                            onChange={(e) =>
+                              saveSettings({
+                                protectionMinFeeCents:
+                                  Math.round(
+                                    Number(e.currentTarget.value) * 100,
+                                  ) || 0,
+                              })
+                            }
+                          />
+                        </div>
+                      </s-stack>
+                      <s-stack
+                        direction="inline"
+                        gap="base"
+                        alignItems="center"
+                        justifyContent="space-between"
+                      >
+                        <s-text>Maximum fee</s-text>
+                        <div style={{ inlineSize: "140px", flex: "0 0 auto" }}>
+                          <s-number-field
+                            label="Maximum fee"
+                            labelAccessibilityVisibility="exclusive"
+                            prefix="$"
+                            min={0}
+                            step={0.01}
+                            value={(
+                              currentSettings.protectionMaxFeeCents / 100
+                            ).toFixed(2)}
+                            onChange={(e) =>
+                              saveSettings({
+                                protectionMaxFeeCents:
+                                  Math.round(
+                                    Number(e.currentTarget.value) * 100,
+                                  ) || 0,
+                              })
+                            }
+                          />
+                        </div>
+                      </s-stack>
+                    </>
+                  )}
+                </>
+              )}
+            </s-stack>
+          </Card>
+
+          <Card heading="Claim reasons">
+            <s-paragraph>
+              Which reasons customers can choose in the storefront claim form.
+            </s-paragraph>
+            {enabledTypes.size === 0 && (
+              <s-banner tone="warning">
+                Nothing&apos;s checked, so the storefront will fall back to
+                showing all six reasons until you enable at least one here.
+              </s-banner>
+            )}
+            <s-stack direction="block" gap="small-200" paddingBlockStart="base">
+              {ALL_ISSUE_TYPES.map((type) => (
+                <s-checkbox
+                  key={type.value}
+                  label={type.label}
+                  checked={enabledTypes.has(type.value)}
+                  onChange={(e) =>
+                    toggleClaimType(type.value, e.currentTarget.checked ?? false)
+                  }
+                />
+              ))}
+            </s-stack>
+          </Card>
+
+          <Card heading="Filing windows">
+            <s-paragraph>
+              How many days after an order ships a customer can file each type of
+              claim. We check this against the order&apos;s real fulfillment date
+              — a claim outside the window is rejected automatically.
+            </s-paragraph>
+            <s-stack direction="block" gap="base" paddingBlockStart="base">
+              {ALL_ISSUE_TYPES.map((type) => {
+                const w = claimWindows[type.value] ?? { minDays: 0, maxDays: 30 };
+                return (
+                  <s-stack
+                    key={type.value}
+                    direction="inline"
+                    gap="base"
+                    alignItems="center"
+                    justifyContent="space-between"
+                  >
+                    <s-text>{type.label}</s-text>
+                    <s-stack
+                      direction="inline"
+                      gap="small-200"
+                      alignItems="center"
+                    >
+                      <div style={{ inlineSize: "90px", flex: "0 0 auto" }}>
+                        <s-number-field
+                          label="Min days"
+                          labelAccessibilityVisibility="exclusive"
+                          min={0}
+                          value={String(w.minDays)}
+                          onChange={(e) =>
+                            updateWindow(
+                              type.value,
+                              "minDays",
+                              Number(e.currentTarget.value) || 0,
+                            )
+                          }
+                        />
+                      </div>
+                      <s-text color="subdued">to</s-text>
+                      <div style={{ inlineSize: "90px", flex: "0 0 auto" }}>
+                        <s-number-field
+                          label="Max days"
+                          labelAccessibilityVisibility="exclusive"
+                          min={0}
+                          value={String(w.maxDays)}
+                          onChange={(e) =>
+                            updateWindow(
+                              type.value,
+                              "maxDays",
+                              Number(e.currentTarget.value) || 0,
+                            )
+                          }
+                        />
+                      </div>
+                      <s-text color="subdued">days</s-text>
+                    </s-stack>
+                  </s-stack>
+                );
+              })}
+            </s-stack>
+          </Card>
+
+          <Card heading="Plan">
             <s-stack
               direction="inline"
               gap="base"
               alignItems="center"
               justifyContent="space-between"
             >
-              <s-text>Flat fee</s-text>
-              <div style={{ inlineSize: "140px", flex: "0 0 auto" }}>
-                <s-number-field
-                  label="Flat fee"
-                  labelAccessibilityVisibility="exclusive"
-                  disabled={!hasActiveBilling || merchantPays}
-                  prefix="$"
-                  min={0}
-                  step={0.01}
-                  value={(currentSettings.protectionFlatFeeCents / 100).toFixed(
-                    2,
-                  )}
-                  onChange={(e) =>
-                    saveSettings({
-                      protectionFlatFeeCents:
-                        Math.round(Number(e.currentTarget.value) * 100) || 0,
-                    })
-                  }
-                />
-              </div>
+              <s-stack direction="block" gap="small-200">
+                <s-text>
+                  {currentSettings.plan === "unlimited"
+                    ? "Unlimited · $20/mo"
+                    : "Usage · $10/mo + $0.60 per protected order"}
+                </s-text>
+                <s-text color="subdued">Your current Kourify plan</s-text>
+              </s-stack>
+              <AppButton
+                variant="secondary"
+                onClick={() =>
+                  startBilling(
+                    currentSettings.plan === "unlimited" ? "usage" : "unlimited",
+                  )
+                }
+              >
+                {currentSettings.plan === "unlimited"
+                  ? "Switch to Usage"
+                  : "Switch to Unlimited"}
+              </AppButton>
             </s-stack>
-          ) : (
-            <>
-              <s-stack
-                direction="inline"
-                gap="base"
-                alignItems="center"
-                justifyContent="space-between"
-              >
-                <s-text>Percentage of order value</s-text>
-                <div style={{ inlineSize: "140px", flex: "0 0 auto" }}>
-                  <s-number-field
-                    label="Percentage"
-                    labelAccessibilityVisibility="exclusive"
-                    disabled={!hasActiveBilling || merchantPays}
-                    suffix="%"
-                    min={0}
-                    max={100}
-                    step={0.1}
-                    value={(
-                      currentSettings.protectionPercentBasisPoints / 100
-                    ).toFixed(1)}
-                    onChange={(e) =>
-                      saveSettings({
-                        protectionPercentBasisPoints:
-                          Math.round(Number(e.currentTarget.value) * 100) || 0,
-                      })
-                    }
-                  />
-                </div>
-              </s-stack>
-              <s-stack
-                direction="inline"
-                gap="base"
-                alignItems="center"
-                justifyContent="space-between"
-              >
-                <s-text>Minimum fee</s-text>
-                <div style={{ inlineSize: "140px", flex: "0 0 auto" }}>
-                  <s-number-field
-                    label="Minimum fee"
-                    labelAccessibilityVisibility="exclusive"
-                    disabled={!hasActiveBilling || merchantPays}
-                    prefix="$"
-                    min={0}
-                    step={0.01}
-                    value={(
-                      currentSettings.protectionMinFeeCents / 100
-                    ).toFixed(2)}
-                    onChange={(e) =>
-                      saveSettings({
-                        protectionMinFeeCents:
-                          Math.round(Number(e.currentTarget.value) * 100) || 0,
-                      })
-                    }
-                  />
-                </div>
-              </s-stack>
-              <s-stack
-                direction="inline"
-                gap="base"
-                alignItems="center"
-                justifyContent="space-between"
-              >
-                <s-text>Maximum fee</s-text>
-                <div style={{ inlineSize: "140px", flex: "0 0 auto" }}>
-                  <s-number-field
-                    label="Maximum fee"
-                    labelAccessibilityVisibility="exclusive"
-                    disabled={!hasActiveBilling || merchantPays}
-                    prefix="$"
-                    min={0}
-                    step={0.01}
-                    value={(
-                      currentSettings.protectionMaxFeeCents / 100
-                    ).toFixed(2)}
-                    onChange={(e) =>
-                      saveSettings({
-                        protectionMaxFeeCents:
-                          Math.round(Number(e.currentTarget.value) * 100) || 0,
-                      })
-                    }
-                  />
-                </div>
-              </s-stack>
-            </>
-          )}
-        </s-stack>
+          </Card>
+
+          <Card heading="How protection works">
+            <s-paragraph>
+              The &quot;Protect your order&quot; widget is live on your product
+              page and cart. It&apos;s an honest, self-funded guarantee right now
+              — there&apos;s no real shipping-insurance underwriting behind it
+              yet, so claims are reviewed manually rather than paid out
+              automatically. Connect a real insurance partner (like EasyPost)
+              before promising guaranteed payouts to customers.
+            </s-paragraph>
+          </Card>
+        </>
+      )}
+    </s-page>
+  );
+}
+
+function ActivateProtection({
+  currentPlan,
+  onChoose,
+}: {
+  currentPlan: string;
+  onChoose: (plan: string) => void;
+}) {
+  const plans = [
+    {
+      id: "usage",
+      name: "Usage",
+      price: "$10/mo",
+      detail: "+ $0.60 per protected order",
+    },
+    {
+      id: "unlimited",
+      name: "Unlimited",
+      price: "$20/mo",
+      detail: "Unlimited protected orders",
+    },
+  ];
+  const willConfigure: Array<[string, string]> = [
+    ["Who pays", "Charge customers at checkout, or cover it for every order."],
+    ["Pricing", "A flat fee or a percentage of order value, with a floor and ceiling."],
+    ["Claim reasons", "Choose which claim types customers can file."],
+    ["Filing windows", "Set how long after shipping each claim can be filed."],
+  ];
+
+  return (
+    <>
+      <Card heading="Activate Shopping Guarantee">
+        <s-paragraph>
+          Choose a plan to turn on package protection and start reviewing claims.
+          Change or cancel anytime.
+        </s-paragraph>
+        <div className="app-plan-grid">
+          {plans.map((plan) => (
+            <div
+              key={plan.id}
+              className={
+                "app-plan" +
+                (currentPlan === plan.id ? " app-plan--current" : "")
+              }
+            >
+              <span className="app-plan__name">{plan.name}</span>
+              <span className="app-plan__price">{plan.price}</span>
+              <span className="app-plan__detail">{plan.detail}</span>
+              <AppButton variant="primary" onClick={() => onChoose(plan.id)}>
+                Choose {plan.name}
+              </AppButton>
+            </div>
+          ))}
+        </div>
       </Card>
 
-      <Card
-        heading="Claim reasons customers can select"
-        locked={!hasActiveBilling}
-      >
-        <s-paragraph>
-          Choose which reasons show up in the "File a claim" form on your
-          storefront.
-        </s-paragraph>
-        {enabledTypes.size === 0 && (
-          <s-banner tone="warning">
-            Nothing's checked, so the storefront will fall back to showing all
-            six reasons until you enable at least one here.
-          </s-banner>
-        )}
-        <s-stack direction="block" gap="small-200" paddingBlockStart="base">
-          {ALL_ISSUE_TYPES.map((type) => (
-            <s-checkbox
-              key={type.value}
-              label={type.label}
-              checked={enabledTypes.has(type.value)}
-              disabled={!hasActiveBilling}
-              onChange={(e) =>
-                toggleClaimType(type.value, e.currentTarget.checked ?? false)
-              }
-            />
+      <Card heading="What you'll set up once active">
+        <s-stack direction="block" gap="base">
+          {willConfigure.map(([title, description]) => (
+            <s-stack key={title} direction="block" gap="small-200">
+              <s-text>{title}</s-text>
+              <s-text color="subdued">{description}</s-text>
+            </s-stack>
           ))}
         </s-stack>
       </Card>
-
-      <Card heading="Claim filing windows" locked={!hasActiveBilling}>
-        <s-paragraph>
-          How many days after an order ships a customer can file each type of
-          claim. We check this against the order's real fulfillment date — a
-          claim outside the window is rejected automatically.
-        </s-paragraph>
-        <s-stack direction="block" gap="base" paddingBlockStart="base">
-          {ALL_ISSUE_TYPES.map((type) => {
-            const w = claimWindows[type.value] ?? { minDays: 0, maxDays: 30 };
-            return (
-              <s-stack
-                key={type.value}
-                direction="inline"
-                gap="base"
-                alignItems="center"
-                justifyContent="space-between"
-              >
-                <s-text>{type.label}</s-text>
-                <s-stack direction="inline" gap="small-200" alignItems="center">
-                  <div style={{ inlineSize: "90px", flex: "0 0 auto" }}>
-                    <s-number-field
-                      label="Min days"
-                      labelAccessibilityVisibility="exclusive"
-                      min={0}
-                      disabled={!hasActiveBilling}
-                      value={String(w.minDays)}
-                      onChange={(e) =>
-                        updateWindow(
-                          type.value,
-                          "minDays",
-                          Number(e.currentTarget.value) || 0,
-                        )
-                      }
-                    />
-                  </div>
-                  <s-text color="subdued">to</s-text>
-                  <div style={{ inlineSize: "90px", flex: "0 0 auto" }}>
-                    <s-number-field
-                      label="Max days"
-                      labelAccessibilityVisibility="exclusive"
-                      min={0}
-                      disabled={!hasActiveBilling}
-                      value={String(w.maxDays)}
-                      onChange={(e) =>
-                        updateWindow(
-                          type.value,
-                          "maxDays",
-                          Number(e.currentTarget.value) || 0,
-                        )
-                      }
-                    />
-                  </div>
-                  <s-text color="subdued">days</s-text>
-                </s-stack>
-              </s-stack>
-            );
-          })}
-        </s-stack>
-      </Card>
-    </s-page>
+    </>
   );
 }
