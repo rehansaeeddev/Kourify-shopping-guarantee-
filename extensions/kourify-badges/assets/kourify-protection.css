@@ -459,13 +459,61 @@
   padding: 12px 0;
 }
 
-/* Floating guarantee tab (site-wide app embed) */
+/* Floating guarantee tab (site-wide app embed). Base = right edge; the
+   position modifier (set in the app embed settings) moves it. */
 .kourify-guarantee-tab {
   position: fixed;
   top: 50%;
   inset-inline-end: 0;
+  inset-inline-start: auto;
+  bottom: auto;
   transform: translateY(-50%);
   z-index: 9998;
+}
+
+.kourify-guarantee-tab--left {
+  inset-inline-start: 0;
+  inset-inline-end: auto;
+}
+
+.kourify-guarantee-tab--bottom {
+  top: auto;
+  bottom: 16px;
+  inset-inline-start: 50%;
+  inset-inline-end: auto;
+  transform: translateX(-50%);
+}
+
+.kourify-guarantee-tab--top {
+  top: 16px;
+  bottom: auto;
+  inset-inline-end: 16px;
+  transform: none;
+}
+
+/* Left-edge tab: round the inner (right) side and flip the shadow. */
+.kourify-guarantee-tab--left .kourify-guarantee-tab__button {
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+  border-start-end-radius: 18px;
+  border-end-end-radius: 18px;
+  box-shadow: 12px 0 24px rgba(0, 0, 0, 0.18);
+}
+
+/* Top/bottom corner tab: horizontal pill instead of a vertical edge tab. */
+.kourify-guarantee-tab--bottom .kourify-guarantee-tab__button,
+.kourify-guarantee-tab--top .kourify-guarantee-tab__button {
+  flex-direction: row;
+  min-height: 0;
+  padding: 10px 16px;
+  border-radius: 999px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+}
+
+.kourify-guarantee-tab--bottom .kourify-guarantee-tab__button span,
+.kourify-guarantee-tab--top .kourify-guarantee-tab__button span {
+  writing-mode: horizontal-tb;
+  transform: none;
 }
 
 .kourify-guarantee-tab__button {

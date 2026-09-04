@@ -38,11 +38,6 @@
   <p class="kourify-protection__footnote">
     {%- assign kourify_cap = block.settings.coverage_cap | times: 100 | money -%}
     {{ 'protection.coverage_up_to' | t: amount: kourify_cap }}
-    <br />
-    {{ 'protection.already_protected' | t }}
-    <button type="button" class="kourify-protection__link" data-kourify-file-claim>
-      {{ 'protection.file_claim' | t }} →
-    </button>
   </p>
 </div>
 
