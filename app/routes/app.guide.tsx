@@ -1,5 +1,5 @@
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { useRouteError } from "react-router";
+import { Link, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 
 import { authenticate } from "../shopify.server";
@@ -83,7 +83,7 @@ export default function Guide() {
             <ol className="app-guide__steps">
               <li>
                 <strong>Choose a plan.</strong> Open{" "}
-                <a href="/app/protection">Protection</a> and pick Usage or
+                <Link to="/app/protection">Protection</Link> and pick Usage or
                 Unlimited. Protection can&apos;t be enabled without an active
                 plan.
               </li>
@@ -98,7 +98,7 @@ export default function Guide() {
               </li>
               <li>
                 <strong>Review your first claim.</strong> When a customer files
-                one, it appears under <a href="/app/claims">Claims</a>.
+                one, it appears under <Link to="/app/claims">Claims</Link>.
               </li>
             </ol>
           </Card>
@@ -119,7 +119,7 @@ export default function Guide() {
             <s-paragraph>
               Billing runs through Shopify — you approve the charge in Shopify&apos;s
               own screen, and you can switch or cancel anytime from the{" "}
-              <a href="/app/protection">Protection</a> page. Kourify reads your
+              <Link to="/app/protection">Protection</Link> page. Kourify reads your
               live subscription from Shopify; it never trusts the browser for
               billing state.
             </s-paragraph>
@@ -177,7 +177,7 @@ export default function Guide() {
         <div id="badges">
           <Card heading="Trust badges & storefront widgets">
             <s-paragraph>
-              Manage badges from <a href="/app/badges">Trust badges</a>: turn
+              Manage badges from <Link to="/app/badges">Trust badges</Link>: turn
               them on, choose a style, and decide whether they show on product
               pages and the cart.
             </s-paragraph>
@@ -214,7 +214,7 @@ export default function Guide() {
         <div id="managing-claims">
           <Card heading="Managing claims">
             <s-paragraph>
-              The <a href="/app/claims">Claims</a> page lists everything filed
+              The <Link to="/app/claims">Claims</Link> page lists everything filed
               from your storefront. Filter with the tabs (All, Requires
               evidence, High risk, Resolved today), or search by order number,
               name, or email. Long lists are paginated.
@@ -241,7 +241,7 @@ export default function Guide() {
         <div id="orders">
           <Card heading="Orders & offers">
             <s-paragraph>
-              The <a href="/app/orders">Orders</a> page shows which orders are
+              The <Link to="/app/orders">Orders</Link> page shows which orders are
               protected. For an unprotected, unfulfilled order you can:
             </s-paragraph>
             <ul className="app-guide__list">
@@ -266,7 +266,7 @@ export default function Guide() {
           <Card heading="Languages">
             <s-paragraph>
               Translate the storefront claim page from{" "}
-              <a href="/app/translations">Languages</a>. Add locales (for example
+              <Link to="/app/translations">Languages</Link>. Add locales (for example
               Arabic or Hindi, with right-to-left support), set a default, and
               edit any label. Blank fields fall back to English, and shoppers can
               switch language on the claim page without a reload.
@@ -279,7 +279,7 @@ export default function Guide() {
             <s-paragraph>
               Kourify caches your orders so it can verify claims quickly. New
               orders sync automatically via webhooks; use{" "}
-              <a href="/app/order-sync">Order sync</a> to import existing orders.
+              <Link to="/app/order-sync">Order sync</Link> to import existing orders.
               A full sync requires Shopify&apos;s protected customer-data approval
               to be in place.
             </s-paragraph>

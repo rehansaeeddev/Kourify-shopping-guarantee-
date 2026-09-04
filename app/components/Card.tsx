@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Link } from "react-router";
 
 type CardProps = {
   heading?: string;
@@ -50,10 +51,11 @@ export function StatTile({ label, value, icon, tone = "default", href }: StatTil
   );
 
   if (href) {
+    // Internal app route → Link keeps navigation client-side (and embedded).
     return (
-      <a className={`${className} app-stat-tile--clickable`} href={href}>
+      <Link className={`${className} app-stat-tile--clickable`} to={href}>
         {content}
-      </a>
+      </Link>
     );
   }
 
