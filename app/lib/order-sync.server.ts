@@ -39,12 +39,16 @@ export async function cacheOrder(
 ): Promise<void> {
   await db.order.upsert({
     where: { id: data.id },
+    // On update, don't let a webhook that omits a value wipe a richer one we
+    // already cached: orders/updated carries riskLevel: null and (when there
+    // are no fulfillments) shippedAt: null, and can carry an empty email. Only
+    // overwrite those fields when the incoming value is actually present.
     update: {
-      email: data.email,
+      ...(data.email ? { email: data.email } : {}),
       customerName: data.customerName ?? null,
       status: data.status,
-      riskLevel: data.riskLevel,
-      shippedAt: data.shippedAt ? new Date(data.shippedAt) : null,
+      ...(data.riskLevel != null ? { riskLevel: data.riskLevel } : {}),
+      ...(data.shippedAt ? { shippedAt: new Date(data.shippedAt) } : {}),
       totalPrice: data.totalPrice ?? null,
       updatedAt: new Date(),
     },
