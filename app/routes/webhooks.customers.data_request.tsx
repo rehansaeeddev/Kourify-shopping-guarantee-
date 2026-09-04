@@ -7,7 +7,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   console.log(`Received ${topic} webhook for ${shop}`);
 
-  const customerEmail = payload.customer?.email as string | undefined;
+  const rawEmail = payload.customer?.email as string | undefined;
+  // Claims store a normalized (lower-cased, trimmed) email; match the same form
+  // so a case-different payload address still finds the customer's records.
+  const customerEmail = rawEmail?.trim().toLowerCase();
 
   if (customerEmail) {
     const claims = await db.protectionClaim.findMany({
