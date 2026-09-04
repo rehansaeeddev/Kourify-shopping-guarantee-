@@ -9,15 +9,22 @@ type AdminGraphqlClient = {
   ) => Promise<Response>;
 };
 
-/** Cart Transform price overrides only run on dev + Plus stores. */
+/**
+ * Cart Transform price-override (`update`) operations only actually apply on
+ * Shopify Plus. Verified against a development store: a dev store on a Basic plan
+ * reports shopifyPlus:false and the checkout silently ignores the override — so
+ * `partnerDevelopment` alone is NOT enough. A dev store must be set to the Plus
+ * developer preview to test it.
+ */
 export function supportsCartTransform(tier: PlanTier | string): boolean {
-  return tier === "plus" || tier === "dev";
+  return tier === "plus";
 }
 
 /**
  * Queries the shop's plan and stores the derived tier on MerchantSettings.
- * `partnerDevelopment` (a dev store) and `shopifyPlus` both allow Cart Transform
- * price overrides; everything else is treated as standard.
+ * shopifyPlus is what actually enables Cart Transform price overrides; a
+ * partnerDevelopment store that isn't on Plus is tracked as "dev" (informational,
+ * not eligible), and everything else is "standard".
  */
 export async function detectPlanTier(
   admin: AdminGraphqlClient,
@@ -40,10 +47,10 @@ export async function detectPlanTier(
     const json = await response.json();
     const plan = json?.data?.shop?.plan;
     if (plan) {
-      tier = plan.partnerDevelopment
-        ? "dev"
-        : plan.shopifyPlus
-          ? "plus"
+      tier = plan.shopifyPlus
+        ? "plus"
+        : plan.partnerDevelopment
+          ? "dev"
           : "standard";
     }
   } catch (error) {
