@@ -68,10 +68,5 @@
   "overrides": {
     "p-map": "^4.0.0"
   },
-  "pnpm": {
-    "ignoredBuiltDependencies": [
-      "core-js"
-    ]
-  },
   "author": "apple"
 }
