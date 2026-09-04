@@ -19,10 +19,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     // Shopify requires the data be made available to the merchant within
     // 30 days; there is no automated customer-facing export endpoint, so
-    // this logs it for the merchant/support team to retrieve on request.
+    // support retrieves it from the DB on request. Log only counts/ids — never
+    // the records themselves, or a data request would spill the very PII it
+    // exists to protect into application logs.
     console.log(
-      `Data request for ${customerEmail} on ${shop}: ${claims.length} protection claim(s)`,
-      claims,
+      `Data request on ${shop}: ${claims.length} protection claim(s) [ids: ${claims
+        .map((claim) => claim.id)
+        .join(", ")}]`,
     );
   }
 

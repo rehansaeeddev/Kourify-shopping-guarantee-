@@ -17,7 +17,16 @@ async function sendEmail(
         "Email delivery is not configured: set RESEND_API_KEY and EMAIL_FROM",
       );
     }
-    console.info(`[DEV EMAIL] to=${to} subject="${subject}"\n${body}\n---`);
+    // The body contains customer name/PII, so don't log it by default — even in
+    // dev. Log a redacted line, and only dump the full content when explicitly
+    // opted in via KOURIFY_DEBUG_EMAIL.
+    if (process.env.KOURIFY_DEBUG_EMAIL === "1") {
+      console.info(`[DEV EMAIL] to=${to} subject="${subject}"\n${body}\n---`);
+    } else {
+      console.info(
+        `[DEV EMAIL] (delivery not configured) subject="${subject}" — set KOURIFY_DEBUG_EMAIL=1 to log full content`,
+      );
+    }
     return;
   }
 
