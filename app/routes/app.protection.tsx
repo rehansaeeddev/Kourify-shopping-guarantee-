@@ -48,7 +48,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     where: { shop: session.shop },
   });
 
-  const { hasActiveBilling } = await getBillingState(billing);
+  const { hasActiveBilling, activePlan } = await getBillingState(billing);
 
   const protectionPayer = hasActiveBilling
     ? String(formData.get("protectionPayer") ?? "customer")
@@ -92,7 +92,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const protectionEnabled = hasActiveBilling
     ? formData.get("protectionEnabled") === "true"
     : current.protectionEnabled;
-  const plan = formData.get("plan") === "unlimited" ? "unlimited" : "usage";
+  // `plan` decides whether the $0.60 per-order usage fee is waived, so it must
+  // never come from client input. Derive it from the verified active
+  // subscription — "unlimited" only when Shopify confirms an unlimited plan.
+  const plan = activePlan === "unlimited" ? "unlimited" : "usage";
 
   if (
     formData.get("protectionEnabled") === "true" &&
