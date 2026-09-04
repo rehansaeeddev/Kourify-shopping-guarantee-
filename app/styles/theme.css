@@ -67,7 +67,7 @@ body {
 
 .app-dash-header__greeting {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   font-weight: 600;
   color: var(--color-text);
   letter-spacing: -0.01em;
@@ -246,16 +246,16 @@ body {
 /* ---- Stat tiles ---- */
 .app-card-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1.1rem;
 }
 
 .app-stat-tile {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 0.85rem;
-  padding: 1rem 1.1rem;
+  gap: 0.9rem;
+  padding: 1.15rem 1.25rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-card);
@@ -303,11 +303,11 @@ body {
 }
 
 .app-stat-tile__value {
-  font-size: 1.3rem;
-  font-weight: 600;
+  font-size: 1.2rem;
+  font-weight: 500;
   color: var(--color-text);
   letter-spacing: -0.01em;
-  line-height: 1.2;
+  line-height: 1.25;
 }
 
 .app-stat-tile--success .app-stat-tile__icon {
@@ -401,30 +401,54 @@ body {
   flex-shrink: 0;
 }
 
-/* ---- Primary CTA (was a gradient button) ---- */
+/* ---- Branded buttons ----
+   Every app button carries Kourify color. Primary = solid green for the
+   one strong action; secondary = soft green tint for everything else.
+   Shopify's own black system buttons (e.g. the Save bar) are left untouched. */
+.app-btn,
 .app-btn-gradient {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.45rem;
-  background: var(--color-accent);
-  color: var(--color-white);
-  border: none;
+  gap: 0.4rem;
+  border: 1px solid transparent;
   border-radius: var(--radius);
-  padding: 0.6rem 1.1rem;
+  padding: 0.5rem 1rem;
+  font-family: var(--font);
   font-weight: 600;
   font-size: 0.875rem;
-  line-height: 1;
+  line-height: 1.2;
   cursor: pointer;
   text-decoration: none;
-  transition: background 0.12s ease;
+  white-space: nowrap;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
 
+.app-btn--primary,
+.app-btn-gradient {
+  background: var(--color-accent);
+  color: var(--color-white);
+}
+
+.app-btn--primary:hover,
 .app-btn-gradient:hover:not(:disabled) {
   background: var(--color-accent-dark);
 }
 
+.app-btn--secondary {
+  background: var(--color-accent-light);
+  color: var(--color-accent-dark);
+}
+
+.app-btn--secondary:hover {
+  background: #dcefe6;
+}
+
+.app-btn--disabled,
+.app-btn--disabled:hover,
+.app-btn:disabled,
 .app-btn-gradient:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  pointer-events: none;
 }
