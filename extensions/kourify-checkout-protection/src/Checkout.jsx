@@ -56,13 +56,13 @@ function Extension() {
   if (!enabled) return null;
 
   if (!variant) {
-    return (
-      <s-banner heading={shopify.i18n.translate("protectionTitle")} tone="warning">
-        <s-text>
-          {error || shopify.i18n.translate("configureVariant")}
-        </s-text>
-      </s-banner>
+    // Protection is enabled but the merchant hasn't finished configuring the
+    // product/variant. Never surface that setup instruction to the shopper —
+    // hide the block and log for the merchant instead.
+    console.warn(
+      "[kourify] protection enabled but no variant configured; hiding checkout block",
     );
+    return null;
   }
 
   if (payer === "merchant") {
