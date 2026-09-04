@@ -163,7 +163,7 @@
 .kourify-modal__close {
   position: absolute;
   top: 18px;
-  right: 18px;
+  inset-inline-end: 18px;
   width: 34px;
   height: 34px;
   display: grid;
@@ -249,7 +249,7 @@
 .kourify-modal__body p::before {
   content: "✓";
   position: absolute;
-  left: 16px;
+  inset-inline-start: 16px;
   top: 15px;
   width: 20px;
   height: 20px;
@@ -286,7 +286,7 @@
 
   .kourify-modal__close {
     top: 14px;
-    right: 14px;
+    inset-inline-end: 14px;
   }
 
   .kourify-modal__body {
@@ -306,8 +306,7 @@
   content: "";
   position: absolute;
   top: 8px;
-  left: 8px;
-  right: 8px;
+  inset-inline: 8px;
   height: 2px;
   background: #e3e3e3;
   z-index: 0;
@@ -434,7 +433,7 @@
 .kourify-guarantee-tab {
   position: fixed;
   top: 50%;
-  right: 0;
+  inset-inline-end: 0;
   transform: translateY(-50%);
   z-index: 9998;
 }
@@ -450,7 +449,11 @@
   background: linear-gradient(180deg, #272b2f 0%, #1d2126 100%);
   color: #f4fbf9;
   padding: 18px 12px 16px;
-  border-radius: 18px 0 0 18px;
+  /* Logical rounding so the flat edge hugs the viewport side in both LTR/RTL. */
+  border-start-start-radius: 18px;
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+  border-end-start-radius: 18px;
   box-shadow: -12px 0 24px rgba(0, 0, 0, 0.18);
   font-family: inherit;
   font-size: 12px;
@@ -459,6 +462,11 @@
   text-transform: uppercase;
   line-height: 1.1;
   min-height: 150px;
+}
+
+/* RTL: tab sits on the left edge, so throw the shadow the other way. */
+[dir="rtl"] .kourify-guarantee-tab__button {
+  box-shadow: 12px 0 24px rgba(0, 0, 0, 0.18);
 }
 
 .kourify-guarantee-tab__button span {

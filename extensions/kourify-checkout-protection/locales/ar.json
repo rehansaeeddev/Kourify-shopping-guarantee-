@@ -1,0 +1,13 @@
+{
+  "protectionTitle": "احمِ طلبك",
+  "protectionDescription": "تغطية ضد الفقدان أو التلف أو السرقة أثناء نقل طردك.",
+  "merchantCoversFee": "هذا الطلب محمي تلقائياً ضد الفقدان أو التلف أو السرقة — على نفقتنا، دون أي تكلفة إضافية عليك.",
+  "addProtection": "أضف حماية Kourify — {{price}}",
+  "includedInTotal": "الحماية مشمولة في إجمالي الطلب الموضّح في الملخص.",
+  "totalWillUpdate": "سيُحدَّث إجمالي طلبك فوراً عند اختيار الحماية.",
+  "cartChangesUnavailable": "لا يمكن تغيير الحماية لهذا الطلب.",
+  "updateError": "تعذّر تحديث الحماية. يرجى المحاولة مرة أخرى.",
+  "loadError": "تعذّر تحميل خيار الحماية.",
+  "setupRequired": "يلزم إعداد Kourify",
+  "configureVariant": "أنشئ منتجاً نشطاً بالمعرّف kourify-order-protection لتفعيل هذا الخيار."
+}
