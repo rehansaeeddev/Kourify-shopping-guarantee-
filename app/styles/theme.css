@@ -344,6 +344,64 @@ body {
   margin-top: 0.9rem;
 }
 
+/* ---- User guide ---- */
+.app-guide a {
+  color: var(--color-accent-dark);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.app-guide a:hover {
+  text-decoration: underline;
+}
+
+.app-guide-toc {
+  margin: 0;
+  padding-left: 1.1rem;
+  columns: 2;
+  column-gap: 2rem;
+}
+
+.app-guide-toc li {
+  margin: 0.3rem 0;
+  break-inside: avoid;
+}
+
+@media (max-width: 560px) {
+  .app-guide-toc {
+    columns: 1;
+  }
+}
+
+.app-guide__sub {
+  margin: 1.1rem 0 0.35rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.app-guide__list,
+.app-guide__steps {
+  margin: 0.5rem 0 0;
+  padding-left: 1.2rem;
+  color: var(--color-text);
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+
+.app-guide__list li,
+.app-guide__steps li {
+  margin: 0.35rem 0;
+}
+
+.app-guide__steps {
+  list-style: decimal;
+}
+
+.app-guide s-banner {
+  margin-top: 0.9rem;
+}
+
 /* ---- Search field ---- */
 .app-search {
   display: flex;
