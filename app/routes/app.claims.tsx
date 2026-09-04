@@ -13,6 +13,7 @@ import { EVIDENCE_REQUIRED_TYPES } from "../lib/claim-window";
 import { notifyClaimStatusChanged } from "../lib/notify.server";
 import { isRateLimited } from "../lib/rate-limit.server";
 import { WorkspaceTabs } from "../components/WorkspaceTabs";
+import { getWorkspaceCounts } from "../lib/workspace-counts.server";
 
 const STATUSES = ["submitted", "reviewing", "resolved", "denied"] as const;
 const TERMINAL_STATUSES = ["resolved", "denied"];
@@ -96,6 +97,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   ]);
 
   const totalPages = Math.max(1, Math.ceil(filteredCount / PAGE_SIZE));
+  const workspaceCounts = await getWorkspaceCounts(session.shop);
 
   return {
     claims,
@@ -107,6 +109,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     q,
     page,
     totalPages,
+    workspaceCounts,
     emailClaimNumbers: Object.fromEntries(
       emailCounts.map((group) => [group.email, group._count._all]),
     ),
@@ -169,6 +172,7 @@ export default function Claims() {
     q,
     page,
     totalPages,
+    workspaceCounts,
     emailClaimNumbers,
   } = useLoaderData<typeof loader>();
   const claimFetcher = useFetcher();
@@ -215,7 +219,13 @@ export default function Claims() {
           </>
         }
       />
-      <WorkspaceTabs active="claims" />
+      <WorkspaceTabs
+        active="claims"
+        counts={{
+          orders: workspaceCounts.ordersNeedingAction,
+          claims: workspaceCounts.openClaims,
+        }}
+      />
 
       <div
         className="app-card-row"
