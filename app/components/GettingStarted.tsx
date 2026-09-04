@@ -13,10 +13,12 @@ export function GettingStarted({
   title,
   steps,
   estimatedMinutes = 3,
+  help,
 }: {
   title: string;
   steps: Step[];
   estimatedMinutes?: number;
+  help?: { label: string; href: string };
 }) {
   const firstIncompleteIndex = steps.findIndex((s) => !s.done);
   const [activeIndex, setActiveIndex] = useState(
@@ -100,6 +102,11 @@ export function GettingStarted({
               {activeStep.action.label}
             </AppButton>
           </div>
+        ) : null}
+        {help ? (
+          <p className="app-getting-started__help">
+            <a href={help.href}>{help.label}</a>
+          </p>
         ) : null}
       </div>
     </Card>
