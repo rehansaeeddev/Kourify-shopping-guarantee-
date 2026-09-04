@@ -22,15 +22,18 @@ const DEFAULT_SETTINGS = {
 };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
+  const corsHeaders = { "Access-Control-Allow-Origin": "*" };
+
   const ip = clientIpFromRequest(request);
   // Scope by shop so an undeterminable client IP can't lock out every store.
   const shopParam =
     new URL(request.url).searchParams.get("shop") ?? "unknown";
   if (await isRateLimited(`settings:${shopParam}:${ip}`, 60, 60 * 1000)) {
-    return Response.json({ error: "Too many requests" }, { status: 429 });
+    return Response.json(
+      { error: "Too many requests" },
+      { status: 429, headers: corsHeaders },
+    );
   }
-
-  const corsHeaders = { "Access-Control-Allow-Origin": "*" };
 
   const { session } = await authenticate.public.appProxy(request);
   if (!session) {

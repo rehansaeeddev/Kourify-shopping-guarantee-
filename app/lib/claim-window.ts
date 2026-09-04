@@ -14,11 +14,27 @@ export const EVIDENCE_REQUIRED_TYPES = ["damaged", "concealed"];
 export const CLAIM_ISSUE_TYPES = Object.keys(DEFAULT_CLAIM_WINDOWS);
 
 export function parseClaimWindows(raw: string): ClaimWindows {
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === "object") return parsed;
+    parsed = JSON.parse(raw);
   } catch {
-    // fall through to default
+    return DEFAULT_CLAIM_WINDOWS;
   }
-  return DEFAULT_CLAIM_WINDOWS;
+  if (!parsed || typeof parsed !== "object") return DEFAULT_CLAIM_WINDOWS;
+
+  // Accept only well-formed { minDays, maxDays } number pairs. A malformed or
+  // missing entry falls back to the default window rather than yielding
+  // undefined bounds (which would silently disable window enforcement).
+  const result: ClaimWindows = { ...DEFAULT_CLAIM_WINDOWS };
+  for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+    const window = value as Partial<ClaimWindow> | null;
+    if (
+      window &&
+      typeof window.minDays === "number" &&
+      typeof window.maxDays === "number"
+    ) {
+      result[key] = { minDays: window.minDays, maxDays: window.maxDays };
+    }
+  }
+  return result;
 }
