@@ -17,6 +17,37 @@ const MAX_BODY_BYTES = 8 * 1024 * 1024; // ~8MB, enough headroom for a 5MB image
 // plus a little slack for the data: URI prefix. Keeps client and server in sync.
 const MAX_EVIDENCE_BASE64_CHARS = Math.ceil((5 * 1024 * 1024 * 4) / 3) + 1024;
 
+// Reads the request body while enforcing a hard byte cap. The Content-Length
+// header can be absent (chunked transfer) or lie, so don't rely on it alone:
+// pull the stream in chunks and abort the moment it exceeds the limit, bounding
+// how much an unauthenticated storefront caller can make us buffer. Returns null
+// when the cap is exceeded.
+async function readBodyWithinLimit(
+  request: Request,
+  maxBytes: number,
+): Promise<string | null> {
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => {});
+        return null;
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return new TextDecoder().decode(Buffer.concat(chunks));
+}
+
 export const action = async ({ request }: ActionFunctionArgs) => {
   if (request.method !== "POST") {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
@@ -52,7 +83,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return Response.json({ error: "Unknown shop" }, { status: 400 });
   }
 
-  const body = await request.json().catch(() => null);
+  const rawBody = await readBodyWithinLimit(request, MAX_BODY_BYTES);
+  if (rawBody === null) {
+    return Response.json(
+      { error: "That request is too large." },
+      { status: 413 },
+    );
+  }
+  let body: unknown = null;
+  try {
+    body = JSON.parse(rawBody);
+  } catch {
+    body = null;
+  }
   if (!body || typeof body !== "object") {
     return Response.json({ error: "Invalid payload" }, { status: 400 });
   }

@@ -1,5 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { authenticate, UNLIMITED_PLAN, USAGE_PLAN } from "../shopify.server";
+import { isBillingTest } from "../lib/billing-state.server";
 
 async function requestPlan(request: Request) {
   const { billing, session } = await authenticate.admin(request);
@@ -15,7 +16,7 @@ async function requestPlan(request: Request) {
 
   await billing.request({
     plan: selected,
-    isTest: process.env.SHOPIFY_BILLING_TEST === "true",
+    isTest: isBillingTest(),
     returnUrl: returnUrl.toString(),
   });
 }
