@@ -42,13 +42,21 @@ export default function Guide() {
 
       <div className="app-guide">
         <Card heading="On this page">
-          <ol className="app-guide-toc">
-            {SECTIONS.map((section) => (
-              <li key={section.id}>
-                <a href={`#${section.id}`}>{section.label}</a>
-              </li>
+          <s-paragraph>
+            A quick walkthrough of everything Kourify does. Jump to any section.
+          </s-paragraph>
+          <div className="app-guide-nav">
+            {SECTIONS.map((section, index) => (
+              <a
+                key={section.id}
+                className="app-guide-nav__item"
+                href={`#${section.id}`}
+              >
+                <span className="app-guide-nav__num">{index + 1}</span>
+                <span>{section.label}</span>
+              </a>
             ))}
-          </ol>
+          </div>
         </Card>
 
         <div id="overview">
@@ -136,10 +144,27 @@ export default function Guide() {
 
             <p className="app-guide__sub">Who pays</p>
             <s-paragraph>
-              Choose <strong>Customer pays</strong> (charged at checkout) or{" "}
-              <strong>You pay</strong> (free to the customer, you still pay the
-              Kourify usage fee).
+              Choose <strong>You pay</strong> (free to the customer, you still
+              cover the Kourify usage fee) or, on{" "}
+              <strong>Shopify Plus</strong>, <strong>Customer pays</strong> —
+              the fee is folded into checkout pricing with no separate line.
             </s-paragraph>
+            <s-banner tone="info" heading="Charging customers on a non-Plus plan">
+              <s-stack gap="small-200">
+                <s-text>
+                  Clean customer-pays pricing needs Shopify Plus, so on other
+                  plans protection is set to <strong>You pay</strong> to keep
+                  checkout tidy (no extra line item).
+                </s-text>
+                <s-text>
+                  Want shoppers to effectively cover it anyway? Build the small
+                  protection cost into your <strong>product prices</strong> (a
+                  minor increase), then keep <strong>You pay</strong>. Customers
+                  see “protected, free”, checkout stays clean, and the cost is
+                  already recovered in the price.
+                </s-text>
+              </s-stack>
+            </s-banner>
 
             <p className="app-guide__sub">Pricing</p>
             <ul className="app-guide__list">

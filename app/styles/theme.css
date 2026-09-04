@@ -370,22 +370,44 @@ body {
   text-decoration: underline;
 }
 
-.app-guide-toc {
-  margin: 0;
-  padding-left: 1.1rem;
-  columns: 2;
-  column-gap: 2rem;
+.app-guide-nav {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.75rem;
 }
 
-.app-guide-toc li {
-  margin: 0.3rem 0;
-  break-inside: avoid;
+.app-guide-nav__item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  text-decoration: none;
+  color: var(--color-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
 
-@media (max-width: 560px) {
-  .app-guide-toc {
-    columns: 1;
-  }
+.app-guide-nav__item:hover {
+  background: #fafafa;
+  border-color: #dcdcdc;
+  text-decoration: none;
+}
+
+.app-guide-nav__num {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--color-accent-light);
+  color: var(--color-accent-dark);
+  display: grid;
+  place-items: center;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 .app-guide__sub {
