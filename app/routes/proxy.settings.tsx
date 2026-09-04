@@ -47,13 +47,21 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     return Response.json(DEFAULT_SETTINGS, { headers: corsHeaders });
   }
 
+  // Customer-pays is Plus-only. If the stored plan tier is a known non-Plus
+  // value, report merchant-pays to the storefront so widgets never offer a
+  // customer charge even if the saved payer is still "customer" (e.g. set
+  // before the store's plan was detected). "unknown" keeps the saved value.
+  const nonPlus =
+    settings.planTier === "standard" || settings.planTier === "dev";
+  const protectionPayer = nonPlus ? "merchant" : settings.protectionPayer;
+
   return Response.json(
     {
       badgesEnabled: settings.badgesEnabled,
       badgeStyle: settings.badgeStyle,
       showOnProduct: settings.showOnProduct,
       showOnCart: settings.showOnCart,
-      protectionPayer: settings.protectionPayer,
+      protectionPayer,
       enabledClaimTypes: settings.enabledClaimTypes.split(",").filter(Boolean),
       protectionFeeType: settings.protectionFeeType,
       protectionFlatFeeCents: settings.protectionFlatFeeCents,
