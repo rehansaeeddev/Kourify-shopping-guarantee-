@@ -51,6 +51,24 @@ function Extension() {
     };
   }, []);
 
+  // Under merchant-pays the customer must never be charged for protection. If a
+  // protection line is already in the cart (e.g. added while the store was on
+  // customer-pays, before the merchant switched), remove it so a stale cart
+  // self-cleans at checkout instead of charging the shopper.
+  useEffect(() => {
+    if (payer !== "merchant" || !variant) return;
+    const line = shopify.lines.value.find(
+      (cartLine) => cartLine.merchandise.id === variant.id,
+    );
+    if (line && shopify.instructions.value.lines.canRemoveCartLine) {
+      shopify.applyCartLinesChange({
+        type: "removeCartLine",
+        id: line.id,
+        quantity: line.quantity,
+      });
+    }
+  }, [payer, variant]);
+
   if (loading) return null;
 
   if (!enabled) return null;
