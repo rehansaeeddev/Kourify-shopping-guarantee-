@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
 
+type Variant = "primary" | "secondary" | "gradient";
+
 type AppButtonProps = {
-  variant?: "primary" | "secondary" | "gradient";
+  variant?: Variant;
   type?: "button" | "submit" | "reset";
   href?: string;
   disabled?: boolean;
@@ -12,35 +14,69 @@ type AppButtonProps = {
   children?: ReactNode;
 };
 
-export function AppButton({ variant = "primary", type, href, disabled, onClick, command, commandFor, slot, children }: AppButtonProps) {
-  if (variant === "gradient") {
-    const Tag = href ? "a" : "button";
+// "gradient" is kept as an alias for the primary CTA for backward compatibility.
+const VARIANT_CLASS: Record<Variant, string> = {
+  primary: "app-btn app-btn--primary",
+  gradient: "app-btn app-btn--primary",
+  secondary: "app-btn app-btn--secondary",
+};
+
+export function AppButton({
+  variant = "primary",
+  type,
+  href,
+  disabled,
+  onClick,
+  command,
+  commandFor,
+  slot,
+  children,
+}: AppButtonProps) {
+  // Buttons that drive a Polaris modal via command/commandFor must stay
+  // s-button — that behaviour only exists on the web component.
+  if (command || commandFor) {
     return (
-      <Tag
-        className="app-btn-gradient"
-        href={href}
+      <s-button
+        variant={variant === "gradient" ? "primary" : variant}
         type={href ? undefined : (type ?? "button")}
+        href={href}
         disabled={disabled}
         onClick={onClick as never}
-        slot={slot}
+        command={command as never}
+        commandFor={commandFor}
+        slot={slot as never}
       >
         {children}
-      </Tag>
+      </s-button>
+    );
+  }
+
+  const className =
+    VARIANT_CLASS[variant] + (disabled ? " app-btn--disabled" : "");
+
+  // A disabled link isn't inert, so render disabled buttons as <button>.
+  if (href && !disabled) {
+    return (
+      <a
+        className={className}
+        href={href}
+        slot={slot}
+        onClick={onClick as never}
+      >
+        {children}
+      </a>
     );
   }
 
   return (
-    <s-button
-      variant={variant}
-      type={href ? undefined : (type ?? "button")}
-      href={href}
+    <button
+      className={className}
+      type={type ?? "button"}
       disabled={disabled}
       onClick={onClick as never}
-      command={command as never}
-      commandFor={commandFor}
-      slot={slot as never}
+      slot={slot}
     >
       {children}
-    </s-button>
+    </button>
   );
 }
