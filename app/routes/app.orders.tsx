@@ -613,9 +613,15 @@ export default function Orders() {
             <input type="hidden" name="orderId" value={fulfillmentOrder.id} />
             <input type="hidden" name="confirmed" value="true" />
             <s-stack gap="base">
-              <s-text-field label="Tracking number" name="trackingNumber" />
-              <s-text-field label="Shipping carrier" name="trackingCompany" />
-              <s-text-field label="Tracking URL" name="trackingUrl" />
+              <div style={{ maxInlineSize: "360px" }}>
+                <s-text-field label="Tracking number" name="trackingNumber" />
+              </div>
+              <div style={{ maxInlineSize: "360px" }}>
+                <s-text-field label="Shipping carrier" name="trackingCompany" />
+              </div>
+              <div style={{ maxInlineSize: "420px" }}>
+                <s-text-field label="Tracking URL" name="trackingUrl" />
+              </div>
               <s-checkbox
                 label="Notify the customer"
                 name="notifyCustomer"
