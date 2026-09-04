@@ -5,9 +5,12 @@ const STATUS_LABEL: Record<string, string> = {
   denied: "Denied",
 };
 
-const STATUS_TONE: Record<string, "critical" | "warning" | "success" | "neutral"> = {
-  submitted: "warning",
-  reviewing: "neutral",
+const STATUS_TONE: Record<
+  string,
+  "critical" | "warning" | "success" | "neutral" | "info"
+> = {
+  submitted: "info",
+  reviewing: "warning",
   resolved: "success",
   denied: "critical",
 };
