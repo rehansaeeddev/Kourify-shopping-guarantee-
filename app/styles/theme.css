@@ -417,6 +417,57 @@ body {
   margin-top: 0.9rem;
 }
 
+/* ---- Trust badge preview (mirrors extensions/kourify-badges) ---- */
+.app-badge-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.app-badge-preview__frame {
+  padding: 14px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-white);
+}
+
+.app-tb {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  width: fit-content;
+}
+
+.app-tb--classic {
+  background: #f4f6f8;
+  color: #202223;
+  border: 1px solid #c9cccf;
+}
+
+.app-tb--minimal {
+  background: transparent;
+  color: #202223;
+}
+
+.app-tb--bold {
+  background: #008060;
+  color: #ffffff;
+}
+
+.app-tb__icon {
+  flex-shrink: 0;
+  display: block;
+}
+
+.app-tb--bold .app-tb__icon {
+  background: #ffffff;
+  border-radius: 999px;
+  padding: 2px;
+}
+
 /* ---- Workspace tabs (Orders / Claims / Order sync) ---- */
 .app-tabs {
   display: flex;

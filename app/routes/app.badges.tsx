@@ -38,11 +38,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     : "classic";
   const showOnProduct = formData.get("showOnProduct") === "true";
   const showOnCart = formData.get("showOnCart") === "true";
-  const storefrontFallbackLanguage =
-    formData.get("storefrontFallbackLanguage") === "fr" ? "fr" : "en";
-  const storefrontLanguages = ["en", "fr"]
-    .filter((language) => formData.get(`language_${language}`) === "true")
-    .join(",");
+  // Language availability/fallback are managed on the Languages page, not here,
+  // so this action deliberately leaves those fields untouched.
 
   const settings = await db.merchantSettings.update({
     where: { shop: session.shop },
@@ -51,8 +48,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       badgeStyle,
       showOnProduct,
       showOnCart,
-      storefrontFallbackLanguage,
-      storefrontLanguages: storefrontLanguages || storefrontFallbackLanguage,
     },
   });
 
@@ -76,9 +71,6 @@ export default function Badges() {
         badgeStyle: next.badgeStyle,
         showOnProduct: String(next.showOnProduct),
         showOnCart: String(next.showOnCart),
-        storefrontFallbackLanguage: next.storefrontFallbackLanguage,
-        language_en: String(next.storefrontLanguages.split(",").includes("en")),
-        language_fr: String(next.storefrontLanguages.split(",").includes("fr")),
       },
       { method: "POST" },
     );
@@ -128,6 +120,35 @@ export default function Badges() {
             </div>
           </s-stack>
 
+          <div className="app-badge-preview">
+            <s-text color="subdued">Preview — what shoppers see</s-text>
+            <div className="app-badge-preview__frame">
+              <span className={`app-tb app-tb--${current.badgeStyle}`}>
+                <svg
+                  className="app-tb__icon"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M12 2 4 5v6c0 5.25 3.4 9.74 8 11 4.6-1.26 8-5.75 8-11V5l-8-3Z"
+                    fill="#065f46"
+                  />
+                  <path
+                    d="M8.3 12.1l2.3 2.3 5-5"
+                    stroke="#fff"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <span>Guaranteed Safe Checkout</span>
+              </span>
+            </div>
+          </div>
+
           <s-checkbox
             label="Show on product pages"
             checked={current.showOnProduct}
@@ -143,56 +164,6 @@ export default function Badges() {
         </s-stack>
 
         {isSaving && <s-paragraph>Saving…</s-paragraph>}
-      </Card>
-
-      <Card heading="Storefront languages">
-        <s-stack direction="block" gap="base">
-          <s-paragraph>
-            The protection widget and claim form follow the customer&apos;s
-            active Shopify language. Choose which translations are available and
-            the fallback used when a translation is unavailable.
-          </s-paragraph>
-          <s-checkbox
-            label="English"
-            checked={current.storefrontLanguages.split(",").includes("en")}
-            onChange={(event) => {
-              const languages = new Set(
-                current.storefrontLanguages.split(",").filter(Boolean),
-              );
-              event.currentTarget.checked
-                ? languages.add("en")
-                : languages.delete("en");
-              save({ storefrontLanguages: [...languages].join(",") });
-            }}
-          />
-          <s-checkbox
-            label="French"
-            checked={current.storefrontLanguages.split(",").includes("fr")}
-            onChange={(event) => {
-              const languages = new Set(
-                current.storefrontLanguages.split(",").filter(Boolean),
-              );
-              event.currentTarget.checked
-                ? languages.add("fr")
-                : languages.delete("fr");
-              save({ storefrontLanguages: [...languages].join(",") });
-            }}
-          />
-          <div style={{ maxInlineSize: "260px" }}>
-            <s-select
-              label="Fallback language"
-              value={current.storefrontFallbackLanguage}
-              onChange={(event) =>
-                save({
-                  storefrontFallbackLanguage: event.currentTarget.value ?? "en",
-                })
-              }
-            >
-              <s-option value="en">English</s-option>
-              <s-option value="fr">French</s-option>
-            </s-select>
-          </div>
-        </s-stack>
       </Card>
 
       <s-section slot="aside" heading="Add the badge to your theme">
