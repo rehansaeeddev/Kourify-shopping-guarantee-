@@ -16,6 +16,7 @@ import { riskLevelFromRecommendation } from "../lib/order-risk";
 import { isRateLimited } from "../lib/rate-limit.server";
 import { authenticate } from "../shopify.server";
 import { WorkspaceTabs } from "../components/WorkspaceTabs";
+import { getWorkspaceCounts } from "../lib/workspace-counts.server";
 
 type SyncResult = {
   ok: boolean;
@@ -60,10 +61,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }),
   ]);
 
+  const workspaceCounts = await getWorkspaceCounts(session.shop);
+
   return {
     orderCount,
     lastUpdatedAt: latestOrder?.updatedAt.toISOString() ?? null,
     orderSyncEnabled: process.env.ORDER_SYNC_ENABLED === "true",
+    workspaceCounts,
   };
 };
 
@@ -178,7 +182,7 @@ export const action = async ({
 };
 
 export default function OrderSync() {
-  const { orderCount, lastUpdatedAt, orderSyncEnabled } =
+  const { orderCount, lastUpdatedAt, orderSyncEnabled, workspaceCounts } =
     useLoaderData<typeof loader>();
   const syncFetcher = useFetcher<SyncResult>();
   const syncing = syncFetcher.state !== "idle";
@@ -207,7 +211,13 @@ export default function OrderSync() {
           </AppButton>
         }
       />
-      <WorkspaceTabs active="order-sync" />
+      <WorkspaceTabs
+        active="order-sync"
+        counts={{
+          orders: workspaceCounts.ordersNeedingAction,
+          claims: workspaceCounts.openClaims,
+        }}
+      />
 
       <Card heading="Sync status">
         <div className="app-card-row">

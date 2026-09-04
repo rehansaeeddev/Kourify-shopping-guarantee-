@@ -12,6 +12,7 @@ import { sendProtectionOffer } from "../lib/notify.server";
 import { isRateLimited } from "../lib/rate-limit.server";
 import { authenticate } from "../shopify.server";
 import { WorkspaceTabs } from "../components/WorkspaceTabs";
+import { getWorkspaceCounts } from "../lib/workspace-counts.server";
 import { useFetcherToast } from "../hooks/useFetcherToast";
 
 const FILTERS = ["all", "protected", "unprotected"] as const;
@@ -71,10 +72,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       return true;
     });
 
+  const workspaceCounts = await getWorkspaceCounts(session.shop);
+
   return {
     rows,
     filter,
     currency,
+    workspaceCounts,
     counts: {
       all: orders.length,
       protected: orders.filter((order) => protectedById.has(order.id)).length,
@@ -401,7 +405,8 @@ function offerExpiryLabel(iso: string | null): string | null {
 }
 
 export default function Orders() {
-  const { rows, filter, counts, currency } = useLoaderData<typeof loader>();
+  const { rows, filter, counts, currency, workspaceCounts } =
+    useLoaderData<typeof loader>();
   const offerFetcher = useFetcher<typeof action>();
   const [fulfillmentOrder, setFulfillmentOrder] = useState<{
     id: string;
@@ -418,7 +423,13 @@ export default function Orders() {
         title="Orders"
         subtitle="See which Shopify orders include Kourify protection and which remain unprotected."
       />
-      <WorkspaceTabs active="orders" />
+      <WorkspaceTabs
+        active="orders"
+        counts={{
+          orders: workspaceCounts.ordersNeedingAction,
+          claims: workspaceCounts.openClaims,
+        }}
+      />
 
       <div className="app-card-row" style={{ marginBlock: "1.25rem" }}>
         <StatTile icon="order" label="Orders" value={String(counts.all)} />

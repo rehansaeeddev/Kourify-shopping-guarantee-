@@ -427,11 +427,29 @@ body {
 
 .app-tab {
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   padding: 0.6rem 0;
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--color-muted);
   text-decoration: none;
+}
+
+.app-tab__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: var(--color-white);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1;
 }
 
 .app-tab:hover {
