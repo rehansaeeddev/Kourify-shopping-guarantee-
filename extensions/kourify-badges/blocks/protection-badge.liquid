@@ -1,0 +1,62 @@
+<div
+  class="kourify-protection-badge"
+  data-kourify-protection-badge
+  data-logo-url="{{ 'kourify-logo.png' | asset_url }}"
+  data-text-merchant="{{ block.settings.merchant_text | escape }}"
+  data-text-customer="{{ block.settings.customer_text | escape }}"
+  data-show-customer="{% if block.settings.show_when_customer_pays %}1{% else %}0{% endif %}"
+  style="--kourify-accent: {{ block.settings.accent_color }}; display: none;"
+>
+  <span class="kourify-protection-badge__icon">
+    <img
+      src="{{ 'kourify-logo.png' | asset_url }}"
+      width="16"
+      height="16"
+      alt=""
+      style="display:block;object-fit:contain;"
+    />
+  </span>
+  <span class="kourify-protection-badge__text" data-kourify-badge-text>
+    {{ block.settings.merchant_text }}
+  </span>
+</div>
+
+{{ 'kourify-protection.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'kourify-protection.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Kourify Protection Badge",
+  "target": "section",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "A compact badge that reassures shoppers this order is protected. Place it next to the product title or price. It shows automatically based on who pays for protection."
+    },
+    {
+      "type": "text",
+      "id": "merchant_text",
+      "label": "Message when you cover protection",
+      "default": "This order is protected — free coverage for loss, damage & theft."
+    },
+    {
+      "type": "text",
+      "id": "customer_text",
+      "label": "Message when the customer pays",
+      "default": "Optional protection available at checkout."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_when_customer_pays",
+      "label": "Show the badge when the customer pays",
+      "default": true
+    },
+    {
+      "type": "color",
+      "id": "accent_color",
+      "label": "Accent color",
+      "default": "#008060"
+    }
+  ]
+}
+{% endschema %}

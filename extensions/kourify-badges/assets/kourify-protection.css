@@ -14,6 +14,36 @@
   max-width: 480px;
 }
 
+/* Compact informational protection badge (protection-badge.liquid). */
+.kourify-protection-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--kourify-accent-dark, #065f46);
+  background: var(--kourify-accent-light, #e8f5ef);
+  border: 1px solid var(--kourify-accent, #008060);
+  border-radius: 999px;
+  padding: 8px 14px;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.kourify-protection-badge__icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  background: #ffffff;
+  border-radius: 999px;
+  padding: 2px;
+}
+
+.kourify-protection-badge__text {
+  min-width: 0;
+}
+
 .kourify-protection__eyebrow,
 .kourify-protection__tag {
   display: inline-flex;

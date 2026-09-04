@@ -174,6 +174,43 @@
       });
   }
 
+  // Compact protection badge (protection-badge.liquid). Purely informational:
+  // reveals itself and picks the right message once we know who pays, and
+  // hides entirely when protection is off (or on customer-pays if opted out).
+  function inDesignMode() {
+    return Boolean(window.Shopify && window.Shopify.designMode);
+  }
+
+  function applyBadgeState(settings) {
+    var merchantPays = settings.protectionPayer === "merchant";
+    document
+      .querySelectorAll("[data-kourify-protection-badge]")
+      .forEach(function (badge) {
+        var textEl = badge.querySelector("[data-kourify-badge-text]");
+        var showCustomer = badge.getAttribute("data-show-customer") === "1";
+
+        var visible;
+        var text;
+        if (!settings.protectionEnabled) {
+          visible = false;
+        } else if (merchantPays) {
+          visible = true;
+          text = badge.getAttribute("data-text-merchant");
+        } else if (showCustomer) {
+          visible = true;
+          text = badge.getAttribute("data-text-customer");
+        } else {
+          visible = false;
+        }
+
+        // Always show inside the theme editor so merchants can see and place it.
+        if (inDesignMode()) visible = true;
+
+        if (text && textEl) textEl.textContent = text;
+        badge.style.display = visible ? "" : "none";
+      });
+  }
+
   var currentSettings = null;
   var currentCart = null;
 
@@ -191,6 +228,7 @@
         if (settings) {
           currentSettings = settings;
           applyPayerState(settings);
+          applyBadgeState(settings);
         }
         return settings;
       });
@@ -381,15 +419,38 @@
     });
   }
 
+  // A protection badge only needs settings (no cart), so wiring it just means
+  // making sure settings are fetched and the badge state applied.
+  function wireBadge() {
+    // Reveal immediately in the editor so it doesn't look empty while settings
+    // load; on the live storefront it stays hidden until we know the state.
+    if (inDesignMode()) {
+      document
+        .querySelectorAll("[data-kourify-protection-badge]")
+        .forEach(function (badge) {
+          badge.style.display = "";
+        });
+    }
+    ensureSettingsReady().then(function () {
+      if (currentSettings) applyBadgeState(currentSettings);
+    });
+  }
+
   function scanForProtectionBlocks(root) {
     if (!root || root.nodeType !== 1) return;
     if (root.matches && root.matches("[data-kourify-protection]")) {
       wireProtectionBlock(root);
     }
+    if (root.matches && root.matches("[data-kourify-protection-badge]")) {
+      wireBadge();
+    }
     if (root.querySelectorAll) {
       root
         .querySelectorAll("[data-kourify-protection]")
         .forEach(wireProtectionBlock);
+      if (root.querySelector("[data-kourify-protection-badge]")) {
+        wireBadge();
+      }
     }
   }
 
