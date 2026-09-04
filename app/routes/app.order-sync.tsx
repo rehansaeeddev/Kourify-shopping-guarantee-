@@ -15,6 +15,7 @@ import { cacheOrder } from "../lib/order-sync.server";
 import { riskLevelFromRecommendation } from "../lib/order-risk";
 import { isRateLimited } from "../lib/rate-limit.server";
 import { authenticate } from "../shopify.server";
+import { WorkspaceTabs } from "../components/WorkspaceTabs";
 
 type SyncResult = {
   ok: boolean;
@@ -206,6 +207,7 @@ export default function OrderSync() {
           </AppButton>
         }
       />
+      <WorkspaceTabs active="order-sync" />
 
       <Card heading="Sync status">
         <div className="app-card-row">

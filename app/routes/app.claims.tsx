@@ -12,6 +12,7 @@ import { issueTypeLabel } from "../lib/claim-issue-type";
 import { EVIDENCE_REQUIRED_TYPES } from "../lib/claim-window";
 import { notifyClaimStatusChanged } from "../lib/notify.server";
 import { isRateLimited } from "../lib/rate-limit.server";
+import { WorkspaceTabs } from "../components/WorkspaceTabs";
 
 const STATUSES = ["submitted", "reviewing", "resolved", "denied"] as const;
 const TERMINAL_STATUSES = ["resolved", "denied"];
@@ -214,10 +215,11 @@ export default function Claims() {
           </>
         }
       />
+      <WorkspaceTabs active="claims" />
 
       <div
         className="app-card-row"
-        style={{ marginTop: "1.25rem", marginBottom: "1.25rem" }}
+        style={{ marginBottom: "1.25rem" }}
       >
         <StatTile
           icon="clock"

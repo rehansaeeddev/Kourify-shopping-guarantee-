@@ -11,6 +11,7 @@ import db from "../db.server";
 import { sendProtectionOffer } from "../lib/notify.server";
 import { isRateLimited } from "../lib/rate-limit.server";
 import { authenticate } from "../shopify.server";
+import { WorkspaceTabs } from "../components/WorkspaceTabs";
 import { useFetcherToast } from "../hooks/useFetcherToast";
 
 const FILTERS = ["all", "protected", "unprotected"] as const;
@@ -416,12 +417,8 @@ export default function Orders() {
       <PageHeader
         title="Orders"
         subtitle="See which Shopify orders include Kourify protection and which remain unprotected."
-        actions={
-          <AppButton href="/app/order-sync" variant="secondary">
-            Sync orders
-          </AppButton>
-        }
       />
+      <WorkspaceTabs active="orders" />
 
       <div className="app-card-row" style={{ marginBlock: "1.25rem" }}>
         <StatTile icon="order" label="Orders" value={String(counts.all)} />
