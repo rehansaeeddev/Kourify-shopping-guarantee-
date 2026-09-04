@@ -243,6 +243,21 @@ body {
   color: var(--color-muted);
 }
 
+.app-getting-started__help {
+  margin: 0.85rem 0 0;
+  font-size: 0.8125rem;
+}
+
+.app-getting-started__help a {
+  color: var(--color-accent-dark);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.app-getting-started__help a:hover {
+  text-decoration: underline;
+}
+
 /* ---- Stat tiles ---- */
 .app-card-row {
   display: grid;

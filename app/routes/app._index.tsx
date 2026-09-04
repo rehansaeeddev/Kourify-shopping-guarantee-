@@ -72,14 +72,20 @@ export default function Index() {
         greeting={greeting}
         subtitle="Build shopper confidence from cart to delivery."
         actions={
-          <AppButton href="/app/order-sync" variant="secondary">
-            Order sync
-          </AppButton>
+          <>
+            <AppButton href="/app/guide" variant="secondary">
+              User guide
+            </AppButton>
+            <AppButton href="/app/order-sync" variant="secondary">
+              Order sync
+            </AppButton>
+          </>
         }
       />
 
       <GettingStarted
         title="Get started with Kourify"
+        help={{ label: "New here? Read the full user guide →", href: "/app/guide" }}
         steps={[
           {
             label: "Turn on trust badges",
