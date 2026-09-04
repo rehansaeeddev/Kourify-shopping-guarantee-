@@ -9,6 +9,7 @@ import { EmptyState } from "../components/EmptyState";
 import { PageHeader } from "../components/PageHeader";
 import db from "../db.server";
 import { sendProtectionOffer } from "../lib/notify.server";
+import { isRateLimited } from "../lib/rate-limit.server";
 import { authenticate } from "../shopify.server";
 import { useFetcherToast } from "../hooks/useFetcherToast";
 
@@ -88,6 +89,19 @@ const handleAction = async ({ request }: ActionFunctionArgs) => {
   const intent = String(formData.get("intent") ?? "");
   if (!["send_offer", "fulfill", "deliver"].includes(intent)) {
     return { ok: false, error: "Unknown action." };
+  }
+
+  // Per-shop throttle. send_offer is the tightest since each call emails a
+  // customer; fulfill/deliver fan out to the Shopify API.
+  const [maxRequests, windowMs] =
+    intent === "send_offer" ? [30, 10 * 60 * 1000] : [60, 60 * 1000];
+  if (
+    await isRateLimited(`orders:${intent}:${session.shop}`, maxRequests, windowMs)
+  ) {
+    return {
+      ok: false,
+      error: "Too many requests. Please wait a moment and try again.",
+    };
   }
 
   const orderId = String(formData.get("orderId") ?? "");

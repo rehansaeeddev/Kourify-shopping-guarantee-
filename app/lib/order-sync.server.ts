@@ -99,6 +99,13 @@ export async function findOrderByNumberWithCache(
     };
   }
 
+  // The order number is customer-supplied and gets interpolated into Shopify's
+  // search-query syntax, so strip anything that isn't a plausible order-name
+  // character. This blocks search-operator injection (spaces, `:`, quotes, …)
+  // that could otherwise widen the match beyond the intended order.
+  const searchable = normalized.replace(/[^A-Za-z0-9._-]/g, "");
+  if (!searchable) return null;
+
   // Cache miss — fetch from Shopify API and cache it
   const response = await admin.graphql(
     `#graphql
@@ -122,7 +129,7 @@ export async function findOrderByNumberWithCache(
         }
       }`,
     {
-      variables: { query: `name:${normalized} OR name:#${normalized}` },
+      variables: { query: `name:${searchable} OR name:#${searchable}` },
       signal: AbortSignal.timeout(GRAPHQL_TIMEOUT_MS),
     },
   );
@@ -170,8 +177,13 @@ export async function findOrderByNumberWithCache(
 }
 
 /**
- * Deletes an order from cache (called on orders/delete webhook).
+ * Deletes an order from cache (called on orders/delete webhook). Scoped by shop
+ * so a caller can only ever remove its own tenant's cached order, consistent
+ * with every other query in the app.
  */
-export async function deleteOrderFromCache(orderId: string): Promise<void> {
-  await db.order.delete({ where: { id: orderId } }).catch(() => null);
+export async function deleteOrderFromCache(
+  shop: string,
+  orderId: string,
+): Promise<void> {
+  await db.order.deleteMany({ where: { id: orderId, shop } }).catch(() => null);
 }

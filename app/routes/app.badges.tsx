@@ -30,7 +30,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const formData = await request.formData();
 
   const badgesEnabled = formData.get("badgesEnabled") === "true";
-  const badgeStyle = String(formData.get("badgeStyle") ?? "classic");
+  const requestedBadgeStyle = String(formData.get("badgeStyle") ?? "classic");
+  const badgeStyle = BADGE_STYLES.includes(
+    requestedBadgeStyle as (typeof BADGE_STYLES)[number],
+  )
+    ? requestedBadgeStyle
+    : "classic";
   const showOnProduct = formData.get("showOnProduct") === "true";
   const showOnCart = formData.get("showOnCart") === "true";
   const storefrontFallbackLanguage =

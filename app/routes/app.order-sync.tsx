@@ -13,6 +13,7 @@ import { useFetcherToast } from "../hooks/useFetcherToast";
 import db from "../db.server";
 import { cacheOrder } from "../lib/order-sync.server";
 import { riskLevelFromRecommendation } from "../lib/order-risk";
+import { isRateLimited } from "../lib/rate-limit.server";
 import { authenticate } from "../shopify.server";
 
 type SyncResult = {
@@ -81,6 +82,15 @@ export const action = async ({
 
   if (formData.get("intent") !== "sync") {
     return { ok: false, error: "Unknown action." };
+  }
+
+  // A full sync paginates the entire order history against the Shopify API, so
+  // throttle it hard per shop to avoid hammering the API / racking up cost.
+  if (await isRateLimited(`order-sync:${session.shop}`, 5, 5 * 60 * 1000)) {
+    return {
+      ok: false,
+      error: "Order sync was run too recently. Please wait a few minutes.",
+    };
   }
 
   let cursor: string | null = null;

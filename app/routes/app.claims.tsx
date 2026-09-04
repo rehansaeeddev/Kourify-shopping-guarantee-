@@ -11,6 +11,7 @@ import { StatusBadge } from "../components/StatusBadge";
 import { issueTypeLabel } from "../lib/claim-issue-type";
 import { EVIDENCE_REQUIRED_TYPES } from "../lib/claim-window";
 import { notifyClaimStatusChanged } from "../lib/notify.server";
+import { isRateLimited } from "../lib/rate-limit.server";
 
 const STATUSES = ["submitted", "reviewing", "resolved", "denied"] as const;
 const TERMINAL_STATUSES = ["resolved", "denied"];
@@ -85,6 +86,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
+
+  // Each status change can email the customer, so cap how fast one shop can
+  // fire updates to prevent a runaway loop or abusive client from flooding.
+  if (await isRateLimited(`claim-update:${session.shop}`, 120, 60 * 1000)) {
+    return { ok: false, error: "Too many updates. Please slow down." };
+  }
+
   const formData = await request.formData();
   const claimId = String(formData.get("claimId"));
   const status = String(formData.get("status"));

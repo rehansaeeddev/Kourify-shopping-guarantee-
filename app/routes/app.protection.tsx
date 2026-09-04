@@ -9,6 +9,7 @@ import { BillingStatusCard } from "../components/BillingStatusCard";
 import { useFetcherToast } from "../hooks/useFetcherToast";
 import { ALL_ISSUE_TYPES } from "../lib/claim-issue-type";
 import {
+  CLAIM_ISSUE_TYPES,
   DEFAULT_CLAIM_WINDOWS,
   parseClaimWindows,
   type ClaimWindows,
@@ -18,6 +19,23 @@ import { getProtectionAnalytics } from "../lib/protection-orders.server";
 import { getBillingState } from "../lib/billing-state.server";
 import { detectPlanTier } from "../lib/plan-tier.server";
 import { syncDynamicFee } from "../lib/cart-transform.server";
+
+// These persisted enums drive checkout/claim behaviour and (payer/feeType) the
+// Cart Transform, so never store an arbitrary client-supplied string — only a
+// value from the known set. Anything else falls back to the current setting.
+const PROTECTION_PAYERS = ["customer", "merchant"] as const;
+const PROTECTION_FEE_TYPES = ["flat", "percentage"] as const;
+
+function pickEnum<T extends readonly string[]>(
+  allowed: T,
+  value: FormDataEntryValue | null,
+  fallback: string,
+): string {
+  const candidate = String(value ?? "");
+  return (allowed as readonly string[]).includes(candidate)
+    ? candidate
+    : fallback;
+}
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session, billing, admin } = await authenticate.admin(request);
@@ -54,16 +72,44 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const { hasActiveBilling, activePlan } = await getBillingState(billing);
 
   const protectionPayer = hasActiveBilling
-    ? String(formData.get("protectionPayer") ?? "customer")
+    ? pickEnum(
+        PROTECTION_PAYERS,
+        formData.get("protectionPayer"),
+        current.protectionPayer,
+      )
     : current.protectionPayer;
+  // Keep only recognised claim types, in canonical form, so an unknown/garbage
+  // value can never reach the storefront claim form or downstream logic.
   const enabledClaimTypes = hasActiveBilling
     ? String(formData.get("enabledClaimTypes") ?? "")
+        .split(",")
+        .map((type) => type.trim())
+        .filter((type) => CLAIM_ISSUE_TYPES.includes(type))
+        .join(",")
     : current.enabledClaimTypes;
+  // Re-serialize through the validating parser (and clamp to non-negative,
+  // whole days) rather than persisting the raw client JSON.
   const claimWindows = hasActiveBilling
-    ? String(formData.get("claimWindows") ?? "")
+    ? JSON.stringify(
+        Object.fromEntries(
+          Object.entries(
+            parseClaimWindows(String(formData.get("claimWindows") ?? "")),
+          ).map(([type, window]) => [
+            type,
+            {
+              minDays: Math.max(0, Math.round(window.minDays)),
+              maxDays: Math.max(0, Math.round(window.maxDays)),
+            },
+          ]),
+        ),
+      )
     : current.claimWindows;
   const protectionFeeType = hasActiveBilling
-    ? String(formData.get("protectionFeeType") ?? "flat")
+    ? pickEnum(
+        PROTECTION_FEE_TYPES,
+        formData.get("protectionFeeType"),
+        current.protectionFeeType,
+      )
     : current.protectionFeeType;
   const protectionFlatFeeCents = hasActiveBilling
     ? Math.max(
