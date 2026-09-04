@@ -45,17 +45,21 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     where.resolvedAt = { gte: startOfToday };
   }
 
-  const [claims, allClaimsForCounts, openClaims, resolvedClaims] =
+  const [claims, emailCounts, totalClaims, openClaims, resolvedClaims] =
     await Promise.all([
       db.protectionClaim.findMany({
         where,
         orderBy: { createdAt: "desc" },
         take: 50,
       }),
-      db.protectionClaim.findMany({
+      // Per-email totals via groupBy instead of loading every claim row into
+      // memory just to tally them (which would OOM a high-volume shop).
+      db.protectionClaim.groupBy({
+        by: ["email"],
         where: { shop: session.shop },
-        select: { email: true, createdAt: true, resolvedAt: true },
+        _count: { _all: true },
       }),
+      db.protectionClaim.count({ where: { shop: session.shop } }),
       db.protectionClaim.count({
         where: {
           shop: session.shop,
@@ -71,15 +75,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     claims,
     openClaims,
     resolvedClaims,
-    totalClaims: allClaimsForCounts.length,
+    totalClaims,
     tab,
-    emailClaimNumbers: allClaimsForCounts
-      .slice()
-      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-      .reduce<Record<string, number>>((acc, c) => {
-        acc[c.email] = (acc[c.email] ?? 0) + 1;
-        return acc;
-      }, {}),
+    emailClaimNumbers: Object.fromEntries(
+      emailCounts.map((group) => [group.email, group._count._all]),
+    ),
   };
 };
 
@@ -88,6 +88,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const formData = await request.formData();
   const claimId = String(formData.get("claimId"));
   const status = String(formData.get("status"));
+  // Only accept known statuses — this value is persisted and emailed to the
+  // customer, so never trust an arbitrary form value.
+  if (!STATUSES.includes(status as (typeof STATUSES)[number])) {
+    return { ok: false, error: "Invalid status" };
+  }
 
   const existing = await db.protectionClaim.findFirst({
     where: { id: claimId, shop: session.shop },
