@@ -210,7 +210,7 @@ export const DEFAULT_TRANSLATIONS: Record<string, TranslationStrings> = {
     "promise.comms.body": "تُرسل التحديثات إلى البريد الإلكتروني للطلب.",
     "panel.eyebrow": "ضمان التسوق",
     "panel.title": "تقديم مطالبة",
-    "panel.intro": "معظم الطلبات تستغرق دقائق قليلة فقط.",
+    "panel.intro": "معظم المطالبات لا تستغرق سوى بضع دقائق.",
     "progress.aria": "تقدم المطالبة",
     "progress.order": "معلومات الطلب",
     "progress.order.short": "الطلب",
