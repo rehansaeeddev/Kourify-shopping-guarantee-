@@ -134,7 +134,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     );
   }
 
-  if (order.email && order.email.trim().toLowerCase() !== normalizedEmail) {
+  // Identity check: the submitter's email must match the order's email. If the
+  // order has no email on file (e.g. POS/guest orders), we cannot verify the
+  // submitter — reject rather than accept an unverifiable claim, otherwise
+  // anyone who guesses an order number could file under any email.
+  const orderEmail = order.email?.trim().toLowerCase() ?? "";
+  if (!orderEmail) {
+    return Response.json(
+      {
+        error:
+          "We can't automatically verify this order. Please contact the store directly to file your claim.",
+      },
+      { status: 400 },
+    );
+  }
+  if (orderEmail !== normalizedEmail) {
     return Response.json(
       {
         error:
