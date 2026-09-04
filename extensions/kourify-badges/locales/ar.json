@@ -1,0 +1,26 @@
+{
+  "protection": {
+    "guarantee": "حماية Kourify",
+    "managed": "بإدارة Kourify",
+    "learn_more": "اعرف المزيد",
+    "file_claim": "تقديم مطالبة",
+    "already_protected": "محمي بالفعل؟",
+    "provided_by": "حماية الطلب مقدَّمة من Kourify.",
+    "included": "مشمول",
+    "included_heading": "محمي دون رسوم إضافية",
+    "modal_title": "ضمان التسوق من Kourify",
+    "modal_description": "أضف الحماية عند الدفع، وإذا فُقد طردك أو تلف أو سُرق أثناء الشحن، فقدّم مطالبة لمراجعتها بشرياً.",
+    "modal_terms": "الحماية اختيارية وتُدار مباشرة من Kourify وليس من المتجر.",
+    "update_error": "تعذّر تحديث الحماية — يرجى المحاولة مرة أخرى.",
+    "safe_checkout": "دفع آمن مضمون",
+    "coverage_up_to": "متاح للطلبات حتى {{ amount }}."
+  },
+  "ratings": {
+    "stars": {
+      "label": "التقييمات"
+    },
+    "home": {
+      "recommendationText": "منتج موصى به!"
+    }
+  }
+}
