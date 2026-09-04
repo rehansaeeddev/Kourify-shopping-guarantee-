@@ -25,6 +25,7 @@ export const DEFAULT_TRANSLATIONS: Record<string, TranslationStrings> = {
   en: {
     "doc.title": "File a claim · Kourify",
     "brand": "Kourify",
+    "lang.aria": "Language",
 
     "hero.title": "Protection that follows through.",
     "hero.subtitle":
@@ -109,6 +110,8 @@ export const DEFAULT_TRANSLATIONS: Record<string, TranslationStrings> = {
   },
   fr: {
     "doc.title": "Déposer une réclamation · Kourify",
+    "brand": "Kourify",
+    "lang.aria": "Langue",
 
     "hero.title": "Une protection qui tient ses promesses.",
     "hero.subtitle":
@@ -199,6 +202,8 @@ export const DEFAULT_TRANSLATIONS: Record<string, TranslationStrings> = {
   // review them before heavy production use. Merchants can edit any string.
   ar: {
     "doc.title": "تقديم مطالبة · Kourify",
+    "brand": "Kourify",
+    "lang.aria": "اللغة",
     "hero.title": "حماية تفي بوعدها.",
     "hero.subtitle":
       "عندما لا يسير التوصيل كما هو مخطط، أخبرنا بما حدث. سيراجع شخص حقيقي مطالبتك ويتابع معك عبر البريد الإلكتروني.",
@@ -268,6 +273,8 @@ export const DEFAULT_TRANSLATIONS: Record<string, TranslationStrings> = {
   },
   hi: {
     "doc.title": "दावा दर्ज करें · Kourify",
+    "brand": "Kourify",
+    "lang.aria": "भाषा",
     "hero.title": "सुरक्षा जो निभाती है।",
     "hero.subtitle":
       "जब डिलीवरी योजना के अनुसार न हो, तो हमें बताएं कि क्या हुआ। एक वास्तविक व्यक्ति आपके दावे की समीक्षा करेगा और ईमेल द्वारा संपर्क करेगा।",

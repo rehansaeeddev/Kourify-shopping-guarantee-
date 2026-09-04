@@ -13,7 +13,9 @@ import { isRateLimited, clientIpFromRequest } from "../lib/rate-limit.server";
 import { notifyClaimSubmitted } from "../lib/notify.server";
 
 const MAX_BODY_BYTES = 8 * 1024 * 1024; // ~8MB, enough headroom for a 5MB image base64-encoded
-const MAX_EVIDENCE_BASE64_CHARS = 7 * 1024 * 1024; // ~5MB raw image, base64-encoded (~1.33x inflation)
+// 5 MB raw (what the client enforces and the UI promises), base64-inflated ~1.34x
+// plus a little slack for the data: URI prefix. Keeps client and server in sync.
+const MAX_EVIDENCE_BASE64_CHARS = Math.ceil((5 * 1024 * 1024 * 4) / 3) + 1024;
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   if (request.method !== "POST") {
