@@ -26,6 +26,7 @@ export default function App() {
         <s-link href="/app/claims">Claims</s-link>
         <s-link href="/app/translations">Languages</s-link>
         <s-link href="/app/order-sync">Order sync</s-link>
+        <s-link href="/app/guide">User guide</s-link>
       </s-app-nav>
       <ToastProvider>
         <Outlet />
