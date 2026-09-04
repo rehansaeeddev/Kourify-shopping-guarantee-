@@ -11,7 +11,9 @@
     "modal_title": "Kourify Shopping Guarantee",
     "modal_description": "Add protection at checkout and, if your package is lost, damaged, or stolen in transit, submit a claim for human review.",
     "modal_terms": "Protection is optional and is managed directly by Kourify, not the store.",
-    "update_error": "Couldn't update protection — please try again."
+    "update_error": "Couldn't update protection — please try again.",
+    "safe_checkout": "Guaranteed Safe Checkout",
+    "coverage_up_to": "Available for orders up to {{ amount }}."
   },
   "ratings": {
     "stars": {

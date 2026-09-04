@@ -15,8 +15,13 @@
     container.classList.add(
       "kourify-trust-badge--" + (settings.badgeStyle || "classic"),
     );
-    container.innerHTML =
-      ICON + "<span>Guaranteed Safe Checkout</span>";
+    // Label is localized in Liquid (data-label). Build the span with
+    // textContent so a translated string can never inject markup.
+    var label =
+      container.getAttribute("data-label") || "Guaranteed Safe Checkout";
+    container.innerHTML = ICON + "<span></span>";
+    var span = container.querySelector("span");
+    if (span) span.textContent = label;
   }
 
   function init() {
