@@ -21,11 +21,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const orderEmail = ((data.email as string) ??
     ((data.contact as Record<string, unknown>)?.email as string) ??
     "") as string;
-  const customer = (data.customer as Record<string, unknown> | null) ?? null;
-  const customerName = customer
-    ? [customer.first_name, customer.last_name].filter(Boolean).join(" ") ||
-      null
-    : null;
   const totalPrice = (data.total_price as string | null) ?? null;
 
   try {
@@ -33,7 +28,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       id: orderId,
       name: orderName,
       email: orderEmail,
-      customerName,
+      // customerName requires Protected Customer Data approval; omitted until granted.
+      customerName: null,
       status: "pending",
       riskLevel: null,
       shippedAt: null, // Will be set when fulfillment is created
