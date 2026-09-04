@@ -9,3 +9,10 @@ allowBuilds:
   esbuild: true
   prisma: true
   unrs-resolver: true
+# Dependency overrides live here (not in package.json): pnpm 11 reads workspace
+# config from this file, and the Shopify CLI's install ignores package.json
+# overrides. onetime is pinned to its last CJS release so graphql-code-generator's
+# restore-cursor dep gets a callable require('onetime') instead of the ESM v6.
+overrides:
+  p-map: ^4.0.0
+  onetime: 5.1.2

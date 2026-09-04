@@ -65,9 +65,5 @@
   "trustedDependencies": [
     "@shopify/plugin-cloudflare"
   ],
-  "overrides": {
-    "p-map": "^4.0.0",
-    "onetime": "5.1.2"
-  },
   "author": "apple"
 }
