@@ -1,0 +1,34 @@
+{
+  "cart": {
+    "lines": [
+      {
+        "id": "gid://shopify/CartLine/1",
+        "quantity": 2,
+        "cost": { "amountPerQuantity": { "amount": "50.00" } },
+        "merchandise": {
+          "__typename": "ProductVariant",
+          "id": "gid://shopify/ProductVariant/999"
+        }
+      },
+      {
+        "id": "gid://shopify/CartLine/2",
+        "quantity": 1,
+        "cost": { "amountPerQuantity": { "amount": "0.00" } },
+        "merchandise": {
+          "__typename": "ProductVariant",
+          "id": "gid://shopify/ProductVariant/123"
+        }
+      }
+    ]
+  },
+  "cartTransform": {
+    "metafield": {
+      "jsonValue": {
+        "percentBasisPoints": 200,
+        "minCents": 99,
+        "maxCents": 999,
+        "variantId": "gid://shopify/ProductVariant/123"
+      }
+    }
+  }
+}

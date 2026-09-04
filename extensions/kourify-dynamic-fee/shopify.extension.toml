@@ -1,0 +1,21 @@
+api_version = "2026-07"
+
+[[extensions]]
+name = "t:name"
+handle = "kourify-dynamic-fee"
+type = "function"
+uid = "0c42c721-5260-a38f-9964-5980a4582d488274970e"
+description = "t:description"
+
+  [[extensions.targeting]]
+  target = "cart.transform.run"
+  input_query = "src/cart_transform_run.graphql"
+  export = "cart-transform-run"
+
+  [extensions.build]
+  command = ""
+  path = "dist/function.wasm"
+
+  [extensions.ui.paths]
+  create = "/"
+  details = "/"
