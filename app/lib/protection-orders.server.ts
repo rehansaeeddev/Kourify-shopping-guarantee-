@@ -86,7 +86,12 @@ export async function recordProtectionSelection(
 export async function getProtectionAnalytics(shop: string) {
   const [protectedOrders, usage, revenue] = await Promise.all([
     db.protectedOrder.count({ where: { shop, customerSelected: true } }),
-    db.usageEvent.aggregate({ where: { shop }, _sum: { amountCents: true } }),
+    // Only count fees actually charged — pending/failed/waived events would
+    // otherwise inflate the reported usage total.
+    db.usageEvent.aggregate({
+      where: { shop, status: "billed" },
+      _sum: { amountCents: true },
+    }),
     db.protectedOrder.aggregate({
       where: { shop, customerSelected: true },
       _sum: { protectionPriceCents: true },
