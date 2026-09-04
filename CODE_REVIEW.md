@@ -1,3 +1,11 @@
+> ⚠️ **SUPERSEDED (2026-09-04).** This 2026-09-01 review is historical. Several
+> items it lists are already fixed (e.g. email delivery is now real via Resend,
+> evidence upload is validated). A newer full audit fixed all High- and
+> Medium-severity findings across GDPR redaction, claim auth, XSS, CSV injection,
+> PCD handling, billing, rate-limiting, and extension i18n/RTL — see the git
+> history from commit `186400a` onward. Treat the sections below as background,
+> not a current to-do list.
+
 # Comprehensive Code Review: Kourify Shopping Guarantee
 **Status:** Production-Ready Foundation with Actionable Improvements  
 **Date:** 2026-09-01  
