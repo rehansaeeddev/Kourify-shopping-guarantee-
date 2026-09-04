@@ -168,11 +168,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 export default function Protection() {
   const { settings, analytics, hasActiveBilling, planTier } =
     useLoaderData<typeof loader>();
-  // Percentage pricing at checkout runs via a Cart Transform, which Shopify
-  // only allows on dev + Plus stores. Only warn when we positively know the
-  // store is standard (not on "unknown", to avoid a false alarm).
+  // Percentage pricing at checkout runs via a Cart Transform price override,
+  // which only takes effect on Shopify Plus. Warn whenever we positively know
+  // the store isn't Plus (skip "unknown" to avoid a false alarm).
   const percentageUnsupported =
-    planTier === "standard" && settings.protectionFeeType === "percentage";
+    planTier !== "plus" &&
+    planTier !== "unknown" &&
+    settings.protectionFeeType === "percentage";
   const settingsFetcher = useFetcher<{
     settings?: typeof settings;
     error?: string;
@@ -421,10 +423,10 @@ export default function Protection() {
         )}
         {percentageUnsupported && !merchantPays && (
           <s-banner tone="warning">
-            Percentage pricing only applies at checkout on Shopify Plus and
-            development stores. On your current plan customers are charged the
-            flat fee instead — switch to a flat fee so what they pay matches
-            what's shown.
+            Percentage pricing only takes effect at checkout on Shopify Plus. On
+            your current plan customers are charged the flat fee instead — switch
+            to a flat fee so what they pay matches what's shown, or cover it
+            yourself with merchant-pays.
           </s-banner>
         )}
         <s-stack direction="block" gap="base" paddingBlockStart="base">
