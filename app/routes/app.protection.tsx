@@ -70,12 +70,22 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   const { hasActiveBilling, activePlan } = await getBillingState(billing);
 
+  // Charging the customer at checkout cleanly (Cart Transform price override)
+  // only works on Shopify Plus; on other plans it would surface as a separate
+  // product line. So customer-pays is Plus-only — a known non-Plus store is
+  // forced to merchant-pays server-side, regardless of what the form submits.
+  // "unknown" fails open so a detection hiccup can't lock a real Plus store out.
+  const planTier = await detectPlanTier(admin, session.shop);
+  const customerPaysAllowed = planTier === "plus" || planTier === "unknown";
+  const requestedPayer = pickEnum(
+    PROTECTION_PAYERS,
+    formData.get("protectionPayer"),
+    current.protectionPayer,
+  );
   const protectionPayer = hasActiveBilling
-    ? pickEnum(
-        PROTECTION_PAYERS,
-        formData.get("protectionPayer"),
-        current.protectionPayer,
-      )
+    ? customerPaysAllowed
+      ? requestedPayer
+      : "merchant"
     : current.protectionPayer;
   // Keep only recognised claim types, in canonical form, so an unknown/garbage
   // value can never reach the storefront claim form or downstream logic.
@@ -187,8 +197,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     // Reconcile the Plus/dev percentage-fee Cart Transform. No-op on standard
     // plans or flat pricing; failures here must not break the settings save.
+    // Reuses the planTier detected above.
     try {
-      const planTier = await detectPlanTier(admin, session.shop);
       await syncDynamicFee(admin, productSettings, planTier);
     } catch (dynamicFeeError) {
       console.error("[protection] dynamic fee sync failed", dynamicFeeError);
@@ -220,6 +230,8 @@ export default function Protection() {
     planTier !== "plus" &&
     planTier !== "unknown" &&
     settings.protectionFeeType === "percentage";
+  // Customer-pays checkout pricing is Plus-only; hide it on known non-Plus.
+  const customerPaysAllowed = planTier === "plus" || planTier === "unknown";
   const settingsFetcher = useFetcher<{
     settings?: typeof settings;
     error?: string;
@@ -420,6 +432,13 @@ export default function Protection() {
               Who pays for protection, and how the fee is calculated.
             </s-paragraph>
             <s-stack direction="block" gap="base" paddingBlockStart="base">
+              {!customerPaysAllowed && (
+                <s-banner tone="info">
+                  Charging customers for protection at checkout requires Shopify
+                  Plus. On your plan you cover protection for every order — free
+                  to shoppers, with no extra line at checkout.
+                </s-banner>
+              )}
               <s-stack
                 direction="inline"
                 gap="base"
@@ -431,12 +450,19 @@ export default function Protection() {
                   <s-select
                     label="Who pays"
                     labelAccessibilityVisibility="exclusive"
-                    value={currentSettings.protectionPayer}
+                    disabled={!customerPaysAllowed}
+                    value={
+                      customerPaysAllowed
+                        ? currentSettings.protectionPayer
+                        : "merchant"
+                    }
                     onChange={(e) =>
                       saveSettings({ protectionPayer: e.currentTarget.value })
                     }
                   >
-                    <s-option value="customer">Customer pays</s-option>
+                    {customerPaysAllowed && (
+                      <s-option value="customer">Customer pays</s-option>
+                    )}
                     <s-option value="merchant">
                       You pay (free to customer)
                     </s-option>

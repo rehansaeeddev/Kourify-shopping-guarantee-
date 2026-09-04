@@ -1,10 +1,10 @@
 :root {
-  --kourify-accent: #0f766e;
-  --kourify-accent-dark: #134e4a;
-  --kourify-accent-light: #dff9f4;
-  --kourify-accent-soft: #e9fff8;
+  --kourify-accent: #008060;
+  --kourify-accent-dark: #065f46;
+  --kourify-accent-light: #e8f5ef;
+  --kourify-accent-soft: #f2faf7;
   --kourify-amber: #f59e0b;
-  --kourify-panel-bg: #f4fbf9;
+  --kourify-panel-bg: #f6f9f8;
   --kourify-text: #11212e;
   --kourify-muted: #526270;
 }
@@ -57,22 +57,22 @@
 }
 
 .kourify-protection__tag {
-  background: linear-gradient(135deg, #f0fdf8 0%, #dffaf4 100%);
-  border: 1px solid rgba(15, 118, 110, 0.2);
-  padding: 6px 12px;
+  background: var(--kourify-accent-light);
+  border: 1px solid rgba(0, 128, 96, 0.2);
+  padding: 5px 12px;
   border-radius: 999px;
-  box-shadow: 0 8px 18px rgba(15, 118, 110, 0.08);
+  box-shadow: none;
 }
 
 .kourify-protection__card {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  background: linear-gradient(135deg, #f2fffb 0%, #ebf8f5 100%);
-  border: 1px solid rgba(15, 118, 110, 0.18);
-  border-radius: 14px;
+  background: var(--kourify-accent-soft);
+  border: 1px solid rgba(0, 128, 96, 0.18);
+  border-radius: 12px;
   padding: 14px 16px;
-  box-shadow: 0 12px 28px rgba(28, 80, 75, 0.06);
+  box-shadow: none;
 }
 
 .kourify-protection__option {
