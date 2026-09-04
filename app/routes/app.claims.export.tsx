@@ -3,7 +3,14 @@ import { authenticate } from "../shopify.server";
 import db from "../db.server";
 
 function csvEscape(value: string): string {
-  if (/[",\n]/.test(value)) {
+  // Neutralize spreadsheet formula injection: a cell starting with =, +, -, @,
+  // tab, or carriage return is executed as a formula by Excel/Sheets. Several
+  // columns here (name, email, order number) are customer-submitted, so prefix
+  // any such cell with a single quote before quoting.
+  if (/^[=+\-@\t\r]/.test(value)) {
+    value = `'${value}`;
+  }
+  if (/[",\n\r]/.test(value)) {
     return `"${value.replace(/"/g, '""')}"`;
   }
   return value;
