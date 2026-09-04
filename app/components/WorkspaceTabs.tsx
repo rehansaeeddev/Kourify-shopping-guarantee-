@@ -1,3 +1,5 @@
+import { Link } from "react-router";
+
 type Active = "orders" | "claims" | "order-sync";
 
 const TABS: Array<{ id: Active; label: string; href: string }> = [
@@ -15,14 +17,14 @@ export function WorkspaceTabs({ active }: { active: Active }) {
   return (
     <nav className="app-tabs" aria-label="Orders, claims and order sync">
       {TABS.map((tab) => (
-        <a
+        <Link
           key={tab.id}
-          href={tab.href}
+          to={tab.href}
           className={"app-tab" + (tab.id === active ? " app-tab--active" : "")}
           aria-current={tab.id === active ? "page" : undefined}
         >
           {tab.label}
-        </a>
+        </Link>
       ))}
     </nav>
   );

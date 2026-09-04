@@ -261,6 +261,7 @@ export default function Claims() {
           <AppButton
             href={`/app/claims/export?${exportParams.toString()}`}
             variant="secondary"
+            download
           >
             Export CSV
           </AppButton>

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Link } from "react-router";
 
 type Variant = "primary" | "secondary" | "gradient";
 
@@ -11,6 +12,8 @@ type AppButtonProps = {
   command?: string;
   commandFor?: string;
   slot?: string;
+  /** Force a full-document anchor (e.g. a file download) instead of SPA nav. */
+  download?: boolean;
   children?: ReactNode;
 };
 
@@ -21,6 +24,12 @@ const VARIANT_CLASS: Record<Variant, string> = {
   secondary: "app-btn app-btn--secondary",
 };
 
+// shopify://, http(s):, mailto: etc. — anything with a URL scheme is external
+// and must be a plain anchor (App Bridge intercepts shopify:// clicks).
+function hasScheme(href: string): boolean {
+  return /^[a-zA-Z][\w+.-]*:/.test(href);
+}
+
 export function AppButton({
   variant = "primary",
   type,
@@ -30,6 +39,7 @@ export function AppButton({
   command,
   commandFor,
   slot,
+  download,
   children,
 }: AppButtonProps) {
   // Buttons that drive a Polaris modal via command/commandFor must stay
@@ -54,17 +64,31 @@ export function AppButton({
   const className =
     VARIANT_CLASS[variant] + (disabled ? " app-btn--disabled" : "");
 
-  // A disabled link isn't inert, so render disabled buttons as <button>.
   if (href && !disabled) {
+    // External links and downloads use a real anchor; internal app routes use
+    // React Router's Link so navigation stays client-side and keeps the
+    // embedded App Bridge session (a full <a> nav bounces to auth/home).
+    if (download || hasScheme(href)) {
+      return (
+        <a
+          className={className}
+          href={href}
+          slot={slot}
+          onClick={onClick as never}
+        >
+          {children}
+        </a>
+      );
+    }
     return (
-      <a
+      <Link
         className={className}
-        href={href}
+        to={href}
         slot={slot}
         onClick={onClick as never}
       >
         {children}
-      </a>
+      </Link>
     );
   }
 

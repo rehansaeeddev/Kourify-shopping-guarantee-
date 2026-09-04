@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router";
 import { Card } from "./Card";
 import { AppButton } from "./AppButton";
 
@@ -105,7 +106,7 @@ export function GettingStarted({
         ) : null}
         {help ? (
           <p className="app-getting-started__help">
-            <a href={help.href}>{help.label}</a>
+            <Link to={help.href}>{help.label}</Link>
           </p>
         ) : null}
       </div>
