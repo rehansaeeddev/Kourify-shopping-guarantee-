@@ -19,7 +19,13 @@ module.exports = {
     commonjs: true,
     es6: true,
   },
-  ignorePatterns: ["!**/.server", "!**/.client"],
+  ignorePatterns: [
+    "!**/.server",
+    "!**/.client",
+    // Shopify Function extension: self-contained (own vitest + CLI build/typegen),
+    // runs in a Node/function context this React-app config isn't meant for.
+    "extensions/kourify-dynamic-fee/**",
+  ],
 
   // Base config
   extends: ["eslint:recommended"],

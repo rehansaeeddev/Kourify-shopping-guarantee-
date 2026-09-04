@@ -57,6 +57,8 @@ model MerchantSettings {
   storefrontLanguages        String @default("en,fr")
   protectionProductId       String?
   protectionVariantId       String?
+  planTier                  String  @default("unknown") // unknown | standard | plus | dev
+  cartTransformId           String? // gid of the active Cart Transform (percentage fee), if any
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }
