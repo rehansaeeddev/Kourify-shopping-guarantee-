@@ -16,9 +16,11 @@ import {
 import { syncProtectionProduct } from "../lib/protection-product.server";
 import { getProtectionAnalytics } from "../lib/protection-orders.server";
 import { getBillingState } from "../lib/billing-state.server";
+import { detectPlanTier } from "../lib/plan-tier.server";
+import { syncDynamicFee } from "../lib/cart-transform.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session, billing } = await authenticate.admin(request);
+  const { session, billing, admin } = await authenticate.admin(request);
 
   const settings = await db.merchantSettings.upsert({
     where: { shop: session.shop },
@@ -38,7 +40,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         })
       : settings;
   const analytics = await getProtectionAnalytics(session.shop);
-  return { settings: currentSettings, analytics, hasActiveBilling };
+  const planTier = await detectPlanTier(admin, session.shop);
+  return { settings: currentSettings, analytics, hasActiveBilling, planTier };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -136,6 +139,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             protectionFlatFeeCents,
           )
         : settings;
+
+    // Reconcile the Plus/dev percentage-fee Cart Transform. No-op on standard
+    // plans or flat pricing; failures here must not break the settings save.
+    try {
+      const planTier = await detectPlanTier(admin, session.shop);
+      await syncDynamicFee(admin, productSettings, planTier);
+    } catch (dynamicFeeError) {
+      console.error("[protection] dynamic fee sync failed", dynamicFeeError);
+    }
+
     return { settings: productSettings };
   } catch (error) {
     await db.merchantSettings.update({
@@ -153,8 +166,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function Protection() {
-  const { settings, analytics, hasActiveBilling } =
+  const { settings, analytics, hasActiveBilling, planTier } =
     useLoaderData<typeof loader>();
+  // Percentage pricing at checkout runs via a Cart Transform, which Shopify
+  // only allows on dev + Plus stores. Only warn when we positively know the
+  // store is standard (not on "unknown", to avoid a false alarm).
+  const percentageUnsupported =
+    planTier === "standard" && settings.protectionFeeType === "percentage";
   const settingsFetcher = useFetcher<{
     settings?: typeof settings;
     error?: string;
@@ -399,6 +417,14 @@ export default function Protection() {
           <s-banner tone="info">
             You're covering the protection fee, so customers aren't charged and
             this pricing doesn't apply.
+          </s-banner>
+        )}
+        {percentageUnsupported && !merchantPays && (
+          <s-banner tone="warning">
+            Percentage pricing only applies at checkout on Shopify Plus and
+            development stores. On your current plan customers are charged the
+            flat fee instead — switch to a flat fee so what they pay matches
+            what's shown.
           </s-banner>
         )}
         <s-stack direction="block" gap="base" paddingBlockStart="base">
