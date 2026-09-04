@@ -8,3 +8,7 @@ allowBuilds:
   esbuild: true
   prisma: true
   unrs-resolver: true
+# core-js ships a non-essential postinstall (a funding notice). Explicitly skip
+# it so pnpm doesn't fail the install with ERR_PNPM_IGNORED_BUILDS.
+ignoredBuiltDependencies:
+  - core-js
