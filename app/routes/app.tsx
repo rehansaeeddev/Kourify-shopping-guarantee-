@@ -23,9 +23,7 @@ export default function App() {
         <s-link href="/app/badges">Trust badges</s-link>
         <s-link href="/app/protection">Protection</s-link>
         <s-link href="/app/orders">Orders</s-link>
-        <s-link href="/app/claims">Claims</s-link>
         <s-link href="/app/translations">Languages</s-link>
-        <s-link href="/app/order-sync">Order sync</s-link>
         <s-link href="/app/guide">User guide</s-link>
       </s-app-nav>
       <ToastProvider>
