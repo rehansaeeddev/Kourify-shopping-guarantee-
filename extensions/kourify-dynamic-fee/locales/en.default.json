@@ -1,4 +1,4 @@
 {
-  "name": "kourify-dynamic-fee",
-  "description": "kourify-dynamic-fee"
+  "name": "Kourify dynamic protection fee",
+  "description": "Prices the checkout protection line as a percentage of the cart subtotal (Plus/dev stores)."
 }
