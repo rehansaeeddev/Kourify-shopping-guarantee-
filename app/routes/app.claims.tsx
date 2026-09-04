@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { useState } from "react";
-import { useFetcher, useLoaderData, useSearchParams } from "react-router";
+import { Form, useFetcher, useLoaderData, useSearchParams } from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { PageHeader } from "../components/PageHeader";
@@ -29,10 +29,16 @@ function ordinal(n: number): string {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
+const PAGE_SIZE = 25;
+
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const url = new URL(request.url);
   const tab = url.searchParams.get("tab") ?? "all";
+  // Cap the search term's length; it's only ever used in parameterized
+  // `contains` filters (never string-interpolated), so it can't inject.
+  const q = (url.searchParams.get("q") ?? "").trim().slice(0, 100);
+  const page = Math.max(1, Math.floor(Number(url.searchParams.get("page")) || 1));
 
   const where: Record<string, unknown> = { shop: session.shop };
   if (tab === "requires_evidence") {
@@ -45,39 +51,61 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     where.status = { in: TERMINAL_STATUSES };
     where.resolvedAt = { gte: startOfToday };
   }
+  if (q) {
+    where.OR = [
+      { orderNumber: { contains: q } },
+      { shopifyOrderName: { contains: q } },
+      { email: { contains: q } },
+      { fullName: { contains: q } },
+    ];
+  }
 
-  const [claims, emailCounts, totalClaims, openClaims, resolvedClaims] =
-    await Promise.all([
-      db.protectionClaim.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        take: 50,
-      }),
-      // Per-email totals via groupBy instead of loading every claim row into
-      // memory just to tally them (which would OOM a high-volume shop).
-      db.protectionClaim.groupBy({
-        by: ["email"],
-        where: { shop: session.shop },
-        _count: { _all: true },
-      }),
-      db.protectionClaim.count({ where: { shop: session.shop } }),
-      db.protectionClaim.count({
-        where: {
-          shop: session.shop,
-          status: { in: ["submitted", "reviewing"] },
-        },
-      }),
-      db.protectionClaim.count({
-        where: { shop: session.shop, status: "resolved" },
-      }),
-    ]);
+  const [
+    filteredCount,
+    claims,
+    emailCounts,
+    totalClaims,
+    openClaims,
+    resolvedClaims,
+  ] = await Promise.all([
+    db.protectionClaim.count({ where }),
+    db.protectionClaim.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+    }),
+    // Per-email totals via groupBy instead of loading every claim row into
+    // memory just to tally them (which would OOM a high-volume shop).
+    db.protectionClaim.groupBy({
+      by: ["email"],
+      where: { shop: session.shop },
+      _count: { _all: true },
+    }),
+    db.protectionClaim.count({ where: { shop: session.shop } }),
+    db.protectionClaim.count({
+      where: {
+        shop: session.shop,
+        status: { in: ["submitted", "reviewing"] },
+      },
+    }),
+    db.protectionClaim.count({
+      where: { shop: session.shop, status: "resolved" },
+    }),
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredCount / PAGE_SIZE));
 
   return {
     claims,
     openClaims,
     resolvedClaims,
     totalClaims,
+    filteredCount,
     tab,
+    q,
+    page,
+    totalPages,
     emailClaimNumbers: Object.fromEntries(
       emailCounts.map((group) => [group.email, group._count._all]),
     ),
@@ -135,7 +163,11 @@ export default function Claims() {
     openClaims,
     resolvedClaims,
     totalClaims,
+    filteredCount,
     tab,
+    q,
+    page,
+    totalPages,
     emailClaimNumbers,
   } = useLoaderData<typeof loader>();
   const claimFetcher = useFetcher();
@@ -143,7 +175,25 @@ export default function Claims() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const updateStatus = (claimId: string, status: string) => {
+    // Resolving or denying emails the customer immediately, so confirm the
+    // terminal transitions — an accidental dropdown change shouldn't send mail.
+    if (TERMINAL_STATUSES.includes(status)) {
+      const message =
+        status === "resolved"
+          ? "Mark this claim resolved? The customer will be emailed that their claim was resolved."
+          : "Deny this claim? The customer will be emailed that their claim was not approved.";
+      if (!window.confirm(message)) return;
+    }
     claimFetcher.submit({ claimId, status }, { method: "POST" });
+  };
+
+  const pageHref = (targetPage: number) => {
+    const params = new URLSearchParams();
+    if (tab !== "all") params.set("tab", tab);
+    if (q) params.set("q", q);
+    if (targetPage > 1) params.set("page", String(targetPage));
+    const query = params.toString();
+    return query ? `/app/claims?${query}` : "/app/claims";
   };
 
   const exportParams = new URLSearchParams(searchParams);
@@ -214,13 +264,41 @@ export default function Claims() {
           </AppButton>
         </s-stack>
 
+        <Form method="get" className="app-search">
+          <input type="hidden" name="tab" value={tab} />
+          <input
+            type="search"
+            name="q"
+            defaultValue={q}
+            placeholder="Search order, name, or email"
+            aria-label="Search claims"
+            className="app-input"
+          />
+          <AppButton type="submit" variant="secondary">
+            Search
+          </AppButton>
+          {q ? (
+            <AppButton
+              href={tab === "all" ? "/app/claims" : `/app/claims?tab=${tab}`}
+              variant="secondary"
+            >
+              Clear
+            </AppButton>
+          ) : null}
+        </Form>
+
         {claims.length === 0 ? (
           <EmptyState
             icon="clipboard-checklist"
-            heading="No claims here"
-            description="Nothing matches this filter yet."
+            heading={q ? "No matching claims" : "No claims here"}
+            description={
+              q
+                ? `Nothing matches “${q}”. Try a different order number, name, or email.`
+                : "Nothing matches this filter yet."
+            }
           />
         ) : (
+          <>
           <s-table variant="auto">
             <s-table-header-row>
               <s-table-header>Order</s-table-header>
@@ -348,6 +426,37 @@ export default function Claims() {
               })}
             </s-table-body>
           </s-table>
+          {totalPages > 1 && (
+            <s-stack
+              direction="inline"
+              gap="base"
+              alignItems="center"
+              justifyContent="space-between"
+              paddingBlockStart="base"
+            >
+              <s-text color="subdued">
+                Page {page} of {totalPages} · {filteredCount} claim
+                {filteredCount === 1 ? "" : "s"}
+              </s-text>
+              <s-stack direction="inline" gap="small-200">
+                <AppButton
+                  variant="secondary"
+                  disabled={page <= 1}
+                  href={page > 1 ? pageHref(page - 1) : undefined}
+                >
+                  Previous
+                </AppButton>
+                <AppButton
+                  variant="secondary"
+                  disabled={page >= totalPages}
+                  href={page < totalPages ? pageHref(page + 1) : undefined}
+                >
+                  Next
+                </AppButton>
+              </s-stack>
+            </s-stack>
+          )}
+          </>
         )}
       </Card>
 
