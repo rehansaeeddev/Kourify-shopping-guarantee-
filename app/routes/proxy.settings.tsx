@@ -23,7 +23,10 @@ const DEFAULT_SETTINGS = {
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const ip = clientIpFromRequest(request);
-  if (await isRateLimited(`settings:${ip}`, 60, 60 * 1000)) {
+  // Scope by shop so an undeterminable client IP can't lock out every store.
+  const shopParam =
+    new URL(request.url).searchParams.get("shop") ?? "unknown";
+  if (await isRateLimited(`settings:${shopParam}:${ip}`, 60, 60 * 1000)) {
     return Response.json({ error: "Too many requests" }, { status: 429 });
   }
 

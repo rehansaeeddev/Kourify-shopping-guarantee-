@@ -28,8 +28,29 @@ export async function isRateLimited(
   return bucket.count > maxRequests;
 }
 
+// Single-value client-IP headers set by the edge/CDN. These are written by the
+// infrastructure (not the client), so they are trustworthy when present —
+// unlike the left-most x-forwarded-for entry, which the caller controls.
+const TRUSTED_IP_HEADERS = [
+  "cf-connecting-ip",
+  "true-client-ip",
+  "fly-client-ip",
+  "x-real-ip",
+];
+
 export function clientIpFromRequest(request: Request): string {
+  for (const header of TRUSTED_IP_HEADERS) {
+    const value = request.headers.get(header)?.trim();
+    if (value) return value;
+  }
+  // Fall back to x-forwarded-for. The left-most entry is client-supplied and
+  // spoofable; the right-most is the one appended by the closest trusted proxy,
+  // so prefer that. Callers should additionally scope the bucket key (e.g. by
+  // shop) so an absent/duplicated IP can't lock out unrelated traffic.
   const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0]!.trim();
+  if (forwarded) {
+    const parts = forwarded.split(",").map((p) => p.trim()).filter(Boolean);
+    if (parts.length) return parts[parts.length - 1]!;
+  }
   return "unknown";
 }
