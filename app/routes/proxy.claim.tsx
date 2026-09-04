@@ -29,7 +29,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   const ip = clientIpFromRequest(request);
-  if (await isRateLimited(`claim:${ip}`, 5, 10 * 60 * 1000)) {
+  // Scope the bucket by shop (from the app-proxy query) so that if the client
+  // IP can't be determined, a shared "unknown" bucket only affects one shop
+  // rather than locking every store's claim form at once.
+  const shopParam =
+    new URL(request.url).searchParams.get("shop") ?? "unknown";
+  if (await isRateLimited(`claim:${shopParam}:${ip}`, 5, 10 * 60 * 1000)) {
     return Response.json(
       {
         error:
