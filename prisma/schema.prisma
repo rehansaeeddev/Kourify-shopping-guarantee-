@@ -42,6 +42,7 @@ model MerchantSettings {
   badgeStyle        String   @default("classic") // classic | minimal | bold
   showOnProduct     Boolean  @default(true)
   showOnCart        Boolean  @default(true)
+  guaranteeTabPosition String @default("right") // right | left | bottom | top
   protectionPayer   String   @default("customer") // customer | merchant
   enabledClaimTypes String   @default("lost,damaged,stolen,shortage,concealed,wrong_item") // comma-separated
   claimWindows      String   @db.Text // JSON: { [issueType]: { minDays, maxDays } } since fulfillment

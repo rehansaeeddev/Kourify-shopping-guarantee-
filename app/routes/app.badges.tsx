@@ -10,6 +10,13 @@ import { useFetcherToast } from "../hooks/useFetcherToast";
 
 const BADGE_STYLES = ["classic", "minimal", "bold"] as const;
 
+const TAB_POSITIONS = [
+  { value: "right", label: "Right edge (vertical)" },
+  { value: "left", label: "Left edge (vertical)" },
+  { value: "bottom", label: "Bottom corner" },
+  { value: "top", label: "Top corner" },
+] as const;
+
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
 
@@ -38,6 +45,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     : "classic";
   const showOnProduct = formData.get("showOnProduct") === "true";
   const showOnCart = formData.get("showOnCart") === "true";
+  const requestedTabPosition = String(
+    formData.get("guaranteeTabPosition") ?? "right",
+  );
+  const guaranteeTabPosition = TAB_POSITIONS.some(
+    (p) => p.value === requestedTabPosition,
+  )
+    ? requestedTabPosition
+    : "right";
   // Language availability/fallback are managed on the Languages page, not here,
   // so this action deliberately leaves those fields untouched.
 
@@ -48,6 +63,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       badgeStyle,
       showOnProduct,
       showOnCart,
+      guaranteeTabPosition,
     },
   });
 
@@ -71,6 +87,7 @@ export default function Badges() {
         badgeStyle: next.badgeStyle,
         showOnProduct: String(next.showOnProduct),
         showOnCart: String(next.showOnCart),
+        guaranteeTabPosition: next.guaranteeTabPosition,
       },
       { method: "POST" },
     );
@@ -164,6 +181,39 @@ export default function Badges() {
         </s-stack>
 
         {isSaving && <s-paragraph>Saving…</s-paragraph>}
+      </Card>
+
+      <Card heading="Guarantee tab">
+        <s-stack direction="block" gap="base">
+          <s-paragraph>
+            The floating Kourify Guarantee tab shoppers use to learn about
+            protection and file claims.
+          </s-paragraph>
+          <s-stack
+            direction="inline"
+            gap="base"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <s-text>Tab position</s-text>
+            <div style={{ inlineSize: "200px", flex: "0 0 auto" }}>
+              <s-select
+                label="Tab position"
+                labelAccessibilityVisibility="exclusive"
+                value={current.guaranteeTabPosition}
+                onChange={(e) =>
+                  save({ guaranteeTabPosition: e.currentTarget.value })
+                }
+              >
+                {TAB_POSITIONS.map((pos) => (
+                  <s-option key={pos.value} value={pos.value}>
+                    {pos.label}
+                  </s-option>
+                ))}
+              </s-select>
+            </div>
+          </s-stack>
+        </s-stack>
       </Card>
 
       <s-section slot="aside" heading="Add the badge to your theme">

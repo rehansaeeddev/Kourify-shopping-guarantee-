@@ -116,6 +116,7 @@
       "</button>";
 
     document.body.appendChild(tab);
+    if (currentSettings) applyTabPosition(currentSettings);
     return tab;
   }
 
@@ -211,6 +212,26 @@
       });
   }
 
+  var TAB_POSITIONS = ["right", "left", "bottom", "top"];
+
+  // The tab's placement is a merchant setting saved in the app admin; the
+  // liquid block renders with the default class, so re-position once
+  // settings arrive.
+  function applyTabPosition(settings) {
+    var position =
+      TAB_POSITIONS.indexOf(settings.guaranteeTabPosition) !== -1
+        ? settings.guaranteeTabPosition
+        : "right";
+    document
+      .querySelectorAll("[data-kourify-guarantee-tab]")
+      .forEach(function (tab) {
+        TAB_POSITIONS.forEach(function (pos) {
+          tab.classList.remove("kourify-guarantee-tab--" + pos);
+        });
+        tab.classList.add("kourify-guarantee-tab--" + position);
+      });
+  }
+
   var currentSettings = null;
   var currentCart = null;
 
@@ -229,6 +250,7 @@
           currentSettings = settings;
           applyPayerState(settings);
           applyBadgeState(settings);
+          applyTabPosition(settings);
         }
         return settings;
       });
