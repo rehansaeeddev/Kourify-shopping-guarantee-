@@ -167,16 +167,21 @@
 }
 
 .kourify-modal {
-  background: linear-gradient(145deg, #ffffff 0%, #f7fffc 100%);
+  background:
+    radial-gradient(120% 60% at 50% 0%, rgba(13, 148, 136, 0.07) 0%, rgba(13, 148, 136, 0) 55%),
+    linear-gradient(160deg, #ffffff 0%, #f8fffd 100%);
   border-radius: 24px;
   width: min(520px, 100%);
   max-height: calc(100dvh - 48px);
   overflow-y: auto;
-  padding: 28px 30px 30px;
+  padding: 30px 32px 32px;
   position: relative;
-  box-shadow: 0 30px 80px rgba(4, 31, 29, 0.28), 0 8px 24px rgba(4, 31, 29, 0.12);
-  border: 1px solid rgba(15, 118, 110, 0.16);
-  animation: kourify-modal-in 0.2s ease-out;
+  box-shadow:
+    0 40px 90px rgba(4, 31, 29, 0.3),
+    0 12px 28px rgba(4, 31, 29, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(15, 118, 110, 0.14);
+  animation: kourify-modal-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes kourify-modal-in {
@@ -216,37 +221,48 @@
 .kourify-modal__header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 48px 14px 0;
+  gap: 14px;
+  padding-block-end: 18px;
+  padding-inline-end: 44px;
+  margin-block-end: 18px;
+  border-bottom: 1px solid rgba(15, 118, 110, 0.1);
 }
 
 .kourify-modal__header-icon {
   flex-shrink: 0;
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #dffaf4 0%, #c8f2e8 100%);
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #e5fbf5 0%, #c3f0e4 100%);
   color: var(--kourify-accent-dark);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: inset 0 0 0 1px rgba(15, 118, 110, 0.08);
+  box-shadow:
+    inset 0 0 0 1px rgba(15, 118, 110, 0.12),
+    0 6px 14px rgba(15, 118, 110, 0.12);
+}
+
+.kourify-modal__header-text {
+  min-width: 0;
 }
 
 .kourify-modal__brand {
-  font-size: 12px;
+  display: block;
+  font-size: 11px;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--kourify-accent-dark);
+  color: var(--kourify-accent);
+  margin-block-end: 2px;
 }
 
 .kourify-modal__title {
-  font-size: clamp(24px, 4vw, 30px);
-  line-height: 1.15;
+  font-size: clamp(19px, 3vw, 23px);
+  line-height: 1.2;
   font-weight: 800;
-  letter-spacing: -0.025em;
-  margin: 0 42px 12px 0;
+  letter-spacing: -0.02em;
+  margin: 0;
   color: var(--kourify-text);
 }
 
@@ -265,11 +281,13 @@
 
 .kourify-modal__body p {
   margin: 0;
-  padding: 14px 16px 14px 46px;
+  padding: 15px 18px;
+  padding-inline-start: 50px;
   position: relative;
-  background: rgba(240, 253, 250, 0.72);
-  border: 1px solid rgba(15, 118, 110, 0.1);
+  background: #ffffff;
+  border: 1px solid rgba(15, 118, 110, 0.12);
   border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(4, 31, 29, 0.04);
 }
 
 .kourify-modal__body p + p {
@@ -280,27 +298,35 @@
   content: "✓";
   position: absolute;
   inset-inline-start: 16px;
-  top: 15px;
-  width: 20px;
-  height: 20px;
+  top: 16px;
+  width: 22px;
+  height: 22px;
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: #d7f5ed;
-  color: #087568;
-  font-size: 12px;
+  background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+  color: #ffffff;
+  font-size: 11px;
   font-weight: 900;
+  box-shadow: 0 3px 8px rgba(15, 118, 110, 0.28);
 }
 
 .kourify-modal__actions {
-  margin-top: 20px;
+  margin-top: 22px;
 }
 
 .kourify-modal__actions .kourify-btn {
   width: 100%;
-  min-height: 48px;
+  min-height: 50px;
   border-radius: 14px;
-  font-size: 14px;
+  font-size: 14.5px;
+  letter-spacing: 0.01em;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.kourify-modal__actions .kourify-btn--primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 24px rgba(15, 118, 110, 0.26);
 }
 
 @media (max-width: 560px) {
@@ -321,6 +347,17 @@
 
   .kourify-modal__body {
     font-size: 14px;
+  }
+
+  .kourify-modal__header {
+    gap: 12px;
+    padding-inline-end: 40px;
+  }
+
+  .kourify-modal__header-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
   }
 }
 

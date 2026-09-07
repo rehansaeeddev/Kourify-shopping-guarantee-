@@ -39,13 +39,15 @@
     return (
       '<div class="kourify-modal__header">' +
       '<div class="kourify-modal__header-icon">' +
-      logoImgHtml(16) +
+      logoImgHtml(20) +
       "</div>" +
+      '<div class="kourify-modal__header-text">' +
       '<span class="kourify-modal__brand">Kourify</span>' +
-      "</div>" +
       '<p class="kourify-modal__title">' +
       title +
       "</p>" +
+      "</div>" +
+      "</div>" +
       (subtitle
         ? '<p class="kourify-modal__subtitle">' + subtitle + "</p>"
         : "")
