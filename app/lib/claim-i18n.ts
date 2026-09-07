@@ -23,46 +23,46 @@ export const LOCALE_LABELS: Record<string, string> = {
  */
 export const DEFAULT_TRANSLATIONS: Record<string, TranslationStrings> = {
   en: {
-    "doc.title": "File a claim · Kourify",
+    "doc.title": "File a Claim · Kourify",
     "brand": "Kourify",
     "lang.aria": "Language",
 
-    "hero.title": "Protection that follows through.",
+    "hero.title": "Protection That Follows Through.",
     "hero.subtitle":
       "When delivery does not go as planned, tell us what happened. A real person will review your claim and follow up by email.",
 
-    "promise.secure.title": "Secure verification",
+    "promise.secure.title": "Secure Verification",
     "promise.secure.body": "We match your details to the store order.",
-    "promise.human.title": "Human review",
+    "promise.human.title": "Human Review",
     "promise.human.body": "Every claim is considered individually.",
-    "promise.comms.title": "Clear communication",
+    "promise.comms.title": "Clear Communication",
     "promise.comms.body": "Updates are sent to your order email.",
 
-    "panel.eyebrow": "Shopping guarantee",
-    "panel.title": "File a claim",
+    "panel.eyebrow": "Shopping Guarantee",
+    "panel.title": "File a Claim",
     "panel.intro": "Most submissions take only a few minutes.",
 
     "progress.aria": "Claim progress",
-    "progress.order": "Order info",
+    "progress.order": "Order Info",
     "progress.order.short": "Order",
     "progress.contact": "Contact",
     "progress.contact.short": "Contact",
-    "progress.issue": "Issue details",
+    "progress.issue": "Issue Details",
     "progress.issue.short": "Issue",
     "progress.review": "Review",
     "progress.review.short": "Review",
 
-    "step.order.title": "Find your protected order",
+    "step.order.title": "Find Your Protected Order",
     "step.order.copy": "Use the details shown in your confirmation email.",
     "field.orderNumber": "Order number",
     "field.confirmationCode": "Confirmation code",
 
-    "step.contact.title": "How can we reach you?",
+    "step.contact.title": "How Can We Reach You?",
     "step.contact.copy": "Use the email attached to your Shopify order.",
     "field.fullName": "Full name",
     "field.email": "Order email",
 
-    "step.issue.title": "What happened?",
+    "step.issue.title": "What Happened?",
     "step.issue.copy": "Choose the closest match and share the useful details.",
     "field.issue": "Issue",
     "field.details": "Details",
@@ -72,7 +72,7 @@ export const DEFAULT_TRANSLATIONS: Record<string, TranslationStrings> = {
     "field.evidence.hint":
       "Required for damaged or concealed-damage claims. Maximum 5 MB.",
 
-    "step.review.title": "Review your claim",
+    "step.review.title": "Review Your Claim",
     "step.review.copy":
       "Make sure these details are correct before submitting.",
     "notice":
@@ -104,7 +104,7 @@ export const DEFAULT_TRANSLATIONS: Record<string, TranslationStrings> = {
     "error.submitFailed": "We could not submit your claim.",
     "error.generic": "Something went wrong. Please try again.",
     "state.submitting": "Submitting…",
-    "success.title": "Claim received",
+    "success.title": "Claim Received",
     "success.body":
       "Thank you. Our team will review your claim and follow up at {email}.",
   },
