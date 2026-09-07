@@ -723,3 +723,139 @@ body {
   cursor: not-allowed;
   pointer-events: none;
 }
+
+/* ---- Pricing: payer choice cards ---- */
+.app-payer-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.app-payer-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: start;
+  padding: 16px 18px;
+  border-radius: var(--radius-lg);
+  border: 1.5px solid var(--color-border);
+  background: var(--color-card);
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.app-payer-card:hover:not(:disabled):not(.is-selected) {
+  border-color: #c4d9d2;
+  box-shadow: 0 4px 12px rgba(4, 31, 29, 0.06);
+}
+
+.app-payer-card.is-selected {
+  border-color: var(--color-accent);
+  background: linear-gradient(160deg, #f4fbf8 0%, #ecf7f2 100%);
+  box-shadow: 0 0 0 1px var(--color-accent), 0 8px 20px rgba(0, 128, 96, 0.1);
+}
+
+.app-payer-card:disabled {
+  cursor: not-allowed;
+  background: #fafbfb;
+  opacity: 0.8;
+}
+
+.app-payer-card__icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--color-accent-light);
+  color: var(--color-accent-dark);
+  margin-bottom: 2px;
+}
+
+.app-payer-card__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.app-payer-card__desc {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--color-muted);
+}
+
+.app-payer-card__lock {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #f1f1f2;
+  color: #5f5f61;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.app-payer-card__check {
+  position: absolute;
+  top: 12px;
+  inset-inline-end: 12px;
+  display: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: var(--color-white);
+}
+
+.app-payer-card.is-selected .app-payer-card__check {
+  display: grid;
+}
+
+/* ---- Pricing: merchant-pays summary ---- */
+.app-covered-note {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(160deg, #f2faf6 0%, #e8f5ef 100%);
+  border: 1px solid rgba(0, 128, 96, 0.18);
+}
+
+.app-covered-note__icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: var(--color-white);
+}
+
+.app-covered-note__title {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-accent-dark);
+}
+
+.app-covered-note__body {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #44605a;
+}
+
+@media (max-width: 640px) {
+  .app-payer-grid {
+    grid-template-columns: 1fr;
+  }
+}

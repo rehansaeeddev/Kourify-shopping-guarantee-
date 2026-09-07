@@ -432,49 +432,65 @@ export default function Protection() {
               Who pays for protection, and how the fee is calculated.
             </s-paragraph>
             <s-stack direction="block" gap="base" paddingBlockStart="base">
-              {!customerPaysAllowed && (
-                <s-banner tone="info">
-                  Charging customers for protection at checkout requires Shopify
-                  Plus. On your plan you cover protection for every order — free
-                  to shoppers, with no extra line at checkout.
-                </s-banner>
-              )}
-              <s-stack
-                direction="inline"
-                gap="base"
-                alignItems="center"
-                justifyContent="space-between"
-              >
-                <s-text>Who pays</s-text>
-                <div style={{ inlineSize: "220px", flex: "0 0 auto" }}>
-                  <s-select
-                    label="Who pays"
-                    labelAccessibilityVisibility="exclusive"
-                    disabled={!customerPaysAllowed}
-                    value={
-                      customerPaysAllowed
-                        ? currentSettings.protectionPayer
-                        : "merchant"
-                    }
-                    onChange={(e) =>
-                      saveSettings({ protectionPayer: e.currentTarget.value })
-                    }
-                  >
-                    {customerPaysAllowed && (
-                      <s-option value="customer">Customer pays</s-option>
-                    )}
-                    <s-option value="merchant">
-                      You pay (free to customer)
-                    </s-option>
-                  </s-select>
-                </div>
-              </s-stack>
+              <div className="app-payer-grid">
+                <button
+                  type="button"
+                  className={`app-payer-card${merchantPays ? " is-selected" : ""}`}
+                  onClick={() => saveSettings({ protectionPayer: "merchant" })}
+                >
+                  <span className="app-payer-card__icon">
+                    <s-icon type="shield-check-mark" />
+                  </span>
+                  <span className="app-payer-card__title">You pay</span>
+                  <span className="app-payer-card__desc">
+                    Every order is protected automatically — free for shoppers,
+                    with no extra line at checkout.
+                  </span>
+                  <span className="app-payer-card__check">
+                    <s-icon type="check" />
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={`app-payer-card${!merchantPays ? " is-selected" : ""}`}
+                  disabled={!customerPaysAllowed}
+                  onClick={() => saveSettings({ protectionPayer: "customer" })}
+                >
+                  <span className="app-payer-card__icon">
+                    <s-icon type="cash-dollar" />
+                  </span>
+                  <span className="app-payer-card__title">Customer pays</span>
+                  <span className="app-payer-card__desc">
+                    Shoppers choose protection at checkout for a small fee you
+                    configure below.
+                  </span>
+                  {!customerPaysAllowed && (
+                    <span className="app-payer-card__lock">
+                      Requires Shopify Plus
+                    </span>
+                  )}
+                  <span className="app-payer-card__check">
+                    <s-icon type="check" />
+                  </span>
+                </button>
+              </div>
 
               {merchantPays ? (
-                <s-banner tone="info">
-                  You&apos;re covering the protection fee, so customers
-                  aren&apos;t charged and this pricing doesn&apos;t apply.
-                </s-banner>
+                <div className="app-covered-note">
+                  <span className="app-covered-note__icon">
+                    <s-icon type="shield-check-mark" />
+                  </span>
+                  <div>
+                    <span className="app-covered-note__title">
+                      Covered by you
+                    </span>
+                    <p className="app-covered-note__body">
+                      Customers aren&apos;t charged — every eligible order is
+                      protected at no cost to them, and the fee settings
+                      don&apos;t apply.
+                    </p>
+                  </div>
+                </div>
               ) : (
                 <>
                   {percentageUnsupported && (
