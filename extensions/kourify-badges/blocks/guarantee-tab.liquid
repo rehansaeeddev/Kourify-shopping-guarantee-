@@ -1,5 +1,5 @@
 <div
-  class="kourify-guarantee-tab kourify-guarantee-tab--{{ block.settings.position | default: 'right' }}"
+  class="kourify-guarantee-tab kourify-guarantee-tab--right"
   data-kourify-guarantee-tab
   data-logo-url="{{ 'kourify-logo.png' | asset_url }}"
 >
@@ -17,20 +17,6 @@
 {
   "name": "Kourify Guarantee Tab",
   "target": "body",
-  "settings": [
-    {
-      "type": "select",
-      "id": "position",
-      "label": "Tab position",
-      "info": "Where the floating Kourify Guarantee tab sits on your storefront.",
-      "options": [
-        { "value": "right", "label": "Right edge (vertical)" },
-        { "value": "left", "label": "Left edge (vertical)" },
-        { "value": "bottom", "label": "Bottom corner" },
-        { "value": "top", "label": "Top corner" }
-      ],
-      "default": "right"
-    }
-  ]
+  "settings": []
 }
 {% endschema %}
