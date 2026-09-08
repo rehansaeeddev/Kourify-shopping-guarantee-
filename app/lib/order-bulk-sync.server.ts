@@ -32,7 +32,7 @@ const BULK_ORDERS_QUERY = `
         risk { recommendation }
         totalPriceSet { shopMoney { amount } }
         fulfillments {
-          edges { node { createdAt } }
+          createdAt
         }
       }
     }
@@ -207,35 +207,17 @@ type JsonlOrderRow = {
   displayFulfillmentStatus?: string | null;
   risk?: { recommendation?: string | null } | null;
   totalPriceSet?: { shopMoney?: { amount?: string | null } | null } | null;
-  __parentId?: string;
-  createdAt?: string | null; // present on nested fulfillment rows
+  fulfillments?: Array<{ createdAt?: string | null }> | null;
 };
 
 /**
- * Parses a bulk-operation JSONL export and upserts each order. Shopify emits
- * nested connection rows (here, fulfillments) as separate lines immediately
- * following their parent order line, tagged with `__parentId` — so we buffer
- * the current parent order and fold in fulfillment children until the next
- * top-level (parent-less) row starts, then flush.
+ * Parses a bulk-operation JSONL export and upserts each order. `fulfillments`
+ * is a plain list field (not a GraphQL connection), so Shopify embeds it
+ * inline as an array on the order's own line rather than emitting separate
+ * __parentId-linked rows — each line here is a complete order.
  */
 async function ingestOrdersJsonl(shop: string, text: string): Promise<number> {
-  let currentOrder: {
-    id: string;
-    name: string;
-    email: string;
-    status: string;
-    riskLevel: string | null;
-    shippedAt: string | null;
-    totalPrice: string | null;
-  } | null = null;
   let synced = 0;
-
-  const flush = async () => {
-    if (!currentOrder) return;
-    await cacheOrder(shop, currentOrder);
-    synced += 1;
-    currentOrder = null;
-  };
 
   for (const line of text.split("\n")) {
     const trimmed = line.trim();
@@ -247,26 +229,26 @@ async function ingestOrdersJsonl(shop: string, text: string): Promise<number> {
     } catch {
       continue; // skip a malformed line rather than aborting the whole import
     }
+    if (!row.id) continue;
 
-    if (!row.__parentId) {
-      await flush();
-      if (!row.id) continue;
-      currentOrder = {
-        id: row.id,
-        name: row.name ?? "",
-        email: row.email ?? "",
-        status: String(row.displayFulfillmentStatus ?? "unfulfilled").toLowerCase(),
-        riskLevel: riskLevelFromRecommendation(row.risk?.recommendation),
-        shippedAt: null,
-        totalPrice: row.totalPriceSet?.shopMoney?.amount ?? null,
-      };
-    } else if (currentOrder && row.__parentId === currentOrder.id && row.createdAt) {
-      if (!currentOrder.shippedAt || row.createdAt > currentOrder.shippedAt) {
-        currentOrder.shippedAt = row.createdAt;
-      }
-    }
+    const shippedAt =
+      (row.fulfillments ?? [])
+        .map((fulfillment) => fulfillment.createdAt)
+        .filter((createdAt): createdAt is string => Boolean(createdAt))
+        .sort()
+        .at(-1) ?? null;
+
+    await cacheOrder(shop, {
+      id: row.id,
+      name: row.name ?? "",
+      email: row.email ?? "",
+      status: String(row.displayFulfillmentStatus ?? "unfulfilled").toLowerCase(),
+      riskLevel: riskLevelFromRecommendation(row.risk?.recommendation),
+      shippedAt,
+      totalPrice: row.totalPriceSet?.shopMoney?.amount ?? null,
+    });
+    synced += 1;
   }
-  await flush();
 
   return synced;
 }
