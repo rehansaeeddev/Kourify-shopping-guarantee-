@@ -10,6 +10,7 @@ import { GettingStarted } from "../components/GettingStarted";
 import { StatusBadge } from "../components/StatusBadge";
 import { issueTypeLabel } from "../lib/claim-issue-type";
 import { AppButton } from "../components/AppButton";
+import { InfoTip } from "../components/InfoTip";
 import { EmptyState } from "../components/EmptyState";
 import { getProtectionTelemetry } from "../lib/protection-telemetry.server";
 import { getBillingState } from "../lib/billing-state.server";
@@ -73,6 +74,13 @@ export default function Index() {
         subtitle="Build shopper confidence from cart to delivery."
         actions={
           <>
+            <InfoTip label="Why this matters">
+              Trust badges and buyer guarantees increase checkout confidence and
+              reduce chargebacks. We roll out each capability only once it&apos;s
+              backed by a real, honest guarantee — package protection today is a
+              self-funded policy, not underwritten insurance, and claims are
+              reviewed manually rather than paid out automatically.
+            </InfoTip>
             <AppButton href="/app/guide" variant="secondary">
               User guide
             </AppButton>
@@ -215,15 +223,6 @@ export default function Index() {
         </Card>
       </div>
 
-      <s-section slot="aside" heading="Why this matters">
-        <s-paragraph>
-          Trust badges and buyer guarantees increase checkout confidence and
-          reduce chargebacks. We roll out each capability only once it's
-          backed by a real, honest guarantee — package protection today is a
-          self-funded policy, not underwritten insurance, and claims are
-          reviewed manually rather than paid out automatically.
-        </s-paragraph>
-      </s-section>
     </s-page>
   );
 }
