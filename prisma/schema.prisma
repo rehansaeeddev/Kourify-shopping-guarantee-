@@ -140,6 +140,28 @@ model Order {
   @@index([shop, status])
 }
 
+// Tracks a background order backfill driven by Shopify's Bulk Operations API
+// (see app/lib/order-bulk-sync.server.ts). A store with thousands of orders
+// can't be paginated inline in a request — Shopify builds the export
+// server-side and notifies us via the bulk_operations/finish webhook, which
+// updates this row as the job progresses.
+model SyncJob {
+  id              String    @id @default(cuid())
+  shop            String
+  type            String    @default("order_backfill")
+  status          String    @default("queued") // queued | running | completed | failed
+  bulkOperationId String? // Shopify gid://shopify/BulkOperation/...
+  objectCount     Int? // orders ingested once the job completes
+  errorMessage    String?
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([shop, createdAt])
+  @@index([bulkOperationId])
+}
+
 // NEW: Audit log for compliance (see CODE_REVIEW.md)
 model AuditLog {
   id        String   @id @default(cuid())

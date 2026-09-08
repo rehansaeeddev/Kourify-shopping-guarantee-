@@ -3,16 +3,21 @@ import type {
   HeadersFunction,
   LoaderFunctionArgs,
 } from "react-router";
-import { useFetcher, useLoaderData, useRouteError } from "react-router";
+import {
+  useFetcher,
+  useLoaderData,
+  useRevalidator,
+  useRouteError,
+} from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 
+import { useEffect } from "react";
 import { AppButton } from "../components/AppButton";
 import { Card, StatTile } from "../components/Card";
 import { PageHeader } from "../components/PageHeader";
 import { useFetcherToast } from "../hooks/useFetcherToast";
 import db from "../db.server";
-import { cacheOrder } from "../lib/order-sync.server";
-import { riskLevelFromRecommendation } from "../lib/order-risk";
+import { startOrderBulkSync } from "../lib/order-bulk-sync.server";
 import { isRateLimited } from "../lib/rate-limit.server";
 import { authenticate } from "../shopify.server";
 import { WorkspaceTabs } from "../components/WorkspaceTabs";
@@ -20,54 +25,64 @@ import { getWorkspaceCounts } from "../lib/workspace-counts.server";
 
 type SyncResult = {
   ok: boolean;
-  synced?: number;
   error?: string;
 };
 
-type OrderSyncEdge = {
-  cursor: string;
-  node: {
-    id: string;
-    name: string;
-    displayFulfillmentStatus?: string | null;
-    email?: string | null;
-    risk?: { recommendation?: string | null } | null;
-    totalPriceSet?: { shopMoney?: { amount?: string | null } | null } | null;
-    fulfillments?: Array<{ createdAt?: string | null }> | null;
-  };
+type SyncJobView = {
+  id: string;
+  status: string;
+  objectCount: number | null;
+  errorMessage: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
 };
 
-type OrderSyncConnection = {
-  edges?: OrderSyncEdge[];
-  pageInfo?: { hasNextPage?: boolean };
-};
-
-type OrderSyncGraphqlResult = {
-  data?: {
-    orders?: OrderSyncConnection;
-  };
-  errors?: Array<{ message?: string }>;
+const SYNC_JOB_STATUS_LABEL: Record<string, string> = {
+  queued: "Queued",
+  running: "Running",
+  completed: "Completed",
+  failed: "Failed",
 };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
 
-  const [orderCount, latestOrder] = await Promise.all([
+  const [orderCount, latestOrder, jobs] = await Promise.all([
     db.order.count({ where: { shop: session.shop } }),
     db.order.findFirst({
       where: { shop: session.shop },
       orderBy: { updatedAt: "desc" },
       select: { updatedAt: true },
     }),
+    db.syncJob.findMany({
+      where: { shop: session.shop, type: "order_backfill" },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    }),
   ]);
 
   const workspaceCounts = await getWorkspaceCounts(session.shop);
+
+  const jobViews: SyncJobView[] = jobs.map((job) => ({
+    id: job.id,
+    status: job.status,
+    objectCount: job.objectCount,
+    errorMessage: job.errorMessage,
+    startedAt: job.startedAt?.toISOString() ?? null,
+    finishedAt: job.finishedAt?.toISOString() ?? null,
+    createdAt: job.createdAt.toISOString(),
+  }));
 
   return {
     orderCount,
     lastUpdatedAt: latestOrder?.updatedAt.toISOString() ?? null,
     orderSyncEnabled: process.env.ORDER_SYNC_ENABLED === "true",
     workspaceCounts,
+    jobs: jobViews,
+    hasActiveJob: jobViews.some(
+      (job) => job.status === "queued" || job.status === "running",
+    ),
   };
 };
 
@@ -89,8 +104,8 @@ export const action = async ({
     return { ok: false, error: "Unknown action." };
   }
 
-  // A full sync paginates the entire order history against the Shopify API, so
-  // throttle it hard per shop to avoid hammering the API / racking up cost.
+  // Submitting a bulk operation is cheap, but rate-limit anyway so a merchant
+  // double-clicking "Sync orders now" can't queue up several jobs at once.
   if (await isRateLimited(`order-sync:${session.shop}`, 5, 5 * 60 * 1000)) {
     return {
       ok: false,
@@ -98,100 +113,46 @@ export const action = async ({
     };
   }
 
-  let cursor: string | null = null;
-  let hasNextPage = true;
-  let synced = 0;
-
-  try {
-    while (hasNextPage) {
-      const response: Response = await admin.graphql(
-        `#graphql
-          query kourifySyncOrders($cursor: String) {
-            orders(first: 100, after: $cursor, sortKey: UPDATED_AT) {
-              edges {
-                cursor
-                node {
-                  id
-                  name
-                  displayFulfillmentStatus
-                  email
-                  risk { recommendation }
-                  totalPriceSet { shopMoney { amount } }
-                  fulfillments(first: 10) { createdAt }
-                }
-              }
-              pageInfo { hasNextPage }
-            }
-          }`,
-        { variables: { cursor } },
-      );
-
-      const json = (await response.json()) as OrderSyncGraphqlResult;
-      if (json.errors?.length) {
-        throw new Error(
-          json.errors[0]?.message ?? "Shopify could not return orders.",
-        );
-      }
-
-      const connection: OrderSyncConnection = json.data?.orders ?? {
-        edges: [],
-        pageInfo: { hasNextPage: false },
-      };
-      const edges: OrderSyncEdge[] = connection.edges ?? [];
-
-      for (const { node } of edges) {
-        const fulfillments = node.fulfillments ?? [];
-        const shippedAt =
-          fulfillments
-            .map((fulfillment) => fulfillment.createdAt)
-            .filter((createdAt): createdAt is string => Boolean(createdAt))
-            .sort()
-            .at(-1) ?? null;
-
-        await cacheOrder(session.shop, {
-          id: node.id,
-          name: node.name,
-          email: node.email ?? "",
-          // customerName requires Protected Customer Data approval; omitted until granted.
-          customerName: null,
-          status: String(
-            node.displayFulfillmentStatus ?? "unfulfilled",
-          ).toLowerCase(),
-          riskLevel: riskLevelFromRecommendation(node.risk?.recommendation),
-          shippedAt,
-          totalPrice: node.totalPriceSet?.shopMoney?.amount ?? null,
-        });
-        synced += 1;
-      }
-
-      hasNextPage = Boolean(connection?.pageInfo?.hasNextPage);
-      cursor = edges.at(-1)?.cursor ?? null;
-      if (hasNextPage && !cursor) {
-        throw new Error("Shopify returned an incomplete pagination response.");
-      }
-    }
-
-    return { ok: true, synced };
-  } catch (error) {
-    console.error("Order sync failed:", error);
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "Order sync failed.",
-    };
+  // Orders are exported server-side via Shopify's Bulk Operations API and
+  // ingested asynchronously when bulk_operations/finish fires — this avoids
+  // pulling a store's entire order history through the request/response
+  // cycle, which times out well before 7,000+ orders finish paginating.
+  const result = await startOrderBulkSync(session.shop, admin);
+  if (!result.ok) {
+    return { ok: false, error: result.error };
   }
+  return { ok: true };
 };
 
 export default function OrderSync() {
-  const { orderCount, lastUpdatedAt, orderSyncEnabled, workspaceCounts } =
-    useLoaderData<typeof loader>();
+  const {
+    orderCount,
+    lastUpdatedAt,
+    orderSyncEnabled,
+    workspaceCounts,
+    jobs,
+    hasActiveJob,
+  } = useLoaderData<typeof loader>();
   const syncFetcher = useFetcher<SyncResult>();
-  const syncing = syncFetcher.state !== "idle";
+  const revalidator = useRevalidator();
+  const syncing = syncFetcher.state !== "idle" || hasActiveJob;
 
   useFetcherToast(syncFetcher, (data) =>
     data.ok
-      ? `${data.synced ?? 0} orders synchronized.`
+      ? "Order sync started — this can take a few minutes for large stores."
       : (data.error ?? "Order sync failed."),
   );
+
+  // A running job finishes asynchronously (via the bulk_operations/finish
+  // webhook), so poll the loader while one is in flight to pick up its
+  // status without the merchant having to refresh. The effect re-runs (and
+  // clears the previous interval) whenever hasActiveJob flips, so polling
+  // stops on its own once the job completes.
+  useEffect(() => {
+    if (!hasActiveJob) return;
+    const interval = setInterval(() => revalidator.revalidate(), 4000);
+    return () => clearInterval(interval);
+  }, [hasActiveJob, revalidator]);
 
   const lastUpdated = lastUpdatedAt
     ? new Intl.DateTimeFormat(undefined, {
@@ -230,9 +191,7 @@ export default function OrderSync() {
           <StatTile
             icon="order"
             label="Cached orders"
-            value={String(
-              syncFetcher.data?.ok ? syncFetcher.data.synced : orderCount,
-            )}
+            value={String(orderCount)}
           />
           <StatTile
             icon="clock"
@@ -252,8 +211,10 @@ export default function OrderSync() {
             </s-banner>
           ) : (
             <s-paragraph>
-              Import available existing orders now. Automatic order webhooks
-              remain off, so use this button whenever orders change.
+              Import available existing orders now. Runs as a background job
+              on Shopify&apos;s side, so it&apos;s safe to use even with tens
+              of thousands of orders. Automatic order webhooks remain off, so
+              use this button whenever orders change.
             </s-paragraph>
           )}
           {syncFetcher.data && !syncFetcher.data.ok ? (
@@ -269,11 +230,42 @@ export default function OrderSync() {
               {!orderSyncEnabled
                 ? "Order access required"
                 : syncing
-                  ? "Syncing orders…"
+                  ? "Sync running…"
                   : "Sync orders now"}
             </AppButton>
           </syncFetcher.Form>
         </s-stack>
+      </Card>
+
+      <Card heading="Sync jobs">
+        {jobs.length === 0 ? (
+          <s-paragraph>No sync jobs yet.</s-paragraph>
+        ) : (
+          <div className="app-job-list">
+            {jobs.map((job) => (
+              <div className="app-job-row" key={job.id}>
+                <span
+                  className={`app-job-row__status app-job-row__status--${job.status}`}
+                >
+                  {SYNC_JOB_STATUS_LABEL[job.status] ?? job.status}
+                </span>
+                <span className="app-job-row__meta">
+                  {new Intl.DateTimeFormat(undefined, {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  }).format(new Date(job.createdAt))}
+                </span>
+                <span className="app-job-row__count">
+                  {job.status === "completed"
+                    ? `${job.objectCount ?? 0} orders`
+                    : job.status === "failed"
+                      ? job.errorMessage ?? "Failed"
+                      : "In progress…"}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
     </s-page>
   );
