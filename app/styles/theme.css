@@ -740,10 +740,10 @@ body {
   flex-shrink: 0;
 }
 
-/* ---- Branded buttons ----
-   Every app button carries Kourify color. Primary = solid green for the
-   one strong action; secondary = soft green tint for everything else.
-   Shopify's own black system buttons (e.g. the Save bar) are left untouched. */
+/* ---- App buttons ----
+   Plain Polaris black/white styling — no brand color — to match Shopify's
+   own admin buttons (Save bar, etc). Primary = solid black; secondary =
+   white with a neutral border, same shape as Polaris's default button. */
 .app-btn,
 .app-btn-gradient {
   display: inline-flex;
@@ -765,22 +765,23 @@ body {
 
 .app-btn--primary,
 .app-btn-gradient {
-  background: var(--color-accent);
+  background: #1a1a1a;
   color: var(--color-white);
 }
 
 .app-btn--primary:hover,
 .app-btn-gradient:hover:not(:disabled) {
-  background: var(--color-accent-dark);
+  background: #000000;
 }
 
 .app-btn--secondary {
-  background: var(--color-accent-light);
-  color: var(--color-accent-dark);
+  background: var(--color-white);
+  border-color: #c9cccf;
+  color: var(--color-text);
 }
 
 .app-btn--secondary:hover {
-  background: #dcefe6;
+  background: var(--color-bg);
 }
 
 .app-btn--disabled,
