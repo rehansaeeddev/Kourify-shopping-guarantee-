@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router";
 
 type Variant = "primary" | "secondary" | "gradient";
 
@@ -12,24 +11,31 @@ type AppButtonProps = {
   command?: string;
   commandFor?: string;
   slot?: string;
-  /** Force a full-document anchor (e.g. a file download) instead of SPA nav. */
+  /** Force a full navigation instead of Shopify's SPA intercept — needed for
+   * file downloads, where a client-side route change would break the
+   * browser's download prompt. */
   download?: boolean;
   children?: ReactNode;
 };
 
 // "gradient" is kept as an alias for the primary CTA for backward compatibility.
-const VARIANT_CLASS: Record<Variant, string> = {
-  primary: "app-btn app-btn--primary",
-  gradient: "app-btn app-btn--primary",
-  secondary: "app-btn app-btn--secondary",
+const POLARIS_VARIANT: Record<Variant, "primary" | "secondary"> = {
+  primary: "primary",
+  gradient: "primary",
+  secondary: "secondary",
 };
 
-// shopify://, http(s):, mailto: etc. — anything with a URL scheme is external
-// and must be a plain anchor (App Bridge intercepts shopify:// clicks).
-function hasScheme(href: string): boolean {
-  return /^[a-zA-Z][\w+.-]*:/.test(href);
-}
-
+/**
+ * Thin, unstyled wrapper around Shopify's native `<s-button>` — every button
+ * in the app is stock Polaris, no custom CSS/colors. `href` is passed
+ * straight through: Shopify's own polaris.js ships a global click delegate
+ * that special-cases `s-button[href]`, dispatching a cancelable
+ * `shopify:navigate` event that the app's `AppProvider` listens for and
+ * routes through React Router — so internal links stay client-side with no
+ * custom navigation code here. That delegate only skips same-origin hrefs
+ * that carry a non-default `target`, which is what forces a real
+ * (downloadable) request for `download` links.
+ */
 export function AppButton({
   variant = "primary",
   type,
@@ -42,65 +48,19 @@ export function AppButton({
   download,
   children,
 }: AppButtonProps) {
-  // Buttons that drive a Polaris modal via command/commandFor must stay
-  // s-button — that behaviour only exists on the web component.
-  if (command || commandFor) {
-    return (
-      <s-button
-        variant={variant === "gradient" ? "primary" : variant}
-        type={href ? undefined : (type ?? "button")}
-        href={href}
-        disabled={disabled}
-        onClick={onClick as never}
-        command={command as never}
-        commandFor={commandFor}
-        slot={slot as never}
-      >
-        {children}
-      </s-button>
-    );
-  }
-
-  const className =
-    VARIANT_CLASS[variant] + (disabled ? " app-btn--disabled" : "");
-
-  if (href && !disabled) {
-    // External links and downloads use a real anchor; internal app routes use
-    // React Router's Link so navigation stays client-side and keeps the
-    // embedded App Bridge session (a full <a> nav bounces to auth/home).
-    if (download || hasScheme(href)) {
-      return (
-        <a
-          className={className}
-          href={href}
-          slot={slot}
-          onClick={onClick as never}
-        >
-          {children}
-        </a>
-      );
-    }
-    return (
-      <Link
-        className={className}
-        to={href}
-        slot={slot}
-        onClick={onClick as never}
-      >
-        {children}
-      </Link>
-    );
-  }
-
   return (
-    <button
-      className={className}
-      type={type ?? "button"}
+    <s-button
+      variant={POLARIS_VARIANT[variant]}
+      type={href ? undefined : (type ?? "button")}
+      href={href}
+      target={download ? "_blank" : undefined}
       disabled={disabled}
       onClick={onClick as never}
-      slot={slot}
+      command={command as never}
+      commandFor={commandFor}
+      slot={slot as never}
     >
       {children}
-    </button>
+    </s-button>
   );
 }
