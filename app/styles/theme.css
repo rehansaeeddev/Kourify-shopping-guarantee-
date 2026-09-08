@@ -927,3 +927,65 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- Order sync: job list ---- */
+.app-job-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.app-job-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 13px;
+}
+
+.app-job-row:last-child {
+  border-bottom: none;
+}
+
+.app-job-row__status {
+  flex: 0 0 auto;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.app-job-row__status--queued,
+.app-job-row__status--running {
+  background: #fdf3e0;
+  color: #8a6116;
+}
+
+.app-job-row__status--completed {
+  background: var(--color-accent-light);
+  color: var(--color-accent-dark);
+}
+
+.app-job-row__status--failed {
+  background: #fbe9e6;
+  color: var(--status-critical);
+}
+
+.app-job-row__meta {
+  flex: 1 1 auto;
+  color: var(--color-muted);
+}
+
+.app-job-row__count {
+  flex: 0 0 auto;
+  color: var(--color-text);
+  font-weight: 500;
+  text-align: end;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
