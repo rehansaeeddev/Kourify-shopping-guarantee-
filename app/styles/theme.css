@@ -740,58 +740,8 @@ body {
   flex-shrink: 0;
 }
 
-/* ---- App buttons ----
-   Plain Polaris black/white styling — no brand color — to match Shopify's
-   own admin buttons (Save bar, etc). Primary = solid black; secondary =
-   white with a neutral border, same shape as Polaris's default button. */
-.app-btn,
-.app-btn-gradient {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  border: 1px solid transparent;
-  border-radius: var(--radius);
-  padding: 0.5rem 1rem;
-  font-family: var(--font);
-  font-weight: 600;
-  font-size: 0.875rem;
-  line-height: 1.2;
-  cursor: pointer;
-  text-decoration: none;
-  white-space: nowrap;
-  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
-}
-
-.app-btn--primary,
-.app-btn-gradient {
-  background: #1a1a1a;
-  color: var(--color-white);
-}
-
-.app-btn--primary:hover,
-.app-btn-gradient:hover:not(:disabled) {
-  background: #000000;
-}
-
-.app-btn--secondary {
-  background: var(--color-white);
-  border-color: #c9cccf;
-  color: var(--color-text);
-}
-
-.app-btn--secondary:hover {
-  background: var(--color-bg);
-}
-
-.app-btn--disabled,
-.app-btn--disabled:hover,
-.app-btn:disabled,
-.app-btn-gradient:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  pointer-events: none;
-}
+/* App buttons render as native <s-button> (see components/AppButton.tsx) —
+   no custom button CSS, so every button is stock Polaris. */
 
 /* ---- Pricing: payer choice cards ---- */
 .app-payer-grid {
