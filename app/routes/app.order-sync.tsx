@@ -16,6 +16,7 @@ import { AppButton } from "../components/AppButton";
 import { Card, StatTile } from "../components/Card";
 import { PageHeader } from "../components/PageHeader";
 import { useFetcherToast } from "../hooks/useFetcherToast";
+import { useTablePagination } from "../hooks/useTablePagination";
 import db from "../db.server";
 import { startOrderBulkSync } from "../lib/order-bulk-sync.server";
 import { isRateLimited } from "../lib/rate-limit.server";
@@ -45,20 +46,43 @@ const SYNC_JOB_STATUS_LABEL: Record<string, string> = {
   failed: "Failed",
 };
 
+const JOBS_PAGE_SIZE = 10;
+
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
+  const url = new URL(request.url);
+  const page = Math.max(1, Math.floor(Number(url.searchParams.get("page")) || 1));
 
-  const [orderCount, latestOrder, jobs] = await Promise.all([
+  const [
+    orderCount,
+    latestOrder,
+    jobCount,
+    activeJobCount,
+    jobs,
+  ] = await Promise.all([
     db.order.count({ where: { shop: session.shop } }),
     db.order.findFirst({
       where: { shop: session.shop },
       orderBy: { updatedAt: "desc" },
       select: { updatedAt: true },
     }),
+    db.syncJob.count({
+      where: { shop: session.shop, type: "order_backfill" },
+    }),
+    // Independent of the page being viewed — a job running on another page
+    // shouldn't stop being polled just because it's scrolled out of view.
+    db.syncJob.count({
+      where: {
+        shop: session.shop,
+        type: "order_backfill",
+        status: { in: ["queued", "running"] },
+      },
+    }),
     db.syncJob.findMany({
       where: { shop: session.shop, type: "order_backfill" },
       orderBy: { createdAt: "desc" },
-      take: 10,
+      skip: (page - 1) * JOBS_PAGE_SIZE,
+      take: JOBS_PAGE_SIZE,
     }),
   ]);
 
@@ -80,9 +104,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     orderSyncEnabled: process.env.ORDER_SYNC_ENABLED === "true",
     workspaceCounts,
     jobs: jobViews,
-    hasActiveJob: jobViews.some(
-      (job) => job.status === "queued" || job.status === "running",
-    ),
+    jobPage: page,
+    jobTotalPages: Math.max(1, Math.ceil(jobCount / JOBS_PAGE_SIZE)),
+    jobCount,
+    hasActiveJob: activeJobCount > 0,
   };
 };
 
@@ -131,11 +156,18 @@ export default function OrderSync() {
     orderSyncEnabled,
     workspaceCounts,
     jobs,
+    jobPage,
+    jobTotalPages,
+    jobCount,
     hasActiveJob,
   } = useLoaderData<typeof loader>();
   const syncFetcher = useFetcher<SyncResult>();
   const revalidator = useRevalidator();
   const syncing = syncFetcher.state !== "idle" || hasActiveJob;
+
+  const jobPageHref = (targetPage: number) =>
+    targetPage > 1 ? `/app/order-sync?page=${targetPage}` : "/app/order-sync";
+  const jobPagination = useTablePagination(jobPage, jobTotalPages, jobPageHref);
 
   useFetcherToast(syncFetcher, (data) =>
     data.ok
@@ -237,34 +269,55 @@ export default function OrderSync() {
         </s-stack>
       </Card>
 
-      <Card heading="Sync jobs">
+      <Card heading={`Sync jobs (${jobCount})`}>
         {jobs.length === 0 ? (
           <s-paragraph>No sync jobs yet.</s-paragraph>
         ) : (
-          <div className="app-job-list">
-            {jobs.map((job) => (
-              <div className="app-job-row" key={job.id}>
-                <span
-                  className={`app-job-row__status app-job-row__status--${job.status}`}
-                >
-                  {SYNC_JOB_STATUS_LABEL[job.status] ?? job.status}
-                </span>
-                <span className="app-job-row__meta">
-                  {new Intl.DateTimeFormat(undefined, {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  }).format(new Date(job.createdAt))}
-                </span>
-                <span className="app-job-row__count">
-                  {job.status === "completed"
-                    ? `${job.objectCount ?? 0} orders`
-                    : job.status === "failed"
-                      ? job.errorMessage ?? "Failed"
-                      : "In progress…"}
-                </span>
-              </div>
-            ))}
-          </div>
+          <s-table
+            ref={jobPagination.ref as never}
+            variant="auto"
+            paginate={jobPagination.paginate}
+            hasPreviousPage={jobPagination.hasPreviousPage}
+            hasNextPage={jobPagination.hasNextPage}
+          >
+            <s-table-header-row>
+              <s-table-header>Status</s-table-header>
+              <s-table-header>Date</s-table-header>
+              <s-table-header>Result</s-table-header>
+            </s-table-header-row>
+            <s-table-body>
+              {jobs.map((job) => (
+                <s-table-row key={job.id}>
+                  <s-table-cell>
+                    <s-badge
+                      tone={
+                        job.status === "completed"
+                          ? "success"
+                          : job.status === "failed"
+                            ? "critical"
+                            : "warning"
+                      }
+                    >
+                      {SYNC_JOB_STATUS_LABEL[job.status] ?? job.status}
+                    </s-badge>
+                  </s-table-cell>
+                  <s-table-cell>
+                    {new Intl.DateTimeFormat(undefined, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    }).format(new Date(job.createdAt))}
+                  </s-table-cell>
+                  <s-table-cell>
+                    {job.status === "completed"
+                      ? `${job.objectCount ?? 0} orders`
+                      : job.status === "failed"
+                        ? job.errorMessage ?? "Failed"
+                        : "In progress…"}
+                  </s-table-cell>
+                </s-table-row>
+              ))}
+            </s-table-body>
+          </s-table>
         )}
       </Card>
     </s-page>

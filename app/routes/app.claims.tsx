@@ -1,6 +1,11 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { useState } from "react";
-import { Form, useFetcher, useLoaderData, useSearchParams } from "react-router";
+import {
+  Form,
+  useFetcher,
+  useLoaderData,
+  useSearchParams,
+} from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { PageHeader } from "../components/PageHeader";
@@ -12,6 +17,7 @@ import { issueTypeLabel } from "../lib/claim-issue-type";
 import { EVIDENCE_REQUIRED_TYPES } from "../lib/claim-window";
 import { notifyClaimStatusChanged } from "../lib/notify.server";
 import { isRateLimited } from "../lib/rate-limit.server";
+import { useTablePagination } from "../hooks/useTablePagination";
 import { WorkspaceTabs } from "../components/WorkspaceTabs";
 import { getWorkspaceCounts } from "../lib/workspace-counts.server";
 
@@ -167,7 +173,6 @@ export default function Claims() {
     openClaims,
     resolvedClaims,
     totalClaims,
-    filteredCount,
     tab,
     q,
     page,
@@ -200,6 +205,8 @@ export default function Claims() {
     const query = params.toString();
     return query ? `/app/claims?${query}` : "/app/claims";
   };
+
+  const pagination = useTablePagination(page, totalPages, pageHref);
 
   const exportParams = new URLSearchParams(searchParams);
 
@@ -311,8 +318,13 @@ export default function Claims() {
             }
           />
         ) : (
-          <>
-          <s-table variant="auto">
+          <s-table
+            ref={pagination.ref as never}
+            variant="auto"
+            paginate={pagination.paginate}
+            hasPreviousPage={pagination.hasPreviousPage}
+            hasNextPage={pagination.hasNextPage}
+          >
             <s-table-header-row>
               <s-table-header>Order</s-table-header>
               <s-table-header>Customer</s-table-header>
@@ -439,37 +451,6 @@ export default function Claims() {
               })}
             </s-table-body>
           </s-table>
-          {totalPages > 1 && (
-            <s-stack
-              direction="inline"
-              gap="base"
-              alignItems="center"
-              justifyContent="space-between"
-              paddingBlockStart="base"
-            >
-              <s-text color="subdued">
-                Page {page} of {totalPages} · {filteredCount} claim
-                {filteredCount === 1 ? "" : "s"}
-              </s-text>
-              <s-stack direction="inline" gap="small-200">
-                <AppButton
-                  variant="secondary"
-                  disabled={page <= 1}
-                  href={page > 1 ? pageHref(page - 1) : undefined}
-                >
-                  Previous
-                </AppButton>
-                <AppButton
-                  variant="secondary"
-                  disabled={page >= totalPages}
-                  href={page < totalPages ? pageHref(page + 1) : undefined}
-                >
-                  Next
-                </AppButton>
-              </s-stack>
-            </s-stack>
-          )}
-          </>
         )}
       </Card>
 

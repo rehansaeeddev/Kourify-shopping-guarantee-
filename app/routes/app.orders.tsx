@@ -14,29 +14,60 @@ import { authenticate } from "../shopify.server";
 import { WorkspaceTabs } from "../components/WorkspaceTabs";
 import { getWorkspaceCounts } from "../lib/workspace-counts.server";
 import { useFetcherToast } from "../hooks/useFetcherToast";
+import { useTablePagination } from "../hooks/useTablePagination";
 
 const FILTERS = ["all", "protected", "unprotected"] as const;
+const PAGE_SIZE = 25;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
-  const requestedFilter = new URL(request.url).searchParams.get("filter");
-  const filter = FILTERS.includes(requestedFilter as (typeof FILTERS)[number])
-    ? requestedFilter
+  const url = new URL(request.url);
+  const requestedFilter = url.searchParams.get("filter");
+  const filter: (typeof FILTERS)[number] = FILTERS.includes(
+    requestedFilter as (typeof FILTERS)[number],
+  )
+    ? (requestedFilter as (typeof FILTERS)[number])
     : "all";
+  const page = Math.max(1, Math.floor(Number(url.searchParams.get("page")) || 1));
 
-  const [orders, protectedOrders, offers, settings] = await Promise.all([
+  // ProtectedOrder has no FK/relation to Order (just a shared shopifyOrderId),
+  // so "protected"/"unprotected" filtering goes through an id list rather
+  // than a join. This full scan is bounded by protected-order count, not
+  // total order count, so it stays cheap even for large stores.
+  const protectedOrders = await db.protectedOrder.findMany({
+    where: { shop: session.shop },
+    select: { shopifyOrderId: true, protectionPriceCents: true, currency: true },
+  });
+  const protectedById = new Map(
+    protectedOrders.map((order) => [order.shopifyOrderId, order]),
+  );
+  const protectedIds = protectedOrders.map((order) => order.shopifyOrderId);
+
+  const filterWhere =
+    filter === "protected"
+      ? { id: { in: protectedIds } }
+      : filter === "unprotected"
+        ? { id: { notIn: protectedIds } }
+        : {};
+
+  const [
+    filteredCount,
+    orders,
+    totalCount,
+    protectedCount,
+    offers,
+    settings,
+  ] = await Promise.all([
+    db.order.count({ where: { shop: session.shop, ...filterWhere } }),
     db.order.findMany({
-      where: { shop: session.shop },
+      where: { shop: session.shop, ...filterWhere },
       orderBy: { createdAt: "desc" },
-      take: 100,
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
     }),
-    db.protectedOrder.findMany({
-      where: { shop: session.shop },
-      select: {
-        shopifyOrderId: true,
-        protectionPriceCents: true,
-        currency: true,
-      },
+    db.order.count({ where: { shop: session.shop } }),
+    db.order.count({
+      where: { shop: session.shop, id: { in: protectedIds } },
     }),
     db.protectionOffer.findMany({
       where: { shop: session.shop },
@@ -45,33 +76,25 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     db.merchantSettings.findUnique({ where: { shop: session.shop } }),
   ]);
   const currency = settings?.currency ?? "USD";
-  const protectedById = new Map(
-    protectedOrders.map((order) => [order.shopifyOrderId, order]),
-  );
   const latestOffers = new Map<string, (typeof offers)[number]>();
   for (const offer of offers) {
     if (!latestOffers.has(offer.originalOrderId))
       latestOffers.set(offer.originalOrderId, offer);
   }
-  const rows = orders
-    .map((order) => {
-      const protectedOrder = protectedById.get(order.id) ?? null;
-      const offer = latestOffers.get(order.id) ?? null;
-      return {
-        ...order,
-        protected: Boolean(protectedOrder),
-        protectionPriceCents: protectedOrder?.protectionPriceCents ?? null,
-        protectionCurrency: protectedOrder?.currency ?? currency,
-        offerStatus: offer?.status ?? null,
-        offerExpiresAt: offer?.expiresAt?.toISOString() ?? null,
-      };
-    })
-    .filter((order) => {
-      if (filter === "protected") return order.protected;
-      if (filter === "unprotected") return !order.protected;
-      return true;
-    });
+  const rows = orders.map((order) => {
+    const protectedOrder = protectedById.get(order.id) ?? null;
+    const offer = latestOffers.get(order.id) ?? null;
+    return {
+      ...order,
+      protected: Boolean(protectedOrder),
+      protectionPriceCents: protectedOrder?.protectionPriceCents ?? null,
+      protectionCurrency: protectedOrder?.currency ?? currency,
+      offerStatus: offer?.status ?? null,
+      offerExpiresAt: offer?.expiresAt?.toISOString() ?? null,
+    };
+  });
 
+  const totalPages = Math.max(1, Math.ceil(filteredCount / PAGE_SIZE));
   const workspaceCounts = await getWorkspaceCounts(session.shop);
 
   return {
@@ -79,11 +102,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     filter,
     currency,
     workspaceCounts,
+    page,
+    totalPages,
+    filteredCount,
     counts: {
-      all: orders.length,
-      protected: orders.filter((order) => protectedById.has(order.id)).length,
-      unprotected: orders.filter((order) => !protectedById.has(order.id))
-        .length,
+      all: totalCount,
+      protected: protectedCount,
+      unprotected: totalCount - protectedCount,
     },
   };
 };
@@ -405,8 +430,15 @@ function offerExpiryLabel(iso: string | null): string | null {
 }
 
 export default function Orders() {
-  const { rows, filter, counts, currency, workspaceCounts } =
-    useLoaderData<typeof loader>();
+  const {
+    rows,
+    filter,
+    counts,
+    currency,
+    workspaceCounts,
+    page,
+    totalPages,
+  } = useLoaderData<typeof loader>();
   const offerFetcher = useFetcher<typeof action>();
   const [fulfillmentOrder, setFulfillmentOrder] = useState<{
     id: string;
@@ -416,6 +448,15 @@ export default function Orders() {
     offerFetcher,
     (data) => data.message ?? data.error ?? "Offer updated.",
   );
+
+  const pageHref = (targetPage: number) => {
+    const params = new URLSearchParams();
+    if (filter !== "all") params.set("filter", filter);
+    if (targetPage > 1) params.set("page", String(targetPage));
+    const query = params.toString();
+    return query ? `/app/orders?${query}` : "/app/orders";
+  };
+  const pagination = useTablePagination(page, totalPages, pageHref);
 
   return (
     <s-page>
@@ -473,7 +514,13 @@ export default function Orders() {
             description="Synchronize orders or choose another protection filter."
           />
         ) : (
-          <s-table variant="auto">
+          <s-table
+            ref={pagination.ref as never}
+            variant="auto"
+            paginate={pagination.paginate}
+            hasPreviousPage={pagination.hasPreviousPage}
+            hasNextPage={pagination.hasNextPage}
+          >
             <s-table-header-row>
               <s-table-header>Order</s-table-header>
               <s-table-header>Customer</s-table-header>
