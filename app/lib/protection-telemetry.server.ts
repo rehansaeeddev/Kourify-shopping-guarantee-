@@ -58,3 +58,43 @@ export async function getProtectionTelemetry(
 
   return { avgResolutionHours, incidentRate };
 }
+
+export type ClaimsTrend = {
+  /** One count per day, oldest first, for the last 14 days. */
+  dailyCounts: number[];
+  last7Count: number;
+  /** The 7 days before that — the baseline `last7Count` is compared against. */
+  previous7Count: number;
+};
+
+/**
+ * A lightweight trend for the dashboard sparkline: claims filed per day over
+ * the last 14 days, bucketed in JS rather than a DB-specific date-trunc query
+ * (Prisma/MySQL) — the claim volume this app deals with is small enough that
+ * this is cheap, and it keeps the query portable.
+ */
+export async function getClaimsTrend(shop: string): Promise<ClaimsTrend> {
+  const since = new Date();
+  since.setDate(since.getDate() - 14);
+  since.setHours(0, 0, 0, 0);
+
+  const claims = await db.protectionClaim.findMany({
+    where: { shop, createdAt: { gte: since } },
+    select: { createdAt: true },
+  });
+
+  const dailyCounts = Array.from({ length: 14 }, () => 0);
+  const now = Date.now();
+  for (const claim of claims) {
+    const daysAgo = Math.floor(
+      (now - claim.createdAt.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    const index = 13 - daysAgo;
+    if (index >= 0 && index < 14) dailyCounts[index]!++;
+  }
+
+  const last7Count = dailyCounts.slice(7).reduce((a, b) => a + b, 0);
+  const previous7Count = dailyCounts.slice(0, 7).reduce((a, b) => a + b, 0);
+
+  return { dailyCounts, last7Count, previous7Count };
+}
