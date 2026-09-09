@@ -796,8 +796,8 @@ body {
 
 .app-payer-card.is-selected {
   border-color: var(--color-accent);
-  background: linear-gradient(160deg, #f4fbf8 0%, #ecf7f2 100%);
-  box-shadow: 0 0 0 1px var(--color-accent), 0 8px 20px rgba(0, 128, 96, 0.1);
+  background: var(--color-accent-light);
+  box-shadow: 0 0 0 1px var(--color-accent);
 }
 
 .app-payer-card:disabled {
@@ -865,7 +865,7 @@ body {
   align-items: flex-start;
   padding: 14px 16px;
   border-radius: var(--radius-lg);
-  background: linear-gradient(160deg, #f2faf6 0%, #e8f5ef 100%);
+  background: var(--color-accent-light);
   border: 1px solid rgba(0, 128, 96, 0.18);
 }
 

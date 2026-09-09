@@ -362,45 +362,30 @@ export default function Settings() {
       )}
 
       <Card heading="Shopping Guarantee">
-            <s-stack direction="block" gap="base">
-              <s-stack
-                direction="inline"
-                gap="base"
-                alignItems="center"
-                justifyContent="space-between"
-              >
-                <s-stack direction="block" gap="small-200">
-                  <s-text>Protection at checkout</s-text>
-                  <s-text color="subdued">
-                    {currentSettings.protectionEnabled
-                      ? "Live — customers can add package protection at checkout."
-                      : "Turn on to offer package protection at checkout."}
-                  </s-text>
-                </s-stack>
-                <s-switch
-                  label="Enable protection at checkout"
-                  checked={currentSettings.protectionEnabled}
-                  disabled={settingsFetcher.state !== "idle"}
-                  onChange={(e) =>
-                    saveSettings({ protectionEnabled: e.currentTarget.checked })
-                  }
-                />
-              </s-stack>
-              <s-stack direction="inline" gap="small-200" alignItems="center">
-                <s-badge tone="success">Billing active</s-badge>
-                <s-badge
-                  tone={
-                    currentSettings.protectionEnabled ? "success" : "neutral"
-                  }
-                >
-                  {currentSettings.protectionEnabled
-                    ? "Protection on"
-                    : "Protection off"}
-                </s-badge>
-                <s-badge tone="warning">Manual guarantee</s-badge>
-              </s-stack>
-            </s-stack>
-          </Card>
+        <s-stack
+          direction="inline"
+          gap="base"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <s-stack direction="block" gap="small-200">
+            <s-text>Protection at checkout</s-text>
+            <s-text color="subdued">
+              {currentSettings.protectionEnabled
+                ? "Live — customers can add package protection at checkout. This is a manually-reviewed guarantee, not underwritten insurance."
+                : "Turn on to offer package protection at checkout."}
+            </s-text>
+          </s-stack>
+          <s-switch
+            label="Enable protection at checkout"
+            checked={currentSettings.protectionEnabled}
+            disabled={settingsFetcher.state !== "idle"}
+            onChange={(e) =>
+              saveSettings({ protectionEnabled: e.currentTarget.checked })
+            }
+          />
+        </s-stack>
+      </Card>
 
           <Card heading="Performance">
             <div className="app-card-row">
