@@ -14,7 +14,6 @@ import { authenticate } from "../shopify.server";
 import { WorkspaceTabs } from "../components/WorkspaceTabs";
 import { getWorkspaceCounts } from "../lib/workspace-counts.server";
 import { useFetcherToast } from "../hooks/useFetcherToast";
-import { useTablePagination } from "../hooks/useTablePagination";
 
 const FILTERS = ["all", "protected", "unprotected"] as const;
 const PAGE_SIZES = [10, 20, 50] as const;
@@ -467,7 +466,6 @@ export default function Orders() {
     const query = params.toString();
     return query ? `/app/orders?${query}` : "/app/orders";
   };
-  const pagination = useTablePagination(page, totalPages, pageHref);
 
   const handlePageSizeChange = (nextPageSize: string) => {
     const params = new URLSearchParams();
@@ -535,13 +533,7 @@ export default function Orders() {
             description="Synchronize orders or choose another protection filter."
           />
         ) : (
-          <s-table
-            ref={pagination.ref as never}
-            variant="auto"
-            paginate={pagination.paginate}
-            hasPreviousPage={pagination.hasPreviousPage}
-            hasNextPage={pagination.hasNextPage}
-          >
+          <s-table variant="auto">
             <s-table-header-row>
               <s-table-header>Order</s-table-header>
               <s-table-header>Customer</s-table-header>
@@ -679,29 +671,50 @@ export default function Orders() {
             direction="inline"
             gap="small-200"
             alignItems="center"
-            justifyContent="end"
+            justifyContent="space-between"
             paddingBlockStart="base"
           >
-            <s-text color="subdued">Show</s-text>
-            <div style={{ inlineSize: "90px", flex: "0 0 auto" }}>
-              <s-select
-                label="Rows per page"
-                labelAccessibilityVisibility="exclusive"
-                value={String(pageSize)}
-                onChange={(e) =>
-                  handlePageSizeChange(
-                    e.currentTarget.value ?? String(DEFAULT_PAGE_SIZE),
-                  )
-                }
-              >
-                {PAGE_SIZES.map((size) => (
-                  <s-option key={size} value={String(size)}>
-                    {size}
-                  </s-option>
-                ))}
-              </s-select>
-            </div>
-            <s-text color="subdued">orders per page</s-text>
+            <s-stack direction="inline" gap="small-200" alignItems="center">
+              <s-text color="subdued">Show</s-text>
+              <div style={{ inlineSize: "90px", flex: "0 0 auto" }}>
+                <s-select
+                  label="Rows per page"
+                  labelAccessibilityVisibility="exclusive"
+                  value={String(pageSize)}
+                  onChange={(e) =>
+                    handlePageSizeChange(
+                      e.currentTarget.value ?? String(DEFAULT_PAGE_SIZE),
+                    )
+                  }
+                >
+                  {PAGE_SIZES.map((size) => (
+                    <s-option key={size} value={String(size)}>
+                      {size}
+                    </s-option>
+                  ))}
+                </s-select>
+              </div>
+              <s-text color="subdued">orders per page</s-text>
+            </s-stack>
+
+            {totalPages > 1 && (
+              <s-stack direction="inline" gap="small-200">
+                <AppButton
+                  variant="secondary"
+                  disabled={page <= 1}
+                  href={page > 1 ? pageHref(page - 1) : undefined}
+                >
+                  Previous
+                </AppButton>
+                <AppButton
+                  variant="secondary"
+                  disabled={page >= totalPages}
+                  href={page < totalPages ? pageHref(page + 1) : undefined}
+                >
+                  Next
+                </AppButton>
+              </s-stack>
+            )}
           </s-stack>
         )}
       </Card>
