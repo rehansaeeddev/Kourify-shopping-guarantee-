@@ -11,7 +11,6 @@ import { StatusBadge } from "../components/StatusBadge";
 import { issueTypeLabel } from "../lib/claim-issue-type";
 import { AppButton } from "../components/AppButton";
 import { InfoTip } from "../components/InfoTip";
-import { EmptyState } from "../components/EmptyState";
 import { getProtectionTelemetry } from "../lib/protection-telemetry.server";
 import { getBillingState } from "../lib/billing-state.server";
 
@@ -121,7 +120,7 @@ export default function Index() {
         ]}
       />
 
-      <Card heading="Setup status">
+      <Card heading="Store status">
         <div className="app-card-row">
           <StatTile
             icon="shield-check-mark"
@@ -137,53 +136,22 @@ export default function Index() {
             value={protectionStatus.value}
             href="/app/settings"
           />
+          <StatTile
+            icon="clock"
+            label="Open claims"
+            tone={openClaims > 0 ? "warning" : "default"}
+            value={String(openClaims)}
+            href="/app/claims"
+          />
+          <StatTile
+            icon="chart-line"
+            label="Claim incident rate"
+            tone={telemetry.incidentRate !== null && telemetry.incidentRate > 3 ? "critical" : "default"}
+            value={telemetry.incidentRate !== null ? `${telemetry.incidentRate.toFixed(1)}%` : "No data yet"}
+            href="/app/claims"
+          />
         </div>
       </Card>
-
-      <div style={{ marginTop: "1.25rem" }}>
-        <Card heading="Claims performance">
-          {totalClaims === 0 ? (
-            <EmptyState
-              icon="clipboard-checklist"
-              heading="No claims yet"
-              description="Once customers start filing claims, you'll see open claims, resolution time, and incident rate here."
-            />
-          ) : (
-            <div className="app-card-row">
-              <StatTile
-                icon="clock"
-                label="Open claims"
-                tone={openClaims > 0 ? "warning" : "default"}
-                value={String(openClaims)}
-                href="/app/claims"
-              />
-              <StatTile
-                icon="clipboard-checklist"
-                label="Total claims"
-                value={String(totalClaims)}
-                href="/app/claims"
-              />
-              <StatTile
-                icon="clock"
-                label="Avg. resolution time"
-                value={
-                  telemetry.avgResolutionHours !== null
-                    ? `${telemetry.avgResolutionHours.toFixed(1)}h`
-                    : "No claims resolved yet"
-                }
-                href="/app/claims"
-              />
-              <StatTile
-                icon="chart-line"
-                label="Claim incident rate"
-                tone={telemetry.incidentRate !== null && telemetry.incidentRate > 3 ? "critical" : "default"}
-                value={telemetry.incidentRate !== null ? `${telemetry.incidentRate.toFixed(1)}%` : "Not enough data yet"}
-                href="/app/claims"
-              />
-            </div>
-          )}
-        </Card>
-      </div>
 
       <div style={{ marginTop: "1.25rem" }}>
         <Card heading="Recent claims">
