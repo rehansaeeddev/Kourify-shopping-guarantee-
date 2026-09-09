@@ -59,8 +59,9 @@ export default function Guide() {
           </div>
         </Card>
 
-        <div id="overview">
-          <Card heading="What Kourify does">
+        <Card heading="Getting started">
+          <div id="overview" className="app-guide__block">
+            <p className="app-guide__block-title">What Kourify does</p>
             <s-paragraph>
               Kourify adds an optional package-protection guarantee to your
               store. Shoppers can cover their order against loss, damage, and
@@ -83,11 +84,10 @@ export default function Guide() {
               underwritten insurance. Claims are reviewed manually, not paid out
               automatically.
             </s-banner>
-          </Card>
-        </div>
+          </div>
 
-        <div id="getting-started">
-          <Card heading="Getting started">
+          <div id="getting-started" className="app-guide__block">
+            <p className="app-guide__block-title">Getting started</p>
             <ol className="app-guide__steps">
               <li>
                 <strong>Choose a plan.</strong> Open{" "}
@@ -109,11 +109,10 @@ export default function Guide() {
                 one, it appears under <Link to="/app/claims">Claims</Link>.
               </li>
             </ol>
-          </Card>
-        </div>
+          </div>
 
-        <div id="plans">
-          <Card heading="Plans & billing">
+          <div id="plans" className="app-guide__block">
+            <p className="app-guide__block-title">Plans & billing</p>
             <ul className="app-guide__list">
               <li>
                 <strong>Usage — $10/mo + $0.60 per protected order.</strong> Best
@@ -131,8 +130,8 @@ export default function Guide() {
               live subscription from Shopify; it never trusts the browser for
               billing state.
             </s-paragraph>
-          </Card>
-        </div>
+          </div>
+        </Card>
 
         <div id="protection">
           <Card heading="Protection settings">
@@ -199,8 +198,11 @@ export default function Guide() {
           </Card>
         </div>
 
-        <div id="badges">
-          <Card heading="Trust badges & storefront widgets">
+        <Card heading="Storefront & customer experience">
+          <div id="badges" className="app-guide__block">
+            <p className="app-guide__block-title">
+              Trust badges & storefront widgets
+            </p>
             <s-paragraph>
               Manage badges from <Link to="/app/badges">Trust badges</Link>: turn
               them on, choose a style, and decide whether they show on product
@@ -212,11 +214,12 @@ export default function Guide() {
               widget, and the guarantee tab) to your product and cart templates.
               They read your settings automatically — no code.
             </s-paragraph>
-          </Card>
-        </div>
+          </div>
 
-        <div id="customer-claim">
-          <Card heading="How customers file a claim">
+          <div id="customer-claim" className="app-guide__block">
+            <p className="app-guide__block-title">
+              How customers file a claim
+            </p>
             <s-paragraph>
               Customers open your storefront claim page and complete four short
               steps: order details, contact, the issue, and a review.
@@ -233,11 +236,12 @@ export default function Guide() {
               </li>
               <li>Claims outside your filing window are rejected automatically.</li>
             </ul>
-          </Card>
-        </div>
+          </div>
+        </Card>
 
-        <div id="managing-claims">
-          <Card heading="Managing claims">
+        <Card heading="Managing your business">
+          <div id="managing-claims" className="app-guide__block">
+            <p className="app-guide__block-title">Managing claims</p>
             <s-paragraph>
               The <Link to="/app/claims">Claims</Link> page lists everything filed
               from your storefront. Filter with the tabs (All, Requires
@@ -260,11 +264,10 @@ export default function Guide() {
               email, shows the evidence photo, and links to the Shopify order.
               Use <strong>Export CSV</strong> to download the list.
             </s-paragraph>
-          </Card>
-        </div>
+          </div>
 
-        <div id="orders">
-          <Card heading="Orders & offers">
+          <div id="orders" className="app-guide__block">
+            <p className="app-guide__block-title">Orders & offers</p>
             <s-paragraph>
               The <Link to="/app/orders">Orders</Link> page shows which orders are
               protected. For an unprotected, unfulfilled order you can:
@@ -284,23 +287,10 @@ export default function Guide() {
                 the claim windows are measured from.
               </li>
             </ul>
-          </Card>
-        </div>
+          </div>
 
-        <div id="languages">
-          <Card heading="Languages">
-            <s-paragraph>
-              Translate the storefront claim page from{" "}
-              <Link to="/app/translations">Languages</Link>. Add locales (for example
-              Arabic or Hindi, with right-to-left support), set a default, and
-              edit any label. Blank fields fall back to English, and shoppers can
-              switch language on the claim page without a reload.
-            </s-paragraph>
-          </Card>
-        </div>
-
-        <div id="order-sync">
-          <Card heading="Order sync">
+          <div id="order-sync" className="app-guide__block">
+            <p className="app-guide__block-title">Order sync</p>
             <s-paragraph>
               Kourify caches your orders so it can verify claims quickly. New
               orders sync automatically via webhooks; use{" "}
@@ -308,11 +298,23 @@ export default function Guide() {
               A full sync requires Shopify&apos;s protected customer-data approval
               to be in place.
             </s-paragraph>
-          </Card>
-        </div>
+          </div>
+        </Card>
 
-        <div id="faq">
-          <Card heading="Notes & FAQ">
+        <Card heading="Languages & FAQ">
+          <div id="languages" className="app-guide__block">
+            <p className="app-guide__block-title">Languages</p>
+            <s-paragraph>
+              Translate the storefront claim page from{" "}
+              <Link to="/app/translations">Languages</Link>. Add locales (for example
+              Arabic or Hindi, with right-to-left support), set a default, and
+              edit any label. Blank fields fall back to English, and shoppers can
+              switch language on the claim page without a reload.
+            </s-paragraph>
+          </div>
+
+          <div id="faq" className="app-guide__block">
+            <p className="app-guide__block-title">Notes & FAQ</p>
             <p className="app-guide__sub">Is this real insurance?</p>
             <s-paragraph>
               No. It&apos;s a self-funded guarantee you stand behind, and claims
@@ -331,8 +333,8 @@ export default function Guide() {
               handles Shopify&apos;s data-request and redaction webhooks. Customer
               data is never shared across stores.
             </s-paragraph>
-          </Card>
-        </div>
+          </div>
+        </Card>
       </div>
     </s-page>
   );
