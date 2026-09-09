@@ -32,6 +32,49 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   return { settings: currentSettings, hasActiveBilling };
 };
 
+const PLANS = [
+  {
+    id: "usage",
+    name: "Usage",
+    price: "$10",
+    period: "/month",
+    detail: "Plus $0.60 per protected order",
+    features: [
+      "$0.60 only on orders customers protect",
+      "Trust badges on product pages and cart",
+      "Customer-paid or merchant-paid protection",
+      "Flat fee or percentage of order value",
+      "Unlimited claim reviews and CSV export",
+      "Best for stores getting started",
+    ],
+  },
+  {
+    id: "unlimited",
+    name: "Unlimited",
+    price: "$20",
+    period: "/month",
+    detail: "No per-order fees",
+    features: [
+      "Everything in Usage, no per-order fee",
+      "Unlimited protected orders every month",
+      "Predictable flat monthly cost",
+      "Claim reasons and filing windows you control",
+      "Multi-language storefront widgets",
+      "Best value above ~17 protected orders",
+    ],
+  },
+] as const;
+
+const WILL_CONFIGURE: Array<[string, string]> = [
+  ["Who pays", "Charge customers at checkout, or cover it for every order."],
+  [
+    "Pricing",
+    "A flat fee or a percentage of order value, with a floor and ceiling.",
+  ],
+  ["Claim reasons", "Choose which claim types customers can file."],
+  ["Filing windows", "Set how long after shipping each claim can be filed."],
+];
+
 export default function Billing() {
   const { settings, hasActiveBilling } = useLoaderData<typeof loader>();
 
@@ -54,106 +97,61 @@ export default function Billing() {
         }
       />
 
-      {!hasActiveBilling ? (
-        <ActivatePlan currentPlan={settings.plan} onChoose={startBilling} />
-      ) : (
-        <Card heading="Plan">
-          <s-stack
-            direction="inline"
-            gap="base"
-            alignItems="center"
-            justifyContent="space-between"
-          >
-            <s-stack direction="block" gap="small-200">
-              <s-text>
-                {settings.plan === "unlimited"
-                  ? "Unlimited · $20/mo"
-                  : "Usage · $10/mo + $0.60 per protected order"}
-              </s-text>
-              <s-text color="subdued">Your current Kourify plan</s-text>
-            </s-stack>
-            <AppButton
-              variant="secondary"
-              onClick={() =>
-                startBilling(settings.plan === "unlimited" ? "usage" : "unlimited")
-              }
+      <div className="app-plan-grid">
+        {PLANS.map((plan) => {
+          const isCurrent = hasActiveBilling && settings.plan === plan.id;
+          return (
+            <div
+              key={plan.id}
+              className={"app-plan" + (isCurrent ? " app-plan--current" : "")}
             >
-              {settings.plan === "unlimited"
-                ? "Switch to Usage"
-                : "Switch to Unlimited"}
-            </AppButton>
+              <div className="app-plan__head">
+                <span className="app-plan__name">{plan.name}</span>
+                {isCurrent && <s-badge tone="success">Current plan</s-badge>}
+              </div>
+
+              <span className="app-plan__price">
+                {plan.price}
+                <span className="app-plan__period">{plan.period}</span>
+              </span>
+              <span className="app-plan__detail">{plan.detail}</span>
+
+              <ul className="app-plan__features">
+                {plan.features.map((feature) => (
+                  <li key={feature}>{feature}</li>
+                ))}
+              </ul>
+
+              <div className="app-plan__action">
+                <AppButton
+                  variant={isCurrent ? "secondary" : "primary"}
+                  disabled={isCurrent}
+                  onClick={() => startBilling(plan.id)}
+                >
+                  {isCurrent
+                    ? "Current plan"
+                    : hasActiveBilling
+                      ? `Switch to ${plan.name}`
+                      : `Choose ${plan.name}`}
+                </AppButton>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {!hasActiveBilling && (
+        <Card heading="What you'll set up once active">
+          <s-stack direction="block" gap="base">
+            {WILL_CONFIGURE.map(([title, description]) => (
+              <s-stack key={title} direction="block" gap="small-200">
+                <s-text>{title}</s-text>
+                <s-text color="subdued">{description}</s-text>
+              </s-stack>
+            ))}
           </s-stack>
         </Card>
       )}
     </s-page>
-  );
-}
-
-function ActivatePlan({
-  currentPlan,
-  onChoose,
-}: {
-  currentPlan: string;
-  onChoose: (plan: string) => void;
-}) {
-  const plans = [
-    {
-      id: "usage",
-      name: "Usage",
-      price: "$10/mo",
-      detail: "+ $0.60 per protected order",
-    },
-    {
-      id: "unlimited",
-      name: "Unlimited",
-      price: "$20/mo",
-      detail: "Unlimited protected orders",
-    },
-  ];
-  const willConfigure: Array<[string, string]> = [
-    ["Who pays", "Charge customers at checkout, or cover it for every order."],
-    ["Pricing", "A flat fee or a percentage of order value, with a floor and ceiling."],
-    ["Claim reasons", "Choose which claim types customers can file."],
-    ["Filing windows", "Set how long after shipping each claim can be filed."],
-  ];
-
-  return (
-    <>
-      <Card heading="Activate Shopping Guarantee">
-        <s-paragraph>
-          Choose a plan to turn on package protection and start reviewing claims.
-          Change or cancel anytime.
-        </s-paragraph>
-        <div className="app-plan-grid">
-          {plans.map((plan) => (
-            <div
-              key={plan.id}
-              className={
-                "app-plan" +
-                (currentPlan === plan.id ? " app-plan--current" : "")
-              }
-            >
-              <span className="app-plan__name">{plan.name}</span>
-              <span className="app-plan__price">{plan.price}</span>
-              <span className="app-plan__detail">{plan.detail}</span>
-              <AppButton variant="primary" onClick={() => onChoose(plan.id)}>
-                Choose {plan.name}
-              </AppButton>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      <Card heading="What you'll set up once active">
-        <s-stack direction="block" gap="base">
-          {willConfigure.map(([title, description]) => (
-            <s-stack key={title} direction="block" gap="small-200">
-              <s-text>{title}</s-text>
-              <s-text color="subdued">{description}</s-text>
-            </s-stack>
-          ))}
-        </s-stack>
-      </Card>
-    </>
   );
 }

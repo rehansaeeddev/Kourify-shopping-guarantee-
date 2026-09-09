@@ -402,14 +402,10 @@ function fulfillmentLabel(status: string): string {
     .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
-function protectionLabel(
-  protectedOrder: boolean,
-  offerStatus: string | null,
-): string {
-  if (protectedOrder) return "Protection paid";
+function protectionLabel(offerStatus: string | null): string {
   if (offerStatus === "awaiting_payment") return "Awaiting payment";
   if (offerStatus === "offer_sent") return "Offer sent";
-  return "Not protected";
+  return "Unprotected";
 }
 
 function formatMoney(
@@ -446,6 +442,7 @@ export default function Orders() {
     page,
     pageSize,
     totalPages,
+    filteredCount,
   } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const offerFetcher = useFetcher<typeof action>();
@@ -501,30 +498,36 @@ export default function Orders() {
         />
         <StatTile
           icon="alert-circle"
-          label="Not protected"
+          label="Unprotected"
           tone={counts.unprotected ? "warning" : "default"}
           value={String(counts.unprotected)}
         />
       </div>
 
       <Card heading="Shopify orders">
-        <s-stack direction="inline" gap="small-200" paddingBlockEnd="base">
-          {FILTERS.map((value) => (
-            <s-clickable-chip
-              key={value}
-              color={filter === value ? "strong" : "base"}
-              href={
-                value === "all" ? "/app/orders" : `/app/orders?filter=${value}`
-              }
-            >
-              {value === "all"
-                ? "All"
-                : value === "protected"
-                  ? "Protected"
-                  : "Not protected"}
-            </s-clickable-chip>
-          ))}
-        </s-stack>
+        <div className="app-segmented-row">
+          <div className="app-segmented">
+            <div className="app-segmented__group">
+              {FILTERS.map((value) => (
+                <AppButton
+                  key={value}
+                  variant={filter === value ? "primary" : "secondary"}
+                  href={
+                    value === "all"
+                      ? "/app/orders"
+                      : `/app/orders?filter=${value}`
+                  }
+                >
+                  {value === "all"
+                    ? "All"
+                    : value === "protected"
+                      ? "Protected"
+                      : "Unprotected"}
+                </AppButton>
+              ))}
+            </div>
+          </div>
+        </div>
 
         {rows.length === 0 ? (
           <EmptyState
@@ -533,7 +536,15 @@ export default function Orders() {
             description="Synchronize orders or choose another protection filter."
           />
         ) : (
-          <s-table variant="auto">
+          <>
+            <div className="app-result-count">
+              <s-text color="subdued">
+                {`Showing ${(page - 1) * pageSize + 1}–${
+                  (page - 1) * pageSize + rows.length
+                } of ${filteredCount} order${filteredCount === 1 ? "" : "s"}`}
+              </s-text>
+            </div>
+            <s-table variant="auto">
             <s-table-header-row>
               <s-table-header>Order</s-table-header>
               <s-table-header>Customer</s-table-header>
@@ -548,7 +559,9 @@ export default function Orders() {
                 const isFulfilled = isOrderFulfilled(order.status);
                 return (
                   <s-table-row key={order.id}>
-                    <s-table-cell>{order.name}</s-table-cell>
+                    <s-table-cell>
+                      <s-text type="strong">{order.name}</s-text>
+                    </s-table-cell>
                     <s-table-cell>
                       {order.customerName || order.email ? (
                         <s-stack direction="block" gap="small-100">
@@ -564,41 +577,55 @@ export default function Orders() {
                       )}
                     </s-table-cell>
                     <s-table-cell>
-                      {formatMoney(order.totalPrice, currency)}
+                      <span className="app-num">
+                        {formatMoney(order.totalPrice, currency)}
+                      </span>
                     </s-table-cell>
                     <s-table-cell>
-                      <s-stack direction="block" gap="small-100">
-                        <s-text>{fulfillmentLabel(order.status)}</s-text>
-                        {order.deliveredAt ? (
-                          <s-badge tone="success">Delivered</s-badge>
-                        ) : null}
-                      </s-stack>
+                      {/* One badge per cell — "Delivered" supersedes
+                          "Fulfilled", so rows keep a uniform height. */}
+                      <s-badge
+                        tone={
+                          order.deliveredAt
+                            ? "success"
+                            : isFulfilled
+                              ? "info"
+                              : "neutral"
+                        }
+                      >
+                        {order.deliveredAt
+                          ? "Delivered"
+                          : fulfillmentLabel(order.status)}
+                      </s-badge>
                     </s-table-cell>
                     <s-table-cell>
-                      <s-stack direction="block" gap="small-100">
-                        <s-badge tone={order.protected ? "success" : "warning"}>
-                          {protectionLabel(order.protected, order.offerStatus)}
-                        </s-badge>
-                        {order.protected &&
-                        order.protectionPriceCents != null ? (
-                          <s-text color="subdued">
-                            {formatMoney(
-                              order.protectionPriceCents / 100,
-                              order.protectionCurrency,
-                            )}
-                          </s-text>
-                        ) : null}
-                        {!order.protected &&
-                        order.offerStatus === "offer_sent" &&
-                        order.offerExpiresAt ? (
-                          <s-text color="subdued">
-                            {offerExpiryLabel(order.offerExpiresAt)}
-                          </s-text>
-                        ) : null}
-                      </s-stack>
+                      {order.protected ? (
+                        /* The fee itself carries the status — a protected
+                           order is the only one with money in this column. */
+                        <span className="app-protection-fee">
+                          {order.protectionPriceCents
+                            ? formatMoney(
+                                order.protectionPriceCents / 100,
+                                order.protectionCurrency,
+                              )
+                            : "Covered by you"}
+                        </span>
+                      ) : (
+                        <s-stack direction="block" gap="small-100">
+                          <span className="app-protection-state">
+                            {protectionLabel(order.offerStatus)}
+                          </span>
+                          {order.offerStatus === "offer_sent" &&
+                          order.offerExpiresAt ? (
+                            <s-text color="subdued">
+                              {offerExpiryLabel(order.offerExpiresAt)}
+                            </s-text>
+                          ) : null}
+                        </s-stack>
+                      )}
                     </s-table-cell>
                     <s-table-cell>
-                      <s-stack direction="inline" gap="small-200">
+                      <div className="app-row-actions">
                         <AppButton
                           href={`shopify://admin/orders/${orderId}`}
                           variant="secondary"
@@ -657,13 +684,14 @@ export default function Orders() {
                             Mark as delivered
                           </AppButton>
                         ) : null}
-                      </s-stack>
+                      </div>
                     </s-table-cell>
                   </s-table-row>
                 );
               })}
-            </s-table-body>
-          </s-table>
+              </s-table-body>
+            </s-table>
+          </>
         )}
 
         {rows.length > 0 && (

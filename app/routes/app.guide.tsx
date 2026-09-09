@@ -204,9 +204,9 @@ export default function Guide() {
               Trust badges & storefront widgets
             </p>
             <s-paragraph>
-              Manage badges from <Link to="/app/badges">Trust badges</Link>: turn
-              them on, choose a style, and decide whether they show on product
-              pages and the cart.
+              Manage badges from <Link to="/app">Home</Link>: turn them on,
+              choose a style, and decide whether they show on product pages and
+              the cart.
             </s-paragraph>
             <s-paragraph>
               To make them appear, open your Shopify theme editor and add the

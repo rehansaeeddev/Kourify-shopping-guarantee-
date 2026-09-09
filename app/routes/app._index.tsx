@@ -1,9 +1,14 @@
-import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { useLoaderData } from "react-router";
+import type {
+  ActionFunctionArgs,
+  HeadersFunction,
+  LoaderFunctionArgs,
+} from "react-router";
+import { useFetcher, useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { DEFAULT_CLAIM_WINDOWS } from "../lib/claim-window";
+import { useFetcherToast } from "../hooks/useFetcherToast";
 import { Card, StatTile } from "../components/Card";
 import { DashboardHeader } from "../components/DashboardHeader";
 import { GettingStarted } from "../components/GettingStarted";
@@ -11,9 +16,19 @@ import { StatusBadge } from "../components/StatusBadge";
 import { issueTypeLabel } from "../lib/claim-issue-type";
 import { AppButton } from "../components/AppButton";
 import { InfoTip } from "../components/InfoTip";
+import { TrustBadgePreview } from "../components/TrustBadgePreview";
 import { getProtectionTelemetry } from "../lib/protection-telemetry.server";
 import { getProtectionAnalytics } from "../lib/protection-orders.server";
 import { getBillingState } from "../lib/billing-state.server";
+
+const BADGE_STYLES = ["classic", "minimal", "bold"] as const;
+
+const TAB_POSITIONS = [
+  { value: "right", label: "Right edge (vertical)" },
+  { value: "left", label: "Left edge (vertical)" },
+  { value: "bottom", label: "Bottom corner" },
+  { value: "top", label: "Top corner" },
+] as const;
 
 function greetingForHour(hour: number): string {
   if (hour < 12) return "Good morning";
@@ -67,6 +82,43 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   };
 };
 
+/** Badge + guarantee-tab settings are edited inline on this page. */
+export const action = async ({ request }: ActionFunctionArgs) => {
+  const { session } = await authenticate.admin(request);
+  const formData = await request.formData();
+
+  const badgesEnabled = formData.get("badgesEnabled") === "true";
+  const requestedBadgeStyle = String(formData.get("badgeStyle") ?? "classic");
+  const badgeStyle = BADGE_STYLES.includes(
+    requestedBadgeStyle as (typeof BADGE_STYLES)[number],
+  )
+    ? requestedBadgeStyle
+    : "classic";
+  const showOnProduct = formData.get("showOnProduct") === "true";
+  const showOnCart = formData.get("showOnCart") === "true";
+  const requestedTabPosition = String(
+    formData.get("guaranteeTabPosition") ?? "right",
+  );
+  const guaranteeTabPosition = TAB_POSITIONS.some(
+    (p) => p.value === requestedTabPosition,
+  )
+    ? requestedTabPosition
+    : "right";
+
+  const settings = await db.merchantSettings.update({
+    where: { shop: session.shop },
+    data: {
+      badgesEnabled,
+      badgeStyle,
+      showOnProduct,
+      showOnCart,
+      guaranteeTabPosition,
+    },
+  });
+
+  return { settings };
+};
+
 export default function Index() {
   const {
     greeting,
@@ -78,6 +130,25 @@ export default function Index() {
     analytics,
     hasActiveBilling,
   } = useLoaderData<typeof loader>();
+
+  const badgeFetcher = useFetcher<typeof action>();
+  const current = badgeFetcher.data?.settings ?? settings;
+
+  useFetcherToast(badgeFetcher, () => "Badge settings saved.");
+
+  const saveBadges = (overrides: Partial<typeof current> = {}) => {
+    const next = { ...current, ...overrides };
+    badgeFetcher.submit(
+      {
+        badgesEnabled: String(next.badgesEnabled),
+        badgeStyle: next.badgeStyle,
+        showOnProduct: String(next.showOnProduct),
+        showOnCart: String(next.showOnCart),
+        guaranteeTabPosition: next.guaranteeTabPosition,
+      },
+      { method: "POST" },
+    );
+  };
 
   const feeSummary =
     settings.protectionPayer === "merchant"
@@ -122,11 +193,10 @@ export default function Index() {
         steps={[
           {
             label: "Turn on trust badges",
-            detail: settings.badgesEnabled
-              ? `On · ${settings.badgeStyle} style`
-              : "Show a trust badge on your product page and cart.",
-            done: settings.badgesEnabled,
-            action: { label: "Configure badges", href: "/app/badges" },
+            detail: current.badgesEnabled
+              ? `On · ${current.badgeStyle} style`
+              : "Show a trust badge on your product page and cart — set it up below.",
+            done: current.badgesEnabled,
           },
           {
             label: "Package protection is live on your storefront",
@@ -150,14 +220,13 @@ export default function Index() {
         <StatTile
           icon="shield-check-mark"
           label="Trust badges"
-          tone={settings.badgesEnabled ? "success" : "default"}
-          value={settings.badgesEnabled ? "On" : "Off"}
+          tone={current.badgesEnabled ? "success" : "default"}
+          value={current.badgesEnabled ? "On" : "Off"}
           sub={
-            settings.badgesEnabled
-              ? `${settings.badgeStyle.charAt(0).toUpperCase()}${settings.badgeStyle.slice(1)} style`
+            current.badgesEnabled
+              ? `${current.badgeStyle.charAt(0).toUpperCase()}${current.badgeStyle.slice(1)} style`
               : "Not shown to customers"
           }
-          href="/app/badges"
         />
         <StatTile
           icon="check-circle"
@@ -183,6 +252,121 @@ export default function Index() {
           sub="All time"
           href="/app/settings"
         />
+      </div>
+
+      <div style={{ marginTop: "1.25rem" }}>
+        <Card>
+          <div className="app-feature__head">
+            <h3 className="app-card__heading">Safe Shopping Trustmarks</h3>
+            <s-text color="subdued">
+              Build confidence with a trust badge across your store.
+            </s-text>
+          </div>
+
+          <s-stack
+            direction="inline"
+            gap="large-100"
+            alignItems="start"
+            justifyContent="space-between"
+          >
+            <s-stack direction="block" gap="base">
+              <div className="app-setting app-setting--switch">
+                <s-switch
+                  label="Show trust badge on storefront"
+                  checked={current.badgesEnabled}
+                  onChange={(e) =>
+                    saveBadges({ badgesEnabled: e.currentTarget.checked })
+                  }
+                />
+                <span className="app-setting__desc">
+                  Display on your store&apos;s theme
+                </span>
+              </div>
+              <div className="app-setting app-setting--check">
+                <s-checkbox
+                  label="Show on product pages"
+                  checked={current.showOnProduct}
+                  disabled={!current.badgesEnabled}
+                  onChange={(e) =>
+                    saveBadges({ showOnProduct: e.currentTarget.checked })
+                  }
+                />
+                <span className="app-setting__desc">
+                  Display badge on product pages
+                </span>
+              </div>
+              <div className="app-setting app-setting--check">
+                <s-checkbox
+                  label="Show in cart"
+                  checked={current.showOnCart}
+                  disabled={!current.badgesEnabled}
+                  onChange={(e) =>
+                    saveBadges({ showOnCart: e.currentTarget.checked })
+                  }
+                />
+                <span className="app-setting__desc">
+                  Display badge in cart and drawer
+                </span>
+              </div>
+            </s-stack>
+
+            <div className="app-badge-settings">
+              <s-select
+                label="Badge style"
+                value={current.badgeStyle}
+                disabled={!current.badgesEnabled}
+                onChange={(e) => saveBadges({ badgeStyle: e.currentTarget.value })}
+              >
+                {BADGE_STYLES.map((style) => (
+                  <s-option key={style} value={style}>
+                    {style.charAt(0).toUpperCase() + style.slice(1)}
+                  </s-option>
+                ))}
+              </s-select>
+
+              <div className="app-badge-preview">
+                <s-text color="subdued">Preview — what shoppers see</s-text>
+                <div className="app-badge-preview__frame">
+                  <TrustBadgePreview badgeStyle={current.badgeStyle} />
+                </div>
+                <span className="app-setting__desc">
+                  This is how your trust badge will appear on your store.
+                </span>
+              </div>
+            </div>
+          </s-stack>
+        </Card>
+      </div>
+
+      <div style={{ marginTop: "1.25rem" }}>
+        <Card heading="Guarantee tab">
+          <s-stack
+            direction="inline"
+            gap="large-100"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <s-paragraph>
+              The floating Kourify Guarantee tab shoppers use to learn about
+              protection and file claims.
+            </s-paragraph>
+            <div style={{ inlineSize: "200px", flex: "0 0 auto" }}>
+              <s-select
+                label="Tab position"
+                value={current.guaranteeTabPosition}
+                onChange={(e) =>
+                  saveBadges({ guaranteeTabPosition: e.currentTarget.value })
+                }
+              >
+                {TAB_POSITIONS.map((pos) => (
+                  <s-option key={pos.value} value={pos.value}>
+                    {pos.label}
+                  </s-option>
+                ))}
+              </s-select>
+            </div>
+          </s-stack>
+        </Card>
       </div>
 
       <div style={{ marginTop: "1.25rem" }}>
