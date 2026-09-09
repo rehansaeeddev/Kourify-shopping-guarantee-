@@ -46,9 +46,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Translate + escape one key for the initial server render.
   const T = (key: string) => escapeHtml(t(bundle, key));
 
+  // A merchant who unchecks every reason gets all six back (matching the
+  // banner on the Settings page) — `?.split(...)` only falls back to the
+  // default on a missing settings row, not on the empty array a saved-but-
+  // all-unchecked value produces, so that case needs its own check.
+  const savedTypes = settings?.enabledClaimTypes.split(",").filter(Boolean);
   const enabledTypes =
-    settings?.enabledClaimTypes.split(",").filter(Boolean) ??
-    ALL_ISSUE_TYPES.map((type) => type.value);
+    savedTypes && savedTypes.length > 0
+      ? savedTypes
+      : ALL_ISSUE_TYPES.map((type) => type.value);
   const issueOptions = enabledTypes
     .map(
       (value) =>
