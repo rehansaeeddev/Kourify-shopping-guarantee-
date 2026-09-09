@@ -6,6 +6,7 @@ import { DEFAULT_CLAIM_WINDOWS } from "../lib/claim-window";
 import { PageHeader } from "../components/PageHeader";
 import { Card } from "../components/Card";
 import { AppButton } from "../components/AppButton";
+import { InfoTip } from "../components/InfoTip";
 import { useFetcherToast } from "../hooks/useFetcherToast";
 
 const BADGE_STYLES = ["classic", "minimal", "bold"] as const;
@@ -99,9 +100,16 @@ export default function Badges() {
         title="Trust badges"
         subtitle="Show a trust badge on your storefront to reassure shoppers before they check out."
         actions={
-          <AppButton href="/app" variant="secondary">
-            Back
-          </AppButton>
+          <>
+            <InfoTip label="Add the badge to your theme">
+              After saving, open the theme editor and add the{" "}
+              <strong>Kourify Trust Badge</strong> block to your product and
+              cart templates. It reads these settings automatically.
+            </InfoTip>
+            <AppButton href="/app" variant="secondary">
+              Back
+            </AppButton>
+          </>
         }
       />
 
@@ -215,14 +223,6 @@ export default function Badges() {
           </s-stack>
         </s-stack>
       </Card>
-
-      <s-section slot="aside" heading="Add the badge to your theme">
-        <s-paragraph>
-          After saving, open the theme editor and add the{" "}
-          <s-text type="strong">Kourify Trust Badge</s-text> block to your
-          product and cart templates. It reads these settings automatically.
-        </s-paragraph>
-      </s-section>
     </s-page>
   );
 }
