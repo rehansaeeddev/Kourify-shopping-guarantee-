@@ -17,7 +17,7 @@ const SECTIONS = [
   { id: "overview", label: "What Kourify does" },
   { id: "getting-started", label: "Getting started" },
   { id: "plans", label: "Plans & billing" },
-  { id: "protection", label: "Protection settings" },
+  { id: "protection", label: "Settings" },
   { id: "badges", label: "Trust badges & widgets" },
   { id: "customer-claim", label: "How customers file a claim" },
   { id: "managing-claims", label: "Managing claims" },
@@ -91,7 +91,7 @@ export default function Guide() {
             <ol className="app-guide__steps">
               <li>
                 <strong>Choose a plan.</strong> Open{" "}
-                <Link to="/app/protection">Protection</Link> and pick Usage or
+                <Link to="/app/billing">Billing</Link> and pick Usage or
                 Unlimited. Protection can&apos;t be enabled without an active
                 plan.
               </li>
@@ -126,7 +126,7 @@ export default function Guide() {
             <s-paragraph>
               Billing runs through Shopify — you approve the charge in Shopify&apos;s
               own screen, and you can switch or cancel anytime from the{" "}
-              <Link to="/app/protection">Protection</Link> page. Kourify reads your
+              <Link to="/app/billing">Billing</Link> page. Kourify reads your
               live subscription from Shopify; it never trusts the browser for
               billing state.
             </s-paragraph>
@@ -134,7 +134,7 @@ export default function Guide() {
         </Card>
 
         <div id="protection">
-          <Card heading="Protection settings">
+          <Card heading="Settings">
             <p className="app-guide__sub">Enable protection</p>
             <s-paragraph>
               The master switch. Everything below only applies while protection

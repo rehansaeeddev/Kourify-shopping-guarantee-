@@ -217,8 +217,8 @@ export default function Claims() {
         subtitle="Review and resolve claims submitted from your storefront's protection widget."
         actions={
           <>
-            <AppButton href="/app/protection" variant="secondary">
-              Protection settings
+            <AppButton href="/app/settings" variant="secondary">
+              Settings
             </AppButton>
             <AppButton href="/app" variant="secondary">
               Back

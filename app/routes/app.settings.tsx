@@ -1,5 +1,5 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { useFetcher, useLoaderData } from "react-router";
+import { redirect, useFetcher, useLoaderData } from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { PageHeader } from "../components/PageHeader";
@@ -56,6 +56,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           data: { plan: activePlan },
         })
       : settings;
+  // Nothing here applies without an active plan — send merchants to Billing
+  // to choose one instead of showing a second copy of the plan picker.
+  if (!hasActiveBilling) {
+    throw redirect("/app/billing");
+  }
+
   const analytics = await getProtectionAnalytics(session.shop);
   const planTier = await detectPlanTier(admin, session.shop);
   return { settings: currentSettings, analytics, hasActiveBilling, planTier };
@@ -220,9 +226,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 };
 
-export default function Protection() {
-  const { settings, analytics, hasActiveBilling, planTier } =
-    useLoaderData<typeof loader>();
+export default function Settings() {
+  const { settings, analytics, planTier } = useLoaderData<typeof loader>();
   // Percentage pricing at checkout runs via a Cart Transform price override,
   // which only takes effect on Shopify Plus. Warn whenever we positively know
   // the store isn't Plus (skip "unknown" to avoid a false alarm).
@@ -237,16 +242,9 @@ export default function Protection() {
     error?: string;
   }>();
 
-  const startBilling = (plan: string) => {
-    const url = new URL(window.location.href);
-    url.pathname = "/app/billing";
-    url.searchParams.set("plan", plan);
-    window.location.assign(url.toString());
-  };
-
   useFetcherToast(
     settingsFetcher,
-    (data) => data.error ?? "Protection settings saved.",
+    (data) => data.error ?? "Settings saved.",
   );
 
   const currentSettings = settingsFetcher.data?.settings ?? settings;
@@ -334,7 +332,7 @@ export default function Protection() {
   return (
     <s-page>
       <PageHeader
-        title="Protection"
+        title="Settings"
         subtitle="Package protection and claims for your storefront."
         actions={
           <>
@@ -354,14 +352,7 @@ export default function Protection() {
         </s-banner>
       )}
 
-      {!hasActiveBilling ? (
-        <ActivateProtection
-          currentPlan={currentSettings.plan}
-          onChoose={startBilling}
-        />
-      ) : (
-        <>
-          <Card heading="Shopping Guarantee">
+      <Card heading="Shopping Guarantee">
             <s-stack direction="block" gap="base">
               <s-stack
                 direction="inline"
@@ -735,36 +726,6 @@ export default function Protection() {
             </s-stack>
           </Card>
 
-          <Card heading="Plan">
-            <s-stack
-              direction="inline"
-              gap="base"
-              alignItems="center"
-              justifyContent="space-between"
-            >
-              <s-stack direction="block" gap="small-200">
-                <s-text>
-                  {currentSettings.plan === "unlimited"
-                    ? "Unlimited · $20/mo"
-                    : "Usage · $10/mo + $0.60 per protected order"}
-                </s-text>
-                <s-text color="subdued">Your current Kourify plan</s-text>
-              </s-stack>
-              <AppButton
-                variant="secondary"
-                onClick={() =>
-                  startBilling(
-                    currentSettings.plan === "unlimited" ? "usage" : "unlimited",
-                  )
-                }
-              >
-                {currentSettings.plan === "unlimited"
-                  ? "Switch to Usage"
-                  : "Switch to Unlimited"}
-              </AppButton>
-            </s-stack>
-          </Card>
-
           <Card heading="How protection works">
             <s-paragraph>
               The &quot;Protect your order&quot; widget is live on your product
@@ -775,77 +736,6 @@ export default function Protection() {
               before promising guaranteed payouts to customers.
             </s-paragraph>
           </Card>
-        </>
-      )}
     </s-page>
-  );
-}
-
-function ActivateProtection({
-  currentPlan,
-  onChoose,
-}: {
-  currentPlan: string;
-  onChoose: (plan: string) => void;
-}) {
-  const plans = [
-    {
-      id: "usage",
-      name: "Usage",
-      price: "$10/mo",
-      detail: "+ $0.60 per protected order",
-    },
-    {
-      id: "unlimited",
-      name: "Unlimited",
-      price: "$20/mo",
-      detail: "Unlimited protected orders",
-    },
-  ];
-  const willConfigure: Array<[string, string]> = [
-    ["Who pays", "Charge customers at checkout, or cover it for every order."],
-    ["Pricing", "A flat fee or a percentage of order value, with a floor and ceiling."],
-    ["Claim reasons", "Choose which claim types customers can file."],
-    ["Filing windows", "Set how long after shipping each claim can be filed."],
-  ];
-
-  return (
-    <>
-      <Card heading="Activate Shopping Guarantee">
-        <s-paragraph>
-          Choose a plan to turn on package protection and start reviewing claims.
-          Change or cancel anytime.
-        </s-paragraph>
-        <div className="app-plan-grid">
-          {plans.map((plan) => (
-            <div
-              key={plan.id}
-              className={
-                "app-plan" +
-                (currentPlan === plan.id ? " app-plan--current" : "")
-              }
-            >
-              <span className="app-plan__name">{plan.name}</span>
-              <span className="app-plan__price">{plan.price}</span>
-              <span className="app-plan__detail">{plan.detail}</span>
-              <AppButton variant="primary" onClick={() => onChoose(plan.id)}>
-                Choose {plan.name}
-              </AppButton>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      <Card heading="What you'll set up once active">
-        <s-stack direction="block" gap="base">
-          {willConfigure.map(([title, description]) => (
-            <s-stack key={title} direction="block" gap="small-200">
-              <s-text>{title}</s-text>
-              <s-text color="subdued">{description}</s-text>
-            </s-stack>
-          ))}
-        </s-stack>
-      </Card>
-    </>
   );
 }
