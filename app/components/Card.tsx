@@ -27,6 +27,10 @@ type StatTileProps = {
   icon: string;
   tone?: "default" | "success" | "warning" | "critical";
   href?: string;
+  /** Small text under the value — e.g. a trend delta ("↓ 2 vs last week"). */
+  sub?: ReactNode;
+  /** Small graphic pinned to the tile's end — e.g. a sparkline. */
+  graphic?: ReactNode;
 };
 
 const TONE_TO_ICON_TONE: Record<string, "neutral" | "success" | "warning" | "critical"> = {
@@ -36,17 +40,33 @@ const TONE_TO_ICON_TONE: Record<string, "neutral" | "success" | "warning" | "cri
   critical: "critical",
 };
 
-export function StatTile({ label, value, icon, tone = "default", href }: StatTileProps) {
+export function StatTile({
+  label,
+  value,
+  icon,
+  tone = "default",
+  href,
+  sub,
+  graphic,
+}: StatTileProps) {
   const className = `app-stat-tile app-stat-tile--${tone}`;
   const content = (
     <>
-      <div className="app-stat-tile__icon">
-        <s-icon type={icon as never} tone={TONE_TO_ICON_TONE[tone]} />
+      <div className="app-stat-tile__top">
+        <div className="app-stat-tile__icon">
+          <s-icon type={icon as never} tone={TONE_TO_ICON_TONE[tone]} />
+        </div>
+        <div className="app-stat-tile__body">
+          <span className="app-stat-tile__label">{label}</span>
+          <span className="app-stat-tile__value">{value}</span>
+        </div>
       </div>
-      <div className="app-stat-tile__body">
-        <span className="app-stat-tile__label">{label}</span>
-        <span className="app-stat-tile__value">{value}</span>
-      </div>
+      {(sub || graphic) && (
+        <div className="app-stat-tile__foot">
+          {sub && <span className="app-stat-tile__sub">{sub}</span>}
+          {graphic && <div className="app-stat-tile__graphic">{graphic}</div>}
+        </div>
+      )}
     </>
   );
 
