@@ -11,13 +11,9 @@ import { StatusBadge } from "../components/StatusBadge";
 import { issueTypeLabel } from "../lib/claim-issue-type";
 import { AppButton } from "../components/AppButton";
 import { InfoTip } from "../components/InfoTip";
-import {
-  getClaimsTrend,
-  getProtectionTelemetry,
-} from "../lib/protection-telemetry.server";
+import { getProtectionTelemetry } from "../lib/protection-telemetry.server";
 import { getProtectionAnalytics } from "../lib/protection-orders.server";
 import { getBillingState } from "../lib/billing-state.server";
-import { Sparkline } from "../components/Sparkline";
 
 function greetingForHour(hour: number): string {
   if (hour < 12) return "Good morning";
@@ -39,7 +35,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     totalClaims,
     recentClaims,
     telemetry,
-    claimsTrend,
     analytics,
     { hasActiveBilling },
   ] = await Promise.all([
@@ -53,7 +48,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       take: 5,
     }),
     getProtectionTelemetry(session.shop, admin),
-    getClaimsTrend(session.shop),
     getProtectionAnalytics(session.shop),
     getBillingState(billing),
   ]);
@@ -68,7 +62,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     totalClaims,
     recentClaims,
     telemetry,
-    claimsTrend,
     analytics,
     hasActiveBilling,
   };
@@ -82,31 +75,22 @@ export default function Index() {
     totalClaims,
     recentClaims,
     telemetry,
-    claimsTrend,
     analytics,
     hasActiveBilling,
   } = useLoaderData<typeof loader>();
 
-  const claimsDelta = claimsTrend.last7Count - claimsTrend.previous7Count;
-  const claimsDeltaLabel =
-    claimsTrend.previous7Count === 0 && claimsTrend.last7Count === 0
-      ? null
-      : claimsDelta === 0
-        ? "Same as last week"
-        : `${claimsDelta > 0 ? "↑" : "↓"} ${Math.abs(claimsDelta)} vs last week`;
-
   const feeSummary =
     settings.protectionPayer === "merchant"
-      ? "Free for customers · you cover it"
+      ? "Free for customers"
       : settings.protectionFeeType === "percentage"
-        ? `${(settings.protectionPercentBasisPoints / 100).toFixed(1)}% of order · customer pays`
-        : `$${(settings.protectionFlatFeeCents / 100).toFixed(2)} flat · customer pays`;
+        ? `${(settings.protectionPercentBasisPoints / 100).toFixed(1)}% of order`
+        : `$${(settings.protectionFlatFeeCents / 100).toFixed(2)} flat fee`;
 
   const protectionStatus = !hasActiveBilling
-    ? { tone: "warning" as const, value: "Locked · choose a plan" }
+    ? { tone: "warning" as const, value: "Locked", sub: "Choose a plan" }
     : !settings.protectionEnabled
-      ? { tone: "default" as const, value: "Off" }
-      : { tone: "success" as const, value: `Live · ${feeSummary}` };
+      ? { tone: "default" as const, value: "Off", sub: null }
+      : { tone: "success" as const, value: "Live", sub: feeSummary };
 
   return (
     <s-page>
@@ -162,48 +146,44 @@ export default function Index() {
         ]}
       />
 
-      <Card heading="Store status">
-        <div className="app-card-row">
-          <StatTile
-            icon="shield-check-mark"
-            label="Trust badges"
-            tone={settings.badgesEnabled ? "success" : "default"}
-            value={settings.badgesEnabled ? "On" : "Off"}
-            href="/app/badges"
-          />
-          <StatTile
-            icon="check-circle"
-            label="Package protection"
-            tone={protectionStatus.tone}
-            value={protectionStatus.value}
-            href="/app/settings"
-          />
-          <StatTile
-            icon="clock"
-            label="Open claims"
-            tone={openClaims > 0 ? "warning" : "default"}
-            value={String(openClaims)}
-            sub={claimsDeltaLabel}
-            graphic={<Sparkline values={claimsTrend.dailyCounts} />}
-            href="/app/claims"
-          />
-          <StatTile
-            icon="chart-line"
-            label="Claim incident rate"
-            tone={telemetry.incidentRate !== null && telemetry.incidentRate > 3 ? "critical" : "default"}
-            value={telemetry.incidentRate !== null ? `${telemetry.incidentRate.toFixed(1)}%` : "No data yet"}
-            href="/app/claims"
-          />
-          <StatTile
-            icon="cash-dollar"
-            label="Protection revenue"
-            tone="success"
-            value={`$${(analytics.protectionRevenueCents / 100).toFixed(2)}`}
-            sub="All time"
-            href="/app/settings"
-          />
-        </div>
-      </Card>
+      <div className="app-card-row">
+        <StatTile
+          icon="shield-check-mark"
+          label="Trust badges"
+          tone={settings.badgesEnabled ? "success" : "default"}
+          value={settings.badgesEnabled ? "On" : "Off"}
+          sub={
+            settings.badgesEnabled
+              ? `${settings.badgeStyle.charAt(0).toUpperCase()}${settings.badgeStyle.slice(1)} style`
+              : "Not shown to customers"
+          }
+          href="/app/badges"
+        />
+        <StatTile
+          icon="check-circle"
+          label="Package protection"
+          tone={protectionStatus.tone}
+          value={protectionStatus.value}
+          sub={protectionStatus.sub}
+          href="/app/settings"
+        />
+        <StatTile
+          icon="chart-line"
+          label="Claim incident rate"
+          tone={telemetry.incidentRate !== null && telemetry.incidentRate > 3 ? "critical" : "default"}
+          value={telemetry.incidentRate !== null ? `${telemetry.incidentRate.toFixed(1)}%` : "No data yet"}
+          sub="Of fulfilled orders"
+          href="/app/claims"
+        />
+        <StatTile
+          icon="cash-dollar"
+          label="Protection revenue"
+          tone="success"
+          value={`$${(analytics.protectionRevenueCents / 100).toFixed(2)}`}
+          sub="All time"
+          href="/app/settings"
+        />
+      </div>
 
       <div style={{ marginTop: "1.25rem" }}>
         <Card heading="Recent claims">
