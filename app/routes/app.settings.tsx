@@ -649,9 +649,12 @@ export default function Settings() {
             </s-stack>
           </Card>
 
-          <Card heading="Claim reasons">
+          <Card heading="Claim reasons & filing windows">
             <s-paragraph>
-              Which reasons customers can choose in the storefront claim form.
+              Which reasons customers can choose in the storefront claim form,
+              and how many days after an order ships each one can still be
+              filed. We check this against the order&apos;s real fulfillment
+              date — a claim outside its window is rejected automatically.
             </s-paragraph>
             {enabledTypes.size === 0 && (
               <s-banner tone="warning">
@@ -659,26 +662,6 @@ export default function Settings() {
                 showing all six reasons until you enable at least one here.
               </s-banner>
             )}
-            <s-stack direction="block" gap="small-200" paddingBlockStart="base">
-              {ALL_ISSUE_TYPES.map((type) => (
-                <s-checkbox
-                  key={type.value}
-                  label={type.label}
-                  checked={enabledTypes.has(type.value)}
-                  onChange={(e) =>
-                    toggleClaimType(type.value, e.currentTarget.checked ?? false)
-                  }
-                />
-              ))}
-            </s-stack>
-          </Card>
-
-          <Card heading="Filing windows">
-            <s-paragraph>
-              How many days after an order ships a customer can file each type of
-              claim. We check this against the order&apos;s real fulfillment date
-              — a claim outside the window is rejected automatically.
-            </s-paragraph>
             <s-stack direction="block" gap="base" paddingBlockStart="base">
               {ALL_ISSUE_TYPES.map((type) => {
                 const w = claimWindows[type.value] ?? { minDays: 0, maxDays: 30 };
@@ -690,7 +673,16 @@ export default function Settings() {
                     alignItems="center"
                     justifyContent="space-between"
                   >
-                    <s-text>{type.label}</s-text>
+                    <s-checkbox
+                      label={type.label}
+                      checked={enabledTypes.has(type.value)}
+                      onChange={(e) =>
+                        toggleClaimType(
+                          type.value,
+                          e.currentTarget.checked ?? false,
+                        )
+                      }
+                    />
                     <s-stack
                       direction="inline"
                       gap="small-200"
