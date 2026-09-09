@@ -361,55 +361,59 @@ export default function Settings() {
         </s-banner>
       )}
 
-      <Card heading="Shopping Guarantee">
-        <s-stack
-          direction="inline"
-          gap="base"
-          alignItems="center"
-          justifyContent="space-between"
-        >
-          <s-stack direction="block" gap="small-200">
-            <s-text>Protection at checkout</s-text>
-            <s-text color="subdued">
-              {currentSettings.protectionEnabled
-                ? "Live — customers can add package protection at checkout. This is a manually-reviewed guarantee, not underwritten insurance."
-                : "Turn on to offer package protection at checkout."}
-            </s-text>
-          </s-stack>
-          <s-switch
-            label="Enable protection at checkout"
-            checked={currentSettings.protectionEnabled}
-            disabled={settingsFetcher.state !== "idle"}
-            onChange={(e) =>
-              saveSettings({ protectionEnabled: e.currentTarget.checked })
-            }
-          />
-        </s-stack>
-      </Card>
+          <div className="app-card-row" style={{ marginBlockEnd: "1.25rem" }}>
+            <StatTile
+              icon="shield-check-mark"
+              label="Protected orders"
+              tone={analytics.protectedOrders > 0 ? "success" : "default"}
+              value={String(analytics.protectedOrders)}
+              sub="Orders with protection"
+            />
+            <StatTile
+              icon="chart-line"
+              label="Selection rate"
+              value={`${analytics.conversionRate.toFixed(1)}%`}
+              sub="Of eligible orders"
+            />
+            <StatTile
+              icon="cash-dollar"
+              label="Protection sales"
+              tone={analytics.protectionRevenueCents > 0 ? "success" : "default"}
+              value={`$${(analytics.protectionRevenueCents / 100).toFixed(2)}`}
+              sub="All time"
+            />
+            <StatTile
+              icon="receipt-dollar"
+              label="Kourify usage fees"
+              value={`$${(analytics.usageFeesCents / 100).toFixed(2)}`}
+              sub="Billed this period"
+            />
+          </div>
 
-          <Card heading="Performance">
-            <div className="app-card-row">
-              <StatTile
-                icon="shield-check-mark"
-                label="Protected orders"
-                value={String(analytics.protectedOrders)}
+          <Card heading="Shopping Guarantee">
+            <s-stack
+              direction="inline"
+              gap="base"
+              alignItems="center"
+              justifyContent="space-between"
+            >
+              <s-stack direction="block" gap="small-200">
+                <s-text>Protection at checkout</s-text>
+                <s-text color="subdued">
+                  {currentSettings.protectionEnabled
+                    ? "Live — customers can add package protection at checkout. This is a manually-reviewed guarantee, not underwritten insurance."
+                    : "Turn on to offer package protection at checkout."}
+                </s-text>
+              </s-stack>
+              <s-switch
+                label="Enable protection at checkout"
+                checked={currentSettings.protectionEnabled}
+                disabled={settingsFetcher.state !== "idle"}
+                onChange={(e) =>
+                  saveSettings({ protectionEnabled: e.currentTarget.checked })
+                }
               />
-              <StatTile
-                icon="chart-line"
-                label="Selection rate"
-                value={`${analytics.conversionRate.toFixed(1)}%`}
-              />
-              <StatTile
-                icon="cash-dollar"
-                label="Protection sales"
-                value={`$${(analytics.protectionRevenueCents / 100).toFixed(2)}`}
-              />
-              <StatTile
-                icon="receipt-dollar"
-                label="Kourify usage fees"
-                value={`$${(analytics.usageFeesCents / 100).toFixed(2)}`}
-              />
-            </div>
+            </s-stack>
           </Card>
 
           <Card heading="Pricing">
@@ -423,13 +427,14 @@ export default function Settings() {
                   className={`app-payer-card${merchantPays ? " is-selected" : ""}`}
                   onClick={() => saveSettings({ protectionPayer: "merchant" })}
                 >
-                  <span className="app-payer-card__icon">
-                    <s-icon type="shield-check-mark" />
+                  <span className="app-payer-card__head">
+                    <span className="app-payer-card__icon">
+                      <s-icon type="shield-check-mark" />
+                    </span>
+                    <span className="app-payer-card__title">You pay</span>
                   </span>
-                  <span className="app-payer-card__title">You pay</span>
                   <span className="app-payer-card__desc">
-                    Every order is protected automatically — free for shoppers,
-                    with no extra line at checkout.
+                    Free for shoppers — every order is protected automatically.
                   </span>
                   <span className="app-payer-card__check">
                     <s-icon type="check" />
@@ -441,13 +446,14 @@ export default function Settings() {
                   disabled={!customerPaysAllowed}
                   onClick={() => saveSettings({ protectionPayer: "customer" })}
                 >
-                  <span className="app-payer-card__icon">
-                    <s-icon type="cash-dollar" />
+                  <span className="app-payer-card__head">
+                    <span className="app-payer-card__icon">
+                      <s-icon type="cash-dollar" />
+                    </span>
+                    <span className="app-payer-card__title">Customer pays</span>
                   </span>
-                  <span className="app-payer-card__title">Customer pays</span>
                   <span className="app-payer-card__desc">
-                    Shoppers choose protection at checkout for a small fee you
-                    configure below.
+                    Shoppers add protection at checkout for a fee you set below.
                   </span>
                   {!customerPaysAllowed && (
                     <span className="app-payer-card__lock">

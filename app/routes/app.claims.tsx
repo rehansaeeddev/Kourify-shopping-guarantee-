@@ -253,36 +253,34 @@ export default function Claims() {
       </div>
 
       <Card heading={`Claims (${totalClaims})`}>
-        <s-stack
-          direction="inline"
-          gap="small-200"
-          alignItems="center"
-          justifyContent="space-between"
-          paddingBlockEnd="base"
-        >
-          <s-stack direction="inline" gap="small-200">
-            {TABS.map((t) => (
+        <div className="app-segmented-row">
+          <div className="app-segmented">
+            <div className="app-segmented__group">
+              {TABS.map((t) => (
+                <AppButton
+                  key={t.value}
+                  variant={tab === t.value ? "primary" : "secondary"}
+                  href={
+                    t.value === "all"
+                      ? "/app/claims"
+                      : `/app/claims?tab=${t.value}`
+                  }
+                >
+                  {t.label}
+                </AppButton>
+              ))}
+            </div>
+            <div className="app-segmented__end">
               <AppButton
-                key={t.value}
-                variant={tab === t.value ? "primary" : "secondary"}
-                href={
-                  t.value === "all"
-                    ? "/app/claims"
-                    : `/app/claims?tab=${t.value}`
-                }
+                href={`/app/claims/export?${exportParams.toString()}`}
+                variant="secondary"
+                download
               >
-                {t.label}
+                Export CSV
               </AppButton>
-            ))}
-          </s-stack>
-          <AppButton
-            href={`/app/claims/export?${exportParams.toString()}`}
-            variant="secondary"
-            download
-          >
-            Export CSV
-          </AppButton>
-        </s-stack>
+            </div>
+          </div>
+        </div>
 
         <Form method="get" className="app-search">
           <input type="hidden" name="tab" value={tab} />
