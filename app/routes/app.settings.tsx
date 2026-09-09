@@ -5,6 +5,7 @@ import db from "../db.server";
 import { PageHeader } from "../components/PageHeader";
 import { Card, StatTile } from "../components/Card";
 import { AppButton } from "../components/AppButton";
+import { InfoTip } from "../components/InfoTip";
 import { useFetcherToast } from "../hooks/useFetcherToast";
 import { ALL_ISSUE_TYPES } from "../lib/claim-issue-type";
 import {
@@ -336,6 +337,14 @@ export default function Settings() {
         subtitle="Package protection and claims for your storefront."
         actions={
           <>
+            <InfoTip label="How protection works">
+              The &quot;Protect your order&quot; widget is live on your product
+              page and cart. It&apos;s an honest, self-funded guarantee right
+              now — there&apos;s no real shipping-insurance underwriting
+              behind it yet, so claims are reviewed manually rather than paid
+              out automatically. Connect a real insurance partner (like
+              EasyPost) before promising guaranteed payouts to customers.
+            </InfoTip>
             <AppButton href="/app/claims" variant="secondary">
               View claims
             </AppButton>
@@ -726,16 +735,6 @@ export default function Settings() {
             </s-stack>
           </Card>
 
-          <Card heading="How protection works">
-            <s-paragraph>
-              The &quot;Protect your order&quot; widget is live on your product
-              page and cart. It&apos;s an honest, self-funded guarantee right now
-              — there&apos;s no real shipping-insurance underwriting behind it
-              yet, so claims are reviewed manually rather than paid out
-              automatically. Connect a real insurance partner (like EasyPost)
-              before promising guaranteed payouts to customers.
-            </s-paragraph>
-          </Card>
     </s-page>
   );
 }
