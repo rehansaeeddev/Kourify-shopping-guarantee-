@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { useState } from "react";
-import { useFetcher, useLoaderData } from "react-router";
+import { useFetcher, useLoaderData, useNavigate } from "react-router";
 
 import { AppButton } from "../components/AppButton";
 import { Card, StatTile } from "../components/Card";
@@ -17,7 +17,8 @@ import { useFetcherToast } from "../hooks/useFetcherToast";
 import { useTablePagination } from "../hooks/useTablePagination";
 
 const FILTERS = ["all", "protected", "unprotected"] as const;
-const PAGE_SIZE = 25;
+const PAGE_SIZES = [10, 20, 50] as const;
+const DEFAULT_PAGE_SIZE = 10;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -29,6 +30,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     ? (requestedFilter as (typeof FILTERS)[number])
     : "all";
   const page = Math.max(1, Math.floor(Number(url.searchParams.get("page")) || 1));
+  const requestedPageSize = Number(url.searchParams.get("pageSize"));
+  const pageSize = PAGE_SIZES.includes(
+    requestedPageSize as (typeof PAGE_SIZES)[number],
+  )
+    ? requestedPageSize
+    : DEFAULT_PAGE_SIZE;
 
   // ProtectedOrder has no FK/relation to Order (just a shared shopifyOrderId),
   // so "protected"/"unprotected" filtering goes through an id list rather
@@ -62,8 +69,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     db.order.findMany({
       where: { shop: session.shop, ...filterWhere },
       orderBy: { createdAt: "desc" },
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
     }),
     db.order.count({ where: { shop: session.shop } }),
     db.order.count({
@@ -94,7 +101,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     };
   });
 
-  const totalPages = Math.max(1, Math.ceil(filteredCount / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filteredCount / pageSize));
   const workspaceCounts = await getWorkspaceCounts(session.shop);
 
   return {
@@ -103,6 +110,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     currency,
     workspaceCounts,
     page,
+    pageSize,
     totalPages,
     filteredCount,
     counts: {
@@ -437,8 +445,10 @@ export default function Orders() {
     currency,
     workspaceCounts,
     page,
+    pageSize,
     totalPages,
   } = useLoaderData<typeof loader>();
+  const navigate = useNavigate();
   const offerFetcher = useFetcher<typeof action>();
   const [fulfillmentOrder, setFulfillmentOrder] = useState<{
     id: string;
@@ -452,11 +462,22 @@ export default function Orders() {
   const pageHref = (targetPage: number) => {
     const params = new URLSearchParams();
     if (filter !== "all") params.set("filter", filter);
+    if (pageSize !== DEFAULT_PAGE_SIZE) params.set("pageSize", String(pageSize));
     if (targetPage > 1) params.set("page", String(targetPage));
     const query = params.toString();
     return query ? `/app/orders?${query}` : "/app/orders";
   };
   const pagination = useTablePagination(page, totalPages, pageHref);
+
+  const handlePageSizeChange = (nextPageSize: string) => {
+    const params = new URLSearchParams();
+    if (filter !== "all") params.set("filter", filter);
+    if (Number(nextPageSize) !== DEFAULT_PAGE_SIZE) {
+      params.set("pageSize", nextPageSize);
+    }
+    const query = params.toString();
+    navigate(query ? `/app/orders?${query}` : "/app/orders");
+  };
 
   return (
     <s-page>
@@ -651,6 +672,37 @@ export default function Orders() {
               })}
             </s-table-body>
           </s-table>
+        )}
+
+        {rows.length > 0 && (
+          <s-stack
+            direction="inline"
+            gap="small-200"
+            alignItems="center"
+            justifyContent="end"
+            paddingBlockStart="base"
+          >
+            <s-text color="subdued">Show</s-text>
+            <div style={{ inlineSize: "90px", flex: "0 0 auto" }}>
+              <s-select
+                label="Rows per page"
+                labelAccessibilityVisibility="exclusive"
+                value={String(pageSize)}
+                onChange={(e) =>
+                  handlePageSizeChange(
+                    e.currentTarget.value ?? String(DEFAULT_PAGE_SIZE),
+                  )
+                }
+              >
+                {PAGE_SIZES.map((size) => (
+                  <s-option key={size} value={String(size)}>
+                    {size}
+                  </s-option>
+                ))}
+              </s-select>
+            </div>
+            <s-text color="subdued">orders per page</s-text>
+          </s-stack>
         )}
       </Card>
       {fulfillmentOrder ? (
