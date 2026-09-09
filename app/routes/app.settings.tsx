@@ -665,6 +665,7 @@ export default function Settings() {
             <s-stack direction="block" gap="base" paddingBlockStart="base">
               {ALL_ISSUE_TYPES.map((type) => {
                 const w = claimWindows[type.value] ?? { minDays: 0, maxDays: 30 };
+                const reasonEnabled = enabledTypes.has(type.value);
                 return (
                   <s-stack
                     key={type.value}
@@ -693,6 +694,7 @@ export default function Settings() {
                           label="Min days"
                           labelAccessibilityVisibility="exclusive"
                           min={0}
+                          disabled={!reasonEnabled}
                           value={String(w.minDays)}
                           onChange={(e) =>
                             updateWindow(
@@ -709,6 +711,7 @@ export default function Settings() {
                           label="Max days"
                           labelAccessibilityVisibility="exclusive"
                           min={0}
+                          disabled={!reasonEnabled}
                           value={String(w.maxDays)}
                           onChange={(e) =>
                             updateWindow(
