@@ -269,7 +269,7 @@ body {
 }
 
 .app-card-row > * {
-  flex: 0 1 160px;
+  flex: 1 1 160px;
 }
 
 @media (max-width: 520px) {
