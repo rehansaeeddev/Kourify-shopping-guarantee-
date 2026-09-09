@@ -135,7 +135,7 @@ export default function Index() {
             label="Package protection"
             tone={protectionStatus.tone}
             value={protectionStatus.value}
-            href="/app/protection"
+            href="/app/settings"
           />
         </div>
       </Card>
