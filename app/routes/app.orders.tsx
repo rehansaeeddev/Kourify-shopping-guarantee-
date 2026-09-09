@@ -491,9 +491,9 @@ export default function Orders() {
       <Card heading="Shopify orders">
         <s-stack direction="inline" gap="small-200" paddingBlockEnd="base">
           {FILTERS.map((value) => (
-            <AppButton
+            <s-clickable-chip
               key={value}
-              variant={filter === value ? "primary" : "secondary"}
+              color={filter === value ? "strong" : "base"}
               href={
                 value === "all" ? "/app/orders" : `/app/orders?filter=${value}`
               }
@@ -503,7 +503,7 @@ export default function Orders() {
                 : value === "protected"
                   ? "Protected"
                   : "Not protected"}
-            </AppButton>
+            </s-clickable-chip>
           ))}
         </s-stack>
 
