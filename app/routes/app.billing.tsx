@@ -171,8 +171,10 @@ function PlanPicker({
         </s-choice>
       </s-choice-list>
 
+      {/* Three equal columns rather than auto-fit: auto-fit dropped Unlimited
+          onto a second row on its own, and plans only compare side by side. */}
       <s-grid
-        gridTemplateColumns="repeat(auto-fit, minmax(240px, 1fr))"
+        gridTemplateColumns="repeat(3, minmax(0, 1fr))"
         gap="base"
         alignItems="stretch"
       >
