@@ -176,7 +176,7 @@ export default function Guide() {
               ? ` You've protected ${quota.used} of ${quota.limit} orders on your plan.`
               : ""}
           </s-paragraph>
-          <s-button-group gap="base">
+          <s-stack direction="inline" gap="small-200">
             <s-button href="/app/settings" variant="secondary">
               Manage settings
             </s-button>
@@ -186,7 +186,7 @@ export default function Guide() {
             <s-button href="/app/orders" variant="secondary">
               View orders
             </s-button>
-          </s-button-group>
+          </s-stack>
         </Card>
       )}
 
@@ -205,19 +205,19 @@ export default function Guide() {
 
       <Card heading="Common tasks">
         <s-stack direction="block" gap="small-200">
-          <Link to="/app/settings">
+          <s-link href="/app/settings">
             Change who pays, pricing or eligibility
-          </Link>
-          <Link to="/app/claims">Review and decide open claims</Link>
-          <Link to="/app/orders">
+          </s-link>
+          <s-link href="/app/claims">Review and decide open claims</s-link>
+          <s-link href="/app/orders">
             See which orders are protected, or offer protection after purchase
-          </Link>
-          <Link to="/app/translations">
+          </s-link>
+          <s-link href="/app/translations">
             Translate the storefront claim form
-          </Link>
-          <Link to="/app/billing">
+          </s-link>
+          <s-link href="/app/billing">
             {hasActiveBilling ? "Change your plan" : "Choose a plan"}
-          </Link>
+          </s-link>
         </s-stack>
       </Card>
 
@@ -235,7 +235,7 @@ export default function Guide() {
       {!badgesEnabled && state !== "setup" && (
         <s-banner tone="info">
           Trust badges are switched off, so shoppers don&apos;t see them on your
-          storefront. <Link to="/app">Turn them on from Home.</Link>
+          storefront. <s-link href="/app">Turn them on from Home.</s-link>
         </s-banner>
       )}
     </s-page>

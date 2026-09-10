@@ -306,7 +306,7 @@ export default function Translations() {
                     <s-option value="rtl">Right to left</s-option>
                   </s-select>
                 </s-grid>
-                <s-button-group gap="base">
+                <s-stack direction="inline" gap="small-200">
                   <s-button
                     type="submit"
                     variant="primary"
@@ -322,7 +322,7 @@ export default function Translations() {
                   >
                     Cancel
                   </s-button>
-                </s-button-group>
+                </s-stack>
               </fetcher.Form>
             </Card>
           ) : null}
@@ -356,7 +356,7 @@ export default function Translations() {
                       </s-badge>
                     </s-table-cell>
                     <s-table-cell>
-                      <s-button-group gap="base">
+                      <s-stack direction="inline" gap="small-200">
                         <s-button
                           variant="primary"
                           onClick={() => setSearchParams({ edit: lang.locale })}
@@ -422,7 +422,7 @@ export default function Translations() {
                             Remove
                           </s-button>
                         ) : null}
-                      </s-button-group>
+                      </s-stack>
                     </s-table-cell>
                   </s-table-row>
                 ))}
@@ -613,7 +613,11 @@ function LanguageEditor({
             )}
           </s-stack>
 
-          <s-button-group gap="base" accessibilityLabel="String groups">
+          <s-stack
+            direction="inline"
+            gap="small-200"
+            accessibilityLabel="String groups"
+          >
             {groups.map((group) => {
               const groupKeys = buckets.get(group.id) ?? [];
               const remaining = groupKeys.filter((key) => !filled[key]).length;
@@ -629,7 +633,7 @@ function LanguageEditor({
                 </s-button>
               );
             })}
-          </s-button-group>
+          </s-stack>
 
           {/* A bare <div hidden> rather than an s-box: the panels must stay in
               the DOM whichever tab is open, because the save action rebuilds

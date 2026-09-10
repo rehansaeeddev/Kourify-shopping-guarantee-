@@ -443,7 +443,11 @@ export default function Settings() {
         </s-banner>
       )}
 
-      <s-button-group gap="base" accessibilityLabel="Settings sections">
+      <s-stack
+        direction="inline"
+        gap="small-200"
+        accessibilityLabel="Settings sections"
+      >
         {SETTINGS_TABS.map((tab) => (
           <s-button
             key={tab.id}
@@ -453,7 +457,7 @@ export default function Settings() {
             {tab.label}
           </s-button>
         ))}
-      </s-button-group>
+      </s-stack>
 
       {activeTab === "general" && (
         <>
