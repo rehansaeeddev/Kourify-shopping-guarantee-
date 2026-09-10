@@ -1440,9 +1440,8 @@ button.app-tab {
 
 .app-plans__ribbon {
   position: absolute;
-  top: 0;
-  right: 1.1rem;
-  transform: translateY(-50%);
+  top: 1.45rem;
+  right: 1.35rem;
   padding: 0.15rem 0.6rem;
   border-radius: 999px;
   background: var(--color-accent);
@@ -1722,7 +1721,6 @@ button.app-tab {
 .app-plans__card {
   --tier: var(--color-accent);
   --tier-soft: var(--color-accent-light);
-  overflow: hidden;
 }
 
 .app-plans__card--t-basic {
@@ -1746,6 +1744,9 @@ button.app-tab {
   position: absolute;
   inset: 0 0 auto;
   height: 3px;
+  /* Follows the card's own corners — clipping with overflow:hidden would
+     also cut the ribbon, which sits at the very top edge. */
+  border-radius: 14px 14px 0 0;
   background: var(--tier);
 }
 
@@ -1819,4 +1820,10 @@ button.app-tab {
 
 .app-bill-stat--accent .app-bill-stat__value {
   color: var(--color-accent-dark);
+}
+
+/* Keeps a long plan name clear of the ribbon sharing its line. */
+.app-plans__card--featured .app-plans__name,
+.app-plans__card--current .app-plans__name {
+  padding-right: 7rem;
 }
