@@ -1,20 +1,86 @@
+/** A value that's present and isn't still the example placeholder. */
+function configured(value: string | undefined): value is string {
+  if (!value) return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  // Placeholders from .env.example must never be treated as real credentials.
+  return !/^(re_x+|your[_-]|xkeysib-xxx|smtp[_-]?key|change[_-]?me)/i.test(
+    trimmed,
+  );
+}
+
 /**
- * Sends via Resend's HTTP API. Falls back to logging (instead of sending)
- * when RESEND_API_KEY isn't a real key yet, so claim submission never
- * breaks in dev/before the merchant's key is in place.
+ * SMTP delivery — used by Brevo, and by any other SMTP provider.
+ *
+ * Preferred over the Resend HTTP path when configured, because an SMTP key is
+ * the credential most providers hand out. Requires host, user and password
+ * together: a half-filled block silently falling back to "no email" is worse
+ * than not configuring it at all.
+ */
+async function sendViaSmtp(
+  to: string,
+  subject: string,
+  body: string,
+  from: string,
+): Promise<void> {
+  const host = process.env.SMTP_HOST;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASSWORD;
+  if (!configured(host) || !configured(user) || !configured(pass)) return;
+
+  const port = Number(process.env.SMTP_PORT ?? 587);
+  // Port 465 is implicit TLS; 587 upgrades via STARTTLS.
+  const secure = port === 465;
+
+  // Imported lazily so a shop using the Resend path never loads the SMTP
+  // client, and so a missing optional dependency can't break app startup.
+  const nodemailer = (await import("nodemailer")).default;
+  const transport = nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: { user, pass },
+  });
+
+  await transport.sendMail({ from, to, subject, text: body });
+}
+
+/**
+ * Sends via SMTP when configured (Brevo and friends), otherwise Resend's HTTP
+ * API. Falls back to logging rather than sending when neither is set up, so
+ * claim submission never breaks in dev — but throws in production, where
+ * silently dropping a customer notification would be worse.
  */
 async function sendEmail(
   to: string,
   subject: string,
   body: string,
 ): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM;
 
-  if (!apiKey || apiKey === "re_xxxxxxxxxxxxxxxxxx" || !from) {
+  // SMTP takes precedence: if a merchant has filled it in, that's the route
+  // they intend, and falling through to Resend would be surprising.
+  if (
+    configured(from) &&
+    configured(process.env.SMTP_HOST) &&
+    configured(process.env.SMTP_USER) &&
+    configured(process.env.SMTP_PASSWORD)
+  ) {
+    try {
+      await sendViaSmtp(to, subject, body, from);
+      return;
+    } catch (error) {
+      console.error("[notify] SMTP send threw", error);
+      throw error;
+    }
+  }
+
+  const apiKey = process.env.RESEND_API_KEY;
+
+  if (!configured(apiKey) || !configured(from)) {
     if (process.env.NODE_ENV === "production") {
       throw new Error(
-        "Email delivery is not configured: set RESEND_API_KEY and EMAIL_FROM",
+        "Email delivery is not configured: set EMAIL_FROM plus either SMTP_HOST/SMTP_USER/SMTP_PASSWORD (Brevo or another SMTP provider) or RESEND_API_KEY",
       );
     }
     // The body contains customer name/PII, so don't log it by default — even in
