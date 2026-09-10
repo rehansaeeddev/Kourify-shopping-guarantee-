@@ -176,7 +176,7 @@ export default function Index() {
       : { tone: "success" as const, value: "Live", sub: feeSummary };
 
   return (
-    <s-page heading={greeting}>
+    <s-page heading={greeting} inlineSize="large">
       <s-button slot="secondary-actions" href="/app/guide" variant="secondary">
         Help
       </s-button>
@@ -187,9 +187,6 @@ export default function Index() {
       >
         Order sync
       </s-button>
-      <s-paragraph color="subdued">
-        Build shopper confidence from cart to delivery.
-      </s-paragraph>
       <s-stack direction="inline">
         <InfoTip id="tip-why-this-matters" label="Why this matters">
           Trust badges and buyer guarantees increase checkout confidence and

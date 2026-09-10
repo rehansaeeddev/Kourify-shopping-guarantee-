@@ -485,11 +485,7 @@ export default function Orders() {
   };
 
   return (
-    <s-page heading="Orders">
-      <s-paragraph color="subdued">
-        See which Shopify orders include Kourify protection and which remain
-        unprotected.
-      </s-paragraph>
+    <s-page heading="Orders" inlineSize="large">
       <WorkspaceTabs
         active="orders"
         counts={{

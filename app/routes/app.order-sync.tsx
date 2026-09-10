@@ -195,9 +195,6 @@ export default function OrderSync() {
       <s-button slot="secondary-actions" href="/app" variant="secondary">
         Back to home
       </s-button>
-      <s-paragraph color="subdued">
-        Keep the order cache used for claim verification up to date.
-      </s-paragraph>
       <WorkspaceTabs
         active="order-sync"
         counts={{
@@ -207,6 +204,9 @@ export default function OrderSync() {
       />
 
       <Card heading="Sync status">
+        <s-paragraph color="subdued">
+          Keep the order cache used for claim verification up to date.
+        </s-paragraph>
         <s-grid
           gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
           gap="base"

@@ -246,10 +246,6 @@ export default function Translations() {
       <s-button slot="secondary-actions" href="/app/claims" variant="secondary">
         Back to claims
       </s-button>
-      <s-paragraph color="subdued">
-        Choose which languages the storefront claim page offers, and translate
-        every label. Customers switch language with no page reload.
-      </s-paragraph>
 
       {languages.length === 0 ? (
         <Card heading="Get started">
@@ -328,6 +324,10 @@ export default function Translations() {
           ) : null}
 
           <Card heading="Languages">
+            <s-paragraph color="subdued">
+              Choose which languages the storefront claim page offers. Customers
+              switch language with no page reload.
+            </s-paragraph>
             <s-table variant="auto">
               <s-table-header-row>
                 <s-table-header>Language</s-table-header>
@@ -586,9 +586,6 @@ function LanguageEditor({
       <s-button slot="secondary-actions" variant="secondary" onClick={onDone}>
         Back to languages
       </s-button>
-      <s-paragraph color="subdued">
-        {`Translate each label for “${editing.locale}”. Blank fields fall back to English automatically.`}
-      </s-paragraph>
 
       <fetcher.Form method="post">
         <input type="hidden" name="intent" value="save" />
@@ -603,6 +600,9 @@ function LanguageEditor({
         <input type="hidden" name="enabled" value={String(editing.enabled)} />
 
         <Card heading="Translations">
+          <s-paragraph color="subdued">
+            {`Blank fields fall back to English automatically.`}
+          </s-paragraph>
           <s-stack direction="inline" gap="small-200" alignItems="center">
             <s-text color="subdued">Translated</s-text>
             <s-text type="strong" fontVariantNumeric="tabular-nums">

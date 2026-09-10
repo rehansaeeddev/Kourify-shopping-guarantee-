@@ -412,7 +412,7 @@ export default function Claims() {
   const exportParams = new URLSearchParams(searchParams);
 
   return (
-    <s-page heading="Claims">
+    <s-page heading="Claims" inlineSize="large">
       <s-button
         slot="secondary-actions"
         href="/app/settings"
@@ -423,10 +423,6 @@ export default function Claims() {
       <s-button slot="secondary-actions" href="/app" variant="secondary">
         Back
       </s-button>
-      <s-paragraph color="subdued">
-        Review and resolve claims submitted from your storefront&apos;s
-        protection widget.
-      </s-paragraph>
 
       {statusBanner && (
         <s-banner

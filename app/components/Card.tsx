@@ -66,7 +66,7 @@ export function StatTile({
           tone={TONE_TO_ICON_TONE[tone]}
           size="base"
         />
-        <s-text color="subdued">{label}</s-text>
+        <s-heading>{label}</s-heading>
       </s-stack>
       <s-text type="strong" fontVariantNumeric="tabular-nums">
         {value}
@@ -80,7 +80,9 @@ export function StatTile({
       <s-clickable
         href={href}
         padding="base"
-        border="base"
+        background="base"
+        borderWidth="base"
+        borderColor="base"
         borderRadius="base"
         accessibilityLabel={`${label}: ${value}`}
       >
@@ -90,7 +92,13 @@ export function StatTile({
   }
 
   return (
-    <s-box padding="base" border="base" borderRadius="base">
+    <s-box
+      padding="base"
+      background="base"
+      borderWidth="base"
+      borderColor="base"
+      borderRadius="base"
+    >
       {content}
     </s-box>
   );
