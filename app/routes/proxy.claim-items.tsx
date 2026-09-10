@@ -22,7 +22,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   const ip = clientIpFromRequest(request);
   const shopParam = new URL(request.url).searchParams.get("shop") ?? "unknown";
-  if (await isRateLimited(`claim-items:${shopParam}:${ip}`, 20, 10 * 60 * 1000)) {
+  if (
+    await isRateLimited(`claim-items:${shopParam}:${ip}`, 20, 10 * 60 * 1000)
+  ) {
     return Response.json(
       { error: "Too many lookups. Please try again shortly." },
       { status: 429 },

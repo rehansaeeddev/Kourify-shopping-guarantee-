@@ -12,7 +12,9 @@ async function requestPlan(request: Request) {
   const { billing, session } = await authenticate.admin(request);
   const url = new URL(request.url);
   const formData = request.method === "POST" ? await request.formData() : null;
-  const plan = String(formData?.get("plan") ?? url.searchParams.get("plan") ?? "");
+  const plan = String(
+    formData?.get("plan") ?? url.searchParams.get("plan") ?? "",
+  );
 
   // Basic is free and has no Shopify plan, so "switching" to it means
   // cancelling the paid subscription. Prorated so the merchant is credited
@@ -48,8 +50,10 @@ async function requestPlan(request: Request) {
   });
 }
 
-export const loader = async ({ request }: LoaderFunctionArgs) => requestPlan(request);
-export const action = async ({ request }: ActionFunctionArgs) => requestPlan(request);
+export const loader = async ({ request }: LoaderFunctionArgs) =>
+  requestPlan(request);
+export const action = async ({ request }: ActionFunctionArgs) =>
+  requestPlan(request);
 
 export default function BillingRoute() {
   return null;

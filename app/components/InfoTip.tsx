@@ -1,28 +1,24 @@
 import type { ReactNode } from "react";
 
 /**
- * A small labelled chip that reveals help text in a tooltip on hover or
- * keyboard focus. Used to fold away a full "aside" panel into the header
- * while keeping the copy one hover away.
+ * Help text one hover (or keyboard focus) away, so a full aside panel doesn't
+ * have to live in the header. Polaris pairs an element carrying `interestFor`
+ * with the tooltip's id — no trigger of our own.
  */
 export function InfoTip({
+  id,
   label,
   children,
 }: {
+  id: string;
   label: string;
   children: ReactNode;
 }) {
   return (
-    <span className="app-infotip">
-      <button type="button" className="app-infotip__trigger">
-        <span className="app-infotip__icon" aria-hidden="true">
-          i
-        </span>
-        {label}
-      </button>
-      <span role="tooltip" className="app-infotip__bubble">
-        {children}
-      </span>
-    </span>
+    <s-stack direction="inline" gap="small-500" alignItems="center">
+      <s-text color="subdued">{label}</s-text>
+      <s-icon type="info" size="small" color="subdued" interestFor={id} />
+      <s-tooltip id={id}>{children}</s-tooltip>
+    </s-stack>
   );
 }

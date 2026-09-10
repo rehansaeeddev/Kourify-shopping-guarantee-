@@ -166,7 +166,9 @@ function PlanPicker({
         }}
       >
         <s-choice value="monthly">Monthly</s-choice>
-        <s-choice value="annual">Annual — save two months on Unlimited</s-choice>
+        <s-choice value="annual">
+          Annual — save two months on Unlimited
+        </s-choice>
       </s-choice-list>
 
       <s-grid
@@ -193,7 +195,11 @@ function PlanPicker({
                   )}
                 </s-stack>
 
-                <s-stack direction="inline" gap="small-200" alignItems="baseline">
+                <s-stack
+                  direction="inline"
+                  gap="small-200"
+                  alignItems="baseline"
+                >
                   <s-text type="strong" fontVariantNumeric="tabular-nums">
                     {card.amountCents === null
                       ? "Free"

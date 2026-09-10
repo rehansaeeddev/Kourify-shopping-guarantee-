@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router";
 
 type CardProps = {
   heading?: string;
@@ -7,13 +6,18 @@ type CardProps = {
   children: ReactNode;
 };
 
+/**
+ * A page section. s-section draws the card and its heading itself, so this is
+ * only here to keep the `locked` badge consistent across pages.
+ */
 export function Card({ heading, locked, children }: CardProps) {
   return (
-    <s-section>
-      {heading && (
-        <s-stack direction="inline" gap="small-200" alignItems="center">
-          <h3 className="app-card__heading">{heading}</h3>
-          {locked && <s-badge tone="warning">🔒 Locked</s-badge>}
+    <s-section heading={heading}>
+      {locked && (
+        <s-stack direction="inline">
+          <s-badge tone="warning" icon="lock">
+            Locked
+          </s-badge>
         </s-stack>
       )}
       {children}
@@ -27,19 +31,25 @@ type StatTileProps = {
   icon: string;
   tone?: "default" | "success" | "warning" | "critical";
   href?: string;
-  /** Small text under the value — e.g. a trend delta ("↓ 2 vs last week"). */
+  /** Small text under the value — e.g. a trend delta ("2 fewer than last week"). */
   sub?: ReactNode;
-  /** Small graphic pinned to the tile's end — e.g. a sparkline. */
-  graphic?: ReactNode;
 };
 
-const TONE_TO_ICON_TONE: Record<string, "neutral" | "success" | "warning" | "critical"> = {
+const TONE_TO_ICON_TONE: Record<
+  string,
+  "neutral" | "success" | "warning" | "critical"
+> = {
   default: "neutral",
   success: "success",
   warning: "warning",
   critical: "critical",
 };
 
+/**
+ * One figure with its label, following App Home's metrics composition. Tone
+ * colours only the icon — the figure itself stays in the default text colour
+ * so colour is never the only thing carrying the meaning.
+ */
 export function StatTile({
   label,
   value,
@@ -47,37 +57,41 @@ export function StatTile({
   tone = "default",
   href,
   sub,
-  graphic,
 }: StatTileProps) {
-  const className = `app-stat-tile app-stat-tile--${tone}`;
   const content = (
-    <>
-      <div className="app-stat-tile__top">
-        <div className="app-stat-tile__icon">
-          <s-icon type={icon as never} tone={TONE_TO_ICON_TONE[tone]} />
-        </div>
-        <div className="app-stat-tile__body">
-          <span className="app-stat-tile__label">{label}</span>
-          <span className="app-stat-tile__value">{value}</span>
-        </div>
-      </div>
-      {(sub || graphic) && (
-        <div className="app-stat-tile__foot">
-          {sub && <span className="app-stat-tile__sub">{sub}</span>}
-          {graphic && <div className="app-stat-tile__graphic">{graphic}</div>}
-        </div>
-      )}
-    </>
+    <s-stack direction="block" gap="small-300">
+      <s-stack direction="inline" gap="small-300" alignItems="center">
+        <s-icon
+          type={icon as never}
+          tone={TONE_TO_ICON_TONE[tone]}
+          size="base"
+        />
+        <s-text color="subdued">{label}</s-text>
+      </s-stack>
+      <s-text type="strong" fontVariantNumeric="tabular-nums">
+        {value}
+      </s-text>
+      {sub && <s-text color="subdued">{sub}</s-text>}
+    </s-stack>
   );
 
   if (href) {
-    // Internal app route → Link keeps navigation client-side (and embedded).
     return (
-      <Link className={`${className} app-stat-tile--clickable`} to={href}>
+      <s-clickable
+        href={href}
+        padding="base"
+        border="base"
+        borderRadius="base"
+        accessibilityLabel={`${label}: ${value}`}
+      >
         {content}
-      </Link>
+      </s-clickable>
     );
   }
 
-  return <div className={className}>{content}</div>;
+  return (
+    <s-box padding="base" border="base" borderRadius="base">
+      {content}
+    </s-box>
+  );
 }

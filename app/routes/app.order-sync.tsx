@@ -14,7 +14,6 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import { useEffect } from "react";
 import { AppButton } from "../components/AppButton";
 import { Card, StatTile } from "../components/Card";
-import { PageHeader } from "../components/PageHeader";
 import { useFetcherToast } from "../hooks/useFetcherToast";
 import { useTablePagination } from "../hooks/useTablePagination";
 import db from "../db.server";
@@ -51,40 +50,38 @@ const JOBS_PAGE_SIZE = 10;
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const url = new URL(request.url);
-  const page = Math.max(1, Math.floor(Number(url.searchParams.get("page")) || 1));
+  const page = Math.max(
+    1,
+    Math.floor(Number(url.searchParams.get("page")) || 1),
+  );
 
-  const [
-    orderCount,
-    latestOrder,
-    jobCount,
-    activeJobCount,
-    jobs,
-  ] = await Promise.all([
-    db.order.count({ where: { shop: session.shop } }),
-    db.order.findFirst({
-      where: { shop: session.shop },
-      orderBy: { updatedAt: "desc" },
-      select: { updatedAt: true },
-    }),
-    db.syncJob.count({
-      where: { shop: session.shop, type: "order_backfill" },
-    }),
-    // Independent of the page being viewed — a job running on another page
-    // shouldn't stop being polled just because it's scrolled out of view.
-    db.syncJob.count({
-      where: {
-        shop: session.shop,
-        type: "order_backfill",
-        status: { in: ["queued", "running"] },
-      },
-    }),
-    db.syncJob.findMany({
-      where: { shop: session.shop, type: "order_backfill" },
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * JOBS_PAGE_SIZE,
-      take: JOBS_PAGE_SIZE,
-    }),
-  ]);
+  const [orderCount, latestOrder, jobCount, activeJobCount, jobs] =
+    await Promise.all([
+      db.order.count({ where: { shop: session.shop } }),
+      db.order.findFirst({
+        where: { shop: session.shop },
+        orderBy: { updatedAt: "desc" },
+        select: { updatedAt: true },
+      }),
+      db.syncJob.count({
+        where: { shop: session.shop, type: "order_backfill" },
+      }),
+      // Independent of the page being viewed — a job running on another page
+      // shouldn't stop being polled just because it's scrolled out of view.
+      db.syncJob.count({
+        where: {
+          shop: session.shop,
+          type: "order_backfill",
+          status: { in: ["queued", "running"] },
+        },
+      }),
+      db.syncJob.findMany({
+        where: { shop: session.shop, type: "order_backfill" },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * JOBS_PAGE_SIZE,
+        take: JOBS_PAGE_SIZE,
+      }),
+    ]);
 
   const workspaceCounts = await getWorkspaceCounts(session.shop);
 
@@ -194,16 +191,13 @@ export default function OrderSync() {
     : "Never";
 
   return (
-    <s-page>
-      <PageHeader
-        title="Order sync"
-        subtitle="Keep the order cache used for claim verification up to date."
-        actions={
-          <AppButton href="/app" variant="secondary">
-            Back to home
-          </AppButton>
-        }
-      />
+    <s-page heading="Order sync">
+      <s-button slot="secondary-actions" href="/app" variant="secondary">
+        Back to home
+      </s-button>
+      <s-paragraph color="subdued">
+        Keep the order cache used for claim verification up to date.
+      </s-paragraph>
       <WorkspaceTabs
         active="order-sync"
         counts={{
@@ -243,10 +237,10 @@ export default function OrderSync() {
             </s-banner>
           ) : (
             <s-paragraph>
-              Import available existing orders now. Runs as a background job
-              on Shopify&apos;s side, so it&apos;s safe to use even with tens
-              of thousands of orders. Automatic order webhooks remain off, so
-              use this button whenever orders change.
+              Import available existing orders now. Runs as a background job on
+              Shopify&apos;s side, so it&apos;s safe to use even with tens of
+              thousands of orders. Automatic order webhooks remain off, so use
+              this button whenever orders change.
             </s-paragraph>
           )}
           {syncFetcher.data && !syncFetcher.data.ok ? (
@@ -312,7 +306,7 @@ export default function OrderSync() {
                     {job.status === "completed"
                       ? `${job.objectCount ?? 0} orders`
                       : job.status === "failed"
-                        ? job.errorMessage ?? "Failed"
+                        ? (job.errorMessage ?? "Failed")
                         : "In progress…"}
                   </s-table-cell>
                 </s-table-row>

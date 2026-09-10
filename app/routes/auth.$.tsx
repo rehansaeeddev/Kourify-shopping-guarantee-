@@ -1,5 +1,8 @@
-
-import { redirect, type HeadersFunction, type LoaderFunctionArgs } from "react-router";
+import {
+  redirect,
+  type HeadersFunction,
+  type LoaderFunctionArgs,
+} from "react-router";
 import { authenticate } from "../shopify.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 
