@@ -160,11 +160,7 @@ function PlanPicker({
 
   return (
     <div className="app-plans">
-      <div
-        className="app-plans__toggle"
-        role="group"
-        aria-label="Billing cycle"
-      >
+      <div className="app-plans__toggle" role="group" aria-label="Billing cycle">
         <button
           type="button"
           aria-pressed={cycle === "monthly"}
@@ -185,57 +181,57 @@ function PlanPicker({
       <div className="app-plans__grid">
         {cards.map((card) => {
           const isCurrent = card.id === activePlan;
+          const className = [
+            "app-plans__card",
+            card.featured && !isCurrent ? "app-plans__card--featured" : "",
+            isCurrent ? "app-plans__card--current" : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
+
           return (
-            <div
-              key={card.name}
-              className={[
-                "app-plan",
-                card.featured && !isCurrent ? "app-plan--featured" : "",
-                isCurrent ? "app-plan--current" : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-            >
-              {isCurrent && (
-                <span className="app-plan__ribbon">Current plan</span>
-              )}
-              {!isCurrent && card.featured && (
-                <span className="app-plan__ribbon">Most popular</span>
+            <div key={card.name} className={className}>
+              {(isCurrent || card.featured) && (
+                <span className="app-plans__ribbon">
+                  {isCurrent ? "Current plan" : "Most popular"}
+                </span>
               )}
 
-              <h3 className="app-plan__name">{card.name}</h3>
+              <h3 className="app-plans__name">{card.name}</h3>
 
-              <div className="app-plan__price">
+              <div className="app-plans__price">
                 {card.amountCents === null ? (
-                  <span className="app-plan__amount">Free</span>
+                  <span className="app-plans__amount">Free</span>
                 ) : (
                   <>
-                    <span className="app-plan__currency">$</span>
-                    <span className="app-plan__amount">
+                    <span className="app-plans__currency">$</span>
+                    <span className="app-plans__amount">
                       {(card.amountCents / 100).toFixed(0)}
                     </span>
                   </>
                 )}
                 {card.interval && (
-                  <span className="app-plan__interval">{card.interval}</span>
+                  <span className="app-plans__interval">{card.interval}</span>
                 )}
               </div>
 
-              <p className="app-plan__meta">{card.meta}</p>
-              {card.note && <span className="app-plan__note">{card.note}</span>}
+              <p className="app-plans__meta">{card.meta}</p>
+              {card.note && (
+                <span className="app-plans__note">{card.note}</span>
+              )}
 
-              <ul className="app-plan__features">
+              <ul className="app-plans__features">
                 {card.features.map((feature) => (
                   <li key={feature}>
-                    <span className="app-plan__check" aria-hidden="true">
+                    <span className="app-plans__check" aria-hidden="true">
                       ✓
                     </span>
-                    <span>{feature}</span>
+                    <span className="app-plans__feature-text">{feature}</span>
                   </li>
                 ))}
               </ul>
 
-              <div className="app-plan__cta">
+              <div className="app-plans__cta">
                 {isCurrent ? (
                   <AppButton variant="secondary" disabled>
                     Your current plan
@@ -266,6 +262,55 @@ function PlanPicker({
         Shopify handles the charge and shows you the amount before you approve
         it. You can change or cancel your plan at any time.
       </p>
+    </div>
+  );
+}
+
+/** Allowance spent, as a bar. Only capped plans have something to meter. */
+function AllowanceMeter({ used, limit }: { used: number; limit: number }) {
+  const pct = Math.min(100, Math.round((used / limit) * 100));
+  const tone = pct >= 100 ? "full" : pct >= 80 ? "warn" : "ok";
+
+  return (
+    <div className="app-meter">
+      <div className="app-meter__head">
+        <span className="app-meter__label">Protected orders used</span>
+        <span className="app-meter__value">{`${used} of ${limit}`}</span>
+      </div>
+      <div
+        className="app-meter__track"
+        role="progressbar"
+        aria-valuenow={used}
+        aria-valuemin={0}
+        aria-valuemax={limit}
+        aria-label="Protected orders used"
+      >
+        <div
+          className={`app-meter__fill${tone === "ok" ? "" : ` app-meter__fill--${tone}`}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  small,
+}: {
+  label: string;
+  value: string;
+  small?: boolean;
+}) {
+  return (
+    <div className="app-bill-stat">
+      <span className="app-bill-stat__label">{label}</span>
+      <span
+        className={`app-bill-stat__value${small ? " app-bill-stat__value--sm" : ""}`}
+      >
+        {value}
+      </span>
     </div>
   );
 }
@@ -307,62 +352,55 @@ export default function Billing() {
 
       {!showPlans && (
         <Card heading="Current plan">
-          <dl className="app-billing-facts">
-            <div>
-              <dt>Plan</dt>
-              <dd>{plan.name}</dd>
+          <div className="app-bill-hero">
+            <div className="app-bill-hero__main">
+              <span className="app-bill-hero__name">{plan.name}</span>
+              <span className="app-bill-hero__price">
+                {plan.interval === "—"
+                  ? plan.price
+                  : `${plan.price} · ${plan.interval}`}
+              </span>
             </div>
-            <div>
-              <dt>Price</dt>
-              <dd>{plan.price}</dd>
+            <div className="app-bill-hero__side">
+              <s-badge tone={hasActiveBilling ? "success" : "neutral"}>
+                {hasActiveBilling ? "Active" : "Free plan"}
+              </s-badge>
+              <AppButton
+                variant="secondary"
+                onClick={() => setSearchParams({ plans: "1" })}
+              >
+                Change plan
+              </AppButton>
             </div>
-            <div>
-              <dt>Billing interval</dt>
-              <dd>{plan.interval}</dd>
-            </div>
-            <div>
-              <dt>Status</dt>
-              <dd>
-                <s-badge tone={hasActiveBilling ? "success" : "neutral"}>
-                  {hasActiveBilling ? "Active" : "Free plan"}
-                </s-badge>
-              </dd>
-            </div>
-          </dl>
-          <div className="app-actions">
-            <AppButton
-              variant="secondary"
-              onClick={() => setSearchParams({ plans: "1" })}
-            >
-              Change plan
-            </AppButton>
           </div>
         </Card>
       )}
 
       <Card heading="Usage this period">
-        <dl className="app-billing-facts">
-          <div>
-            <dt>Protected orders</dt>
-            <dd>{protectedOrders}</dd>
-          </div>
-          {isBasic && quota.limit !== null && (
-            <div>
-              <dt>Remaining allowance</dt>
-              <dd>{`${quota.remaining} of ${quota.limit}`}</dd>
-            </div>
-          )}
+        <div className="app-bill-stats">
+          <Stat label="Protected orders" value={String(protectedOrders)} />
           {isUsage && (
-            <div>
-              <dt>Kourify usage fee</dt>
-              <dd>{`${money(USAGE_FEE_CENTS)} per protected order`}</dd>
-            </div>
+            <Stat
+              label="Kourify usage fee"
+              value={`${money(USAGE_FEE_CENTS)} per order`}
+              small
+            />
           )}
-          <div>
-            <dt>Usage charges</dt>
-            <dd>{money(isUsage ? billedUsageCents : 0)}</dd>
-          </div>
-        </dl>
+          <Stat
+            label="Usage charges"
+            value={money(isUsage ? billedUsageCents : 0)}
+          />
+          {isBasic && quota.limit !== null && (
+            <Stat
+              label="Remaining allowance"
+              value={`${quota.remaining} of ${quota.limit}`}
+            />
+          )}
+        </div>
+
+        {isBasic && quota.limit !== null && (
+          <AllowanceMeter used={quota.used} limit={quota.limit} />
+        )}
 
         {!isUsage && (
           <s-paragraph>
