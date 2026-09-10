@@ -207,7 +207,10 @@ export default function OrderSync() {
       />
 
       <Card heading="Sync status">
-        <div className="app-card-row">
+        <s-grid
+          gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
+          gap="base"
+        >
           <StatTile
             icon="check-circle"
             label="Sync mode"
@@ -224,7 +227,7 @@ export default function OrderSync() {
             label="Last cache update"
             value={lastUpdated}
           />
-        </div>
+        </s-grid>
       </Card>
 
       <Card heading="Manual synchronization">
