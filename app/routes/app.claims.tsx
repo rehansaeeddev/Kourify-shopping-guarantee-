@@ -574,12 +574,7 @@ export default function Claims() {
                 <s-table-header listSlot="primary">Order</s-table-header>
                 <s-table-header listSlot="secondary">Customer</s-table-header>
                 <s-table-header listSlot="labeled">Issue</s-table-header>
-                <s-table-header listSlot="labeled">Item claimed</s-table-header>
-                <s-table-header listSlot="labeled">
-                  Eligible loss
-                </s-table-header>
-                <s-table-header listSlot="labeled">Flags</s-table-header>
-                <s-table-header listSlot="kicker">Submitted</s-table-header>
+                <s-table-header listSlot="labeled">Loss</s-table-header>
                 <s-table-header listSlot="inline">Status</s-table-header>
               </s-table-header-row>
               <s-table-body>
@@ -589,26 +584,46 @@ export default function Claims() {
                   return (
                     <s-table-row key={claim.id}>
                       <s-table-cell>
-                        {claim.shopifyOrderId ? (
-                          <s-link
-                            href={`shopify://admin/orders/${claim.shopifyOrderId.split("/").pop()}`}
-                            target="_top"
-                          >
-                            {claim.shopifyOrderName ?? claim.orderNumber}
-                          </s-link>
-                        ) : (
-                          <s-link
-                            href={`shopify://admin/orders?query=${encodeURIComponent(claim.orderNumber)}`}
-                            target="_top"
-                          >
-                            {claim.orderNumber}
-                          </s-link>
-                        )}
+                        <s-stack direction="block" gap="small-100">
+                          {claim.shopifyOrderId ? (
+                            <s-link
+                              href={`shopify://admin/orders/${claim.shopifyOrderId.split("/").pop()}`}
+                              target="_top"
+                            >
+                              {claim.shopifyOrderName ?? claim.orderNumber}
+                            </s-link>
+                          ) : (
+                            <s-link
+                              href={`shopify://admin/orders?query=${encodeURIComponent(claim.orderNumber)}`}
+                              target="_top"
+                            >
+                              {claim.orderNumber}
+                            </s-link>
+                          )}
+                          <s-text color="subdued">
+                            {new Date(claim.createdAt).toLocaleDateString()}
+                          </s-text>
+                        </s-stack>
                       </s-table-cell>
                       <s-table-cell>
                         <s-stack direction="block" gap="small-100">
                           <s-text>{claim.fullName}</s-text>
                           <s-text color="subdued">{claim.email}</s-text>
+                          {claimNumberForEmail > 1 && (
+                            <s-stack direction="inline">
+                              <s-badge tone="warning">
+                                {`${ordinal(claimNumberForEmail)} claim from this email`}
+                              </s-badge>
+                            </s-stack>
+                          )}
+                          {claim.orderRiskLevel &&
+                            claim.orderRiskLevel !== "LOW" && (
+                              <s-stack direction="inline">
+                                <s-badge tone="critical">
+                                  {`${claim.orderRiskLevel} risk order`}
+                                </s-badge>
+                              </s-stack>
+                            )}
                         </s-stack>
                       </s-table-cell>
                       <s-table-cell>
@@ -628,20 +643,6 @@ export default function Claims() {
                         )}
                       </s-table-cell>
                       <s-table-cell>
-                        {claim.protectedItem ? (
-                          <s-stack direction="block" gap="small-100">
-                            <s-text>{claim.protectedItem.title}</s-text>
-                            <s-text color="subdued">
-                              {`${claim.claimedQuantity ?? 1} × ${money(claim.itemValueCents ?? 0)}`}
-                            </s-text>
-                          </s-stack>
-                        ) : (
-                          <s-text color="subdued">
-                            Filed before item-level coverage
-                          </s-text>
-                        )}
-                      </s-table-cell>
-                      <s-table-cell>
                         <s-stack direction="block" gap="small-100">
                           <s-text
                             type="strong"
@@ -651,6 +652,15 @@ export default function Claims() {
                               ? money(claim.eligibleLossCents)
                               : "—"}
                           </s-text>
+                          {claim.protectedItem ? (
+                            <s-text color="subdued">
+                              {`${claim.protectedItem.title} · ${claim.claimedQuantity ?? 1} × ${money(claim.itemValueCents ?? 0)}`}
+                            </s-text>
+                          ) : (
+                            <s-text color="subdued">
+                              Filed before item-level coverage
+                            </s-text>
+                          )}
                           {claim.settlementCents != null && (
                             <s-text color="subdued">
                               {`Approved ${money(claim.settlementCents)}`}
@@ -658,52 +668,32 @@ export default function Claims() {
                           )}
                         </s-stack>
                       </s-table-cell>
+
                       <s-table-cell>
                         <s-stack direction="block" gap="small-200">
-                          {claimNumberForEmail > 1 && (
-                            <s-badge tone="warning">
-                              {ordinal(claimNumberForEmail)} claim from this
-                              email
-                            </s-badge>
-                          )}
-                          {claim.orderRiskLevel &&
-                            claim.orderRiskLevel !== "LOW" && (
-                              <s-badge tone="critical">
-                                {claim.orderRiskLevel} risk order
-                              </s-badge>
-                            )}
-                        </s-stack>
-                      </s-table-cell>
-                      <s-table-cell>
-                        {new Date(claim.createdAt).toLocaleDateString()}
-                      </s-table-cell>
-                      <s-table-cell>
-                        <s-stack direction="block" gap="small-200">
-                          <s-grid
-                            gridTemplateColumns="auto 1fr"
-                            gap="base"
-                            alignItems="center"
-                          >
+                          {/* Stacked, not side by side: sharing the column
+                              left the select about four characters wide. */}
+                          <s-stack direction="inline">
                             <StatusBadge status={claim.status} />
-                            <s-select
-                              label="Status"
-                              labelAccessibilityVisibility="exclusive"
-                              value={claim.status}
-                              onChange={(e) =>
-                                updateStatus(
-                                  claim.id,
-                                  e.currentTarget.value ?? claim.status,
-                                )
-                              }
-                            >
-                              {STATUSES.map((status) => (
-                                <s-option key={status} value={status}>
-                                  {status.charAt(0).toUpperCase() +
-                                    status.slice(1)}
-                                </s-option>
-                              ))}
-                            </s-select>
-                          </s-grid>
+                          </s-stack>
+                          <s-select
+                            label="Status"
+                            labelAccessibilityVisibility="exclusive"
+                            value={claim.status}
+                            onChange={(e) =>
+                              updateStatus(
+                                claim.id,
+                                e.currentTarget.value ?? claim.status,
+                              )
+                            }
+                          >
+                            {STATUSES.map((status) => (
+                              <s-option key={status} value={status}>
+                                {status.charAt(0).toUpperCase() +
+                                  status.slice(1)}
+                              </s-option>
+                            ))}
+                          </s-select>
                           {claim.status === "resolved" &&
                             claim.shopifyOrderId && (
                               <s-link
