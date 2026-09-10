@@ -177,6 +177,7 @@ export default function Claims() {
     q,
     page,
     totalPages,
+    filteredCount,
     workspaceCounts,
     emailClaimNumbers,
   } = useLoaderData<typeof loader>();
@@ -316,13 +317,21 @@ export default function Claims() {
             }
           />
         ) : (
-          <s-table
-            ref={pagination.ref as never}
-            variant="auto"
-            paginate={pagination.paginate}
-            hasPreviousPage={pagination.hasPreviousPage}
-            hasNextPage={pagination.hasNextPage}
-          >
+          <>
+            <div className="app-result-count">
+              <s-text color="subdued">
+                {`Showing ${(page - 1) * PAGE_SIZE + 1}–${
+                  (page - 1) * PAGE_SIZE + claims.length
+                } of ${filteredCount} claim${filteredCount === 1 ? "" : "s"}`}
+              </s-text>
+            </div>
+            <s-table
+              ref={pagination.ref as never}
+              variant="auto"
+              paginate={pagination.paginate}
+              hasPreviousPage={pagination.hasPreviousPage}
+              hasNextPage={pagination.hasNextPage}
+            >
             <s-table-header-row>
               <s-table-header>Order</s-table-header>
               <s-table-header>Customer</s-table-header>
@@ -354,9 +363,10 @@ export default function Claims() {
                       )}
                     </s-table-cell>
                     <s-table-cell>
-                      {claim.fullName}
-                      <br />
-                      <s-text color="subdued">{claim.email}</s-text>
+                      <s-stack direction="block" gap="small-100">
+                        <s-text>{claim.fullName}</s-text>
+                        <s-text color="subdued">{claim.email}</s-text>
+                      </s-stack>
                     </s-table-cell>
                     <s-table-cell>
                       {issueTypeLabel(claim.issueType)}
@@ -447,8 +457,9 @@ export default function Claims() {
                   </s-table-row>
                 );
               })}
-            </s-table-body>
-          </s-table>
+              </s-table-body>
+            </s-table>
+          </>
         )}
       </Card>
 

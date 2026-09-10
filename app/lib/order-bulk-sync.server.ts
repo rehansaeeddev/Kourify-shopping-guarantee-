@@ -28,6 +28,7 @@ const BULK_ORDERS_QUERY = `
         id
         name
         email
+        createdAt
         displayFulfillmentStatus
         risk { recommendation }
         totalPriceSet { shopMoney { amount } }
@@ -204,6 +205,8 @@ type JsonlOrderRow = {
   id?: string;
   name?: string;
   email?: string | null;
+  /** The order's own creation time in Shopify — when it was placed. */
+  createdAt?: string | null;
   displayFulfillmentStatus?: string | null;
   risk?: { recommendation?: string | null } | null;
   totalPriceSet?: { shopMoney?: { amount?: string | null } | null } | null;
@@ -245,6 +248,7 @@ async function ingestOrdersJsonl(shop: string, text: string): Promise<number> {
       status: String(row.displayFulfillmentStatus ?? "unfulfilled").toLowerCase(),
       riskLevel: riskLevelFromRecommendation(row.risk?.recommendation),
       shippedAt,
+      placedAt: row.createdAt ?? null,
       totalPrice: row.totalPriceSet?.shopMoney?.amount ?? null,
     });
     synced += 1;

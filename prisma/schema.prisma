@@ -131,6 +131,11 @@ model Order {
   shippedAt       DateTime?
   deliveredAt     DateTime?
   totalPrice      String?  // For future analytics
+  // When the customer actually placed the order, from Shopify. Distinct from
+  // createdAt, which is when we first cached the row — a backfill writes
+  // thousands of rows "now", so createdAt can't order a merchant's orders.
+  // Nullable because rows cached before this field existed never captured it.
+  placedAt        DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -138,6 +143,7 @@ model Order {
   @@index([shop])
   @@index([shop, email])
   @@index([shop, status])
+  @@index([shop, placedAt])
 }
 
 // Tracks a background order backfill driven by Shopify's Bulk Operations API

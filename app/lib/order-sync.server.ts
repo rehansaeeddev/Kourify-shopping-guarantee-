@@ -35,6 +35,8 @@ export async function cacheOrder(
     riskLevel: string | null;
     shippedAt: string | null;
     totalPrice?: string | null;
+    /** Shopify's own order-creation timestamp, not our cache time. */
+    placedAt?: string | null;
   },
 ): Promise<void> {
   await db.order.upsert({
@@ -49,6 +51,7 @@ export async function cacheOrder(
       status: data.status,
       ...(data.riskLevel != null ? { riskLevel: data.riskLevel } : {}),
       ...(data.shippedAt ? { shippedAt: new Date(data.shippedAt) } : {}),
+      ...(data.placedAt ? { placedAt: new Date(data.placedAt) } : {}),
       totalPrice: data.totalPrice ?? null,
       updatedAt: new Date(),
     },
@@ -61,6 +64,7 @@ export async function cacheOrder(
       status: data.status,
       riskLevel: data.riskLevel,
       shippedAt: data.shippedAt ? new Date(data.shippedAt) : null,
+      placedAt: data.placedAt ? new Date(data.placedAt) : null,
       totalPrice: data.totalPrice ?? null,
     },
   });
@@ -116,6 +120,7 @@ export async function findOrderByNumberWithCache(
               id
               name
               email
+              createdAt
               fulfillments(first: 10) { createdAt }
               risk { recommendation }
               totalPriceSet {
@@ -170,6 +175,7 @@ export async function findOrderByNumberWithCache(
     status: order.status,
     riskLevel: order.riskLevel,
     shippedAt: order.shippedAt,
+    placedAt: node.createdAt ?? null,
     totalPrice: node.totalPriceSet?.shopMoney?.amount,
   });
 

@@ -67,7 +67,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     db.order.count({ where: { shop: session.shop, ...filterWhere } }),
     db.order.findMany({
       where: { shop: session.shop, ...filterWhere },
-      orderBy: { createdAt: "desc" },
+      // Newest orders first by when the customer placed them. createdAt is
+      // only the cache-write time — a backfill stamps every row "now" — so it
+      // serves purely as a fallback for rows cached before placedAt existed.
+      orderBy: [{ placedAt: "desc" }, { createdAt: "desc" }],
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),

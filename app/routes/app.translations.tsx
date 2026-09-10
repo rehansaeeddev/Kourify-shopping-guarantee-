@@ -265,7 +265,7 @@ export default function Translations() {
                 <s-table-row key={lang.locale}>
                   <s-table-cell>
                     <s-stack direction="inline" gap="small-200">
-                      <s-text>{lang.label}</s-text>
+                      <s-text type="strong">{lang.label}</s-text>
                       {lang.locale === fallback ? (
                         <s-badge tone="info">Default</s-badge>
                       ) : null}
@@ -274,12 +274,13 @@ export default function Translations() {
                   <s-table-cell>{lang.locale}</s-table-cell>
                   <s-table-cell>{lang.direction.toUpperCase()}</s-table-cell>
                   <s-table-cell>
-                    <s-badge tone={lang.enabled ? "success" : "warning"}>
+                    {/* A hidden language is an ordinary state, not a warning. */}
+                    <s-badge tone={lang.enabled ? "success" : "neutral"}>
                       {lang.enabled ? "Shown" : "Hidden"}
                     </s-badge>
                   </s-table-cell>
                   <s-table-cell>
-                    <s-stack direction="inline" gap="small-200">
+                    <div className="app-row-actions">
                       <AppButton
                         variant="primary"
                         onClick={() =>
@@ -338,7 +339,7 @@ export default function Translations() {
                           Remove
                         </AppButton>
                       ) : null}
-                    </s-stack>
+                    </div>
                   </s-table-cell>
                 </s-table-row>
               ))}

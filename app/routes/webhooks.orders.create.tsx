@@ -33,6 +33,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       status: "pending",
       riskLevel: null,
       shippedAt: null, // Will be set when fulfillment is created
+      placedAt: (data.created_at as string | null) ?? null,
       totalPrice,
     });
     const usageEvent = await recordProtectionSelection(shop, data);
