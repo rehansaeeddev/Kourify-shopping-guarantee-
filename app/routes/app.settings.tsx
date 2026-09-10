@@ -423,16 +423,6 @@ export default function Settings() {
       <s-button slot="secondary-actions" href="/app" variant="secondary">
         Back
       </s-button>
-      <s-stack direction="inline">
-        <InfoTip id="tip-how-protection-works" label="How protection works">
-          The &quot;Protect your order&quot; widget is live on your product page
-          and cart. It&apos;s an honest, self-funded guarantee right now —
-          there&apos;s no real shipping-insurance underwriting behind it yet, so
-          claims are reviewed manually rather than paid out automatically.
-          Connect a real insurance partner (like EasyPost) before promising
-          guaranteed payouts to customers.
-        </InfoTip>
-      </s-stack>
 
       {settingsFetcher.data?.error && (
         <s-banner tone="critical" heading="Protection could not be enabled">
@@ -505,6 +495,21 @@ export default function Settings() {
           </Card>
 
           <Card heading="How protection works">
+            <s-stack direction="inline">
+              <InfoTip
+                id="tip-how-protection-works"
+                label="How protection works"
+              >
+                The &quot;Protect your order&quot; widget is live on your
+                product page and cart. It&apos;s an honest, self-funded
+                guarantee right now — there&apos;s no real shipping-insurance
+                underwriting behind it yet, so claims are reviewed manually
+                rather than paid out automatically. Connect a real insurance
+                partner (like EasyPost) before promising guaranteed payouts to
+                customers.
+              </InfoTip>
+            </s-stack>
+
             <s-ordered-list>
               {PROTECTION_STEPS.map((step) => (
                 <s-list-item key={step}>{step}</s-list-item>
