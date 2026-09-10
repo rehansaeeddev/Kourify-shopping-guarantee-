@@ -769,11 +769,7 @@ export default function Claims() {
 
       <s-modal id="kourify-evidence-modal" heading="Evidence photo">
         {previewUrl && (
-          <img
-            src={previewUrl}
-            alt="Claim evidence"
-            style={{ maxWidth: "100%", borderRadius: "8px" }}
-          />
+          <s-image src={previewUrl} alt="Claim evidence" objectFit="contain" />
         )}
       </s-modal>
     </s-page>

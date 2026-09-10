@@ -443,21 +443,17 @@ export default function Settings() {
         </s-banner>
       )}
 
-      <nav className="app-tabs" aria-label="Settings sections">
+      <s-button-group gap="base" accessibilityLabel="Settings sections">
         {SETTINGS_TABS.map((tab) => (
-          <button
+          <s-button
             key={tab.id}
-            type="button"
-            className={
-              "app-tab" + (tab.id === activeTab ? " app-tab--active" : "")
-            }
-            aria-current={tab.id === activeTab ? "page" : undefined}
+            variant={tab.id === activeTab ? "primary" : "tertiary"}
             onClick={() => setActiveTab(tab.id)}
           >
             {tab.label}
-          </button>
+          </s-button>
         ))}
-      </nav>
+      </s-button-group>
 
       {activeTab === "general" && (
         <>
@@ -494,25 +490,25 @@ export default function Settings() {
             </s-stack>
 
             {quotaExhausted && (
-              <div style={{ marginTop: "0.85rem" }}>
+              <s-box paddingBlockStart="base">
                 <s-banner tone="warning">
                   {`You've used all ${quota.limit} protected orders on your plan, so protection is off and the storefront widget is hidden. Existing protected orders keep their coverage and can still be claimed. Upgrade from Billing to protect new orders again.`}
                 </s-banner>
-                <div style={{ marginTop: "0.75rem" }}>
+                <s-box paddingBlockStart="base">
                   <AppButton href="/app/billing" variant="primary">
                     View plans
                   </AppButton>
-                </div>
-              </div>
+                </s-box>
+              </s-box>
             )}
           </Card>
 
           <Card heading="How protection works">
-            <ol className="app-steps">
+            <s-ordered-list>
               {PROTECTION_STEPS.map((step) => (
-                <li key={step}>{step}</li>
+                <s-list-item key={step}>{step}</s-list-item>
               ))}
-            </ol>
+            </s-ordered-list>
             <s-banner tone="info">
               Claims are manually reviewed. Kourify doesn&apos;t automatically
               approve claims — you make the final decision and fund any
@@ -528,53 +524,30 @@ export default function Settings() {
             Who pays for protection, and how the fee is calculated.
           </s-paragraph>
           <s-stack direction="block" gap="base" paddingBlockStart="base">
-            <div className="app-payer-grid">
-              <button
-                type="button"
-                className={`app-payer-card${merchantPays ? " is-selected" : ""}`}
-                onClick={() => saveSettings({ protectionPayer: "merchant" })}
-              >
-                <span className="app-payer-card__head">
-                  <span className="app-payer-card__icon">
-                    <s-icon type="shield-check-mark" />
-                  </span>
-                  <span className="app-payer-card__title">Merchant pays</span>
-                </span>
-                <span className="app-payer-card__desc">
-                  Protection is free for the customer. You cover the protection
-                  cost.
-                </span>
-                <span className="app-payer-card__check">
-                  <s-icon type="check" />
-                </span>
-              </button>
-              <button
-                type="button"
-                className={`app-payer-card${!merchantPays ? " is-selected" : ""}`}
-                disabled={!customerPaysAllowed}
-                onClick={() => saveSettings({ protectionPayer: "customer" })}
-              >
-                <span className="app-payer-card__head">
-                  <span className="app-payer-card__icon">
-                    <s-icon type="cash-dollar" />
-                  </span>
-                  <span className="app-payer-card__title">Customer pays</span>
-                </span>
-                <span className="app-payer-card__desc">
-                  The customer pays the protection fee at checkout.
-                </span>
-                {!customerPaysAllowed && (
-                  <span className="app-payer-card__lock">
-                    {planAllowsCustomerPays(activePlan)
-                      ? "Requires Shopify Plus"
-                      : "Not available on this plan"}
-                  </span>
-                )}
-                <span className="app-payer-card__check">
-                  <s-icon type="check" />
-                </span>
-              </button>
-            </div>
+            <s-choice-list
+              label="Who pays for protection"
+              labelAccessibilityVisibility="exclusive"
+              name="protectionPayer"
+              values={[merchantPays ? "merchant" : "customer"]}
+              onChange={(event: { currentTarget: { values?: string[] } }) => {
+                const next = event.currentTarget.values?.[0];
+                if (next === "merchant" || next === "customer") {
+                  saveSettings({ protectionPayer: next });
+                }
+              }}
+            >
+              <s-choice value="merchant">
+                Merchant pays — protection is free for the customer and you
+                cover the cost.
+              </s-choice>
+              <s-choice value="customer" disabled={!customerPaysAllowed}>
+                {customerPaysAllowed
+                  ? "Customer pays — the customer pays the protection fee at checkout."
+                  : planAllowsCustomerPays(activePlan)
+                    ? "Customer pays — requires Shopify Plus."
+                    : "Customer pays — not available on this plan."}
+              </s-choice>
+            </s-choice-list>
 
             {!planAllowsCustomerPays(activePlan) && (
               <s-banner tone="info">
@@ -604,7 +577,7 @@ export default function Settings() {
                   justifyContent="space-between"
                 >
                   <s-text>Fee structure</s-text>
-                  <div style={{ inlineSize: "220px", flex: "0 0 auto" }}>
+                  <s-box inlineSize="220px">
                     <s-select
                       label="Fee structure"
                       labelAccessibilityVisibility="exclusive"
@@ -620,7 +593,7 @@ export default function Settings() {
                         Percentage of order
                       </s-option>
                     </s-select>
-                  </div>
+                  </s-box>
                 </s-stack>
 
                 {currentSettings.protectionFeeType === "flat" ? (
@@ -636,7 +609,7 @@ export default function Settings() {
                         Charged once per order, whatever the item count.
                       </s-text>
                     </s-stack>
-                    <div style={{ inlineSize: "140px", flex: "0 0 auto" }}>
+                    <s-box inlineSize="140px">
                       <s-number-field
                         label="Flat fee per order"
                         labelAccessibilityVisibility="exclusive"
@@ -654,7 +627,7 @@ export default function Settings() {
                           })
                         }
                       />
-                    </div>
+                    </s-box>
                   </s-stack>
                 ) : (
                   <>
@@ -665,7 +638,7 @@ export default function Settings() {
                       justifyContent="space-between"
                     >
                       <s-text>Percentage of order value</s-text>
-                      <div style={{ inlineSize: "140px", flex: "0 0 auto" }}>
+                      <s-box inlineSize="140px">
                         <s-number-field
                           label="Percentage"
                           labelAccessibilityVisibility="exclusive"
@@ -685,7 +658,7 @@ export default function Settings() {
                             })
                           }
                         />
-                      </div>
+                      </s-box>
                     </s-stack>
                     <s-stack
                       direction="inline"
@@ -694,7 +667,7 @@ export default function Settings() {
                       justifyContent="space-between"
                     >
                       <s-text>Minimum fee</s-text>
-                      <div style={{ inlineSize: "140px", flex: "0 0 auto" }}>
+                      <s-box inlineSize="140px">
                         <s-number-field
                           label="Minimum fee"
                           labelAccessibilityVisibility="exclusive"
@@ -713,7 +686,7 @@ export default function Settings() {
                             })
                           }
                         />
-                      </div>
+                      </s-box>
                     </s-stack>
                     <s-stack
                       direction="inline"
@@ -722,7 +695,7 @@ export default function Settings() {
                       justifyContent="space-between"
                     >
                       <s-text>Maximum fee</s-text>
-                      <div style={{ inlineSize: "140px", flex: "0 0 auto" }}>
+                      <s-box inlineSize="140px">
                         <s-number-field
                           label="Maximum fee"
                           labelAccessibilityVisibility="exclusive"
@@ -741,7 +714,7 @@ export default function Settings() {
                             })
                           }
                         />
-                      </div>
+                      </s-box>
                     </s-stack>
                   </>
                 )}
@@ -772,7 +745,7 @@ export default function Settings() {
                   Per item, before shipping and tax. Leave empty for no limit.
                 </s-text>
               </s-stack>
-              <div style={{ inlineSize: "160px", flex: "0 0 auto" }}>
+              <s-box inlineSize="160px">
                 <s-number-field
                   label="Maximum eligible item value"
                   labelAccessibilityVisibility="exclusive"
@@ -797,26 +770,29 @@ export default function Settings() {
                     });
                   }}
                 />
-              </div>
+              </s-box>
             </s-stack>
 
             {eligibilityExample && (
-              <div>
-                <h4 className="app-card__heading">Eligibility example</h4>
-                <ul className="app-eligibility-example">
+              <s-stack direction="block" gap="small-200">
+                <s-heading>Eligibility example</s-heading>
+                <s-stack direction="block" gap="small-300">
                   {eligibilityExample.map((row) => (
-                    <li
+                    <s-stack
                       key={row.label}
-                      className={row.eligible ? "is-eligible" : "is-excluded"}
+                      direction="inline"
+                      gap="small-200"
+                      alignItems="center"
+                      justifyContent="space-between"
                     >
-                      <span>{row.label} item</span>
-                      <strong>
-                        {row.eligible ? "✓ Eligible" : "× Not eligible"}
-                      </strong>
-                    </li>
+                      <s-text>{row.label} item</s-text>
+                      <s-badge tone={row.eligible ? "success" : "neutral"}>
+                        {row.eligible ? "Eligible" : "Not eligible"}
+                      </s-badge>
+                    </s-stack>
                   ))}
-                </ul>
-              </div>
+                </s-stack>
+              </s-stack>
             )}
 
             <s-banner tone="info">
@@ -869,7 +845,7 @@ export default function Settings() {
                     gap="small-200"
                     alignItems="center"
                   >
-                    <div style={{ inlineSize: "90px", flex: "0 0 auto" }}>
+                    <s-box inlineSize="90px">
                       <s-number-field
                         label="Min days"
                         labelAccessibilityVisibility="exclusive"
@@ -884,9 +860,9 @@ export default function Settings() {
                           )
                         }
                       />
-                    </div>
+                    </s-box>
                     <s-text color="subdued">to</s-text>
-                    <div style={{ inlineSize: "90px", flex: "0 0 auto" }}>
+                    <s-box inlineSize="90px">
                       <s-number-field
                         label="Max days"
                         labelAccessibilityVisibility="exclusive"
@@ -901,7 +877,7 @@ export default function Settings() {
                           )
                         }
                       />
-                    </div>
+                    </s-box>
                     <s-text color="subdued">days</s-text>
                   </s-stack>
                 </s-stack>

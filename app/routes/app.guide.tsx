@@ -120,45 +120,51 @@ export default function Guide() {
           <s-paragraph>
             Three things to do before protection goes live.
           </s-paragraph>
-          <div className="app-help-steps">
-            <div className="app-help-step">
-              <span className="app-help-step__num">1</span>
-              <div>
-                <p className="app-help-step__title">Configure protection</p>
-                <p className="app-help-step__body">
-                  Choose who pays, set pricing, and define what&apos;s eligible.
-                </p>
-                <AppButton href="/app/settings" variant="secondary">
+          <s-stack direction="block" gap="large-100">
+            <s-stack direction="block" gap="small-200">
+              <s-stack direction="inline" gap="small-200" alignItems="center">
+                <s-badge>1</s-badge>
+                <s-text type="strong">Configure protection</s-text>
+              </s-stack>
+              <s-paragraph color="subdued">
+                Choose who pays, set pricing, and define what&apos;s eligible.
+              </s-paragraph>
+              <s-stack direction="inline">
+                <s-button href="/app/settings" variant="secondary">
                   Open settings
-                </AppButton>
-              </div>
-            </div>
-            <div className="app-help-step">
-              <span className="app-help-step__num">2</span>
-              <div>
-                <p className="app-help-step__title">Add storefront blocks</p>
-                <p className="app-help-step__body">
-                  Add the protection widget and trust badge in your Shopify
-                  theme editor.
-                </p>
-                <AppButton href="/app" variant="secondary">
+                </s-button>
+              </s-stack>
+            </s-stack>
+            <s-stack direction="block" gap="small-200">
+              <s-stack direction="inline" gap="small-200" alignItems="center">
+                <s-badge>2</s-badge>
+                <s-text type="strong">Add storefront blocks</s-text>
+              </s-stack>
+              <s-paragraph color="subdued">
+                Add the protection widget and trust badge in your Shopify theme
+                editor.
+              </s-paragraph>
+              <s-stack direction="inline">
+                <s-button href="/app" variant="secondary">
                   Badge settings
-                </AppButton>
-              </div>
-            </div>
-            <div className="app-help-step">
-              <span className="app-help-step__num">3</span>
-              <div>
-                <p className="app-help-step__title">Turn on protection</p>
-                <p className="app-help-step__body">
-                  Switch on protection at checkout from Settings → General.
-                </p>
-                <AppButton href="/app/settings" variant="secondary">
+                </s-button>
+              </s-stack>
+            </s-stack>
+            <s-stack direction="block" gap="small-200">
+              <s-stack direction="inline" gap="small-200" alignItems="center">
+                <s-badge>3</s-badge>
+                <s-text type="strong">Turn on protection</s-text>
+              </s-stack>
+              <s-paragraph color="subdued">
+                Switch on protection at checkout from Settings → General.
+              </s-paragraph>
+              <s-stack direction="inline">
+                <s-button href="/app/settings" variant="secondary">
                   Turn it on
-                </AppButton>
-              </div>
-            </div>
-          </div>
+                </s-button>
+              </s-stack>
+            </s-stack>
+          </s-stack>
         </Card>
       )}
 
@@ -170,28 +176,26 @@ export default function Guide() {
               ? ` You've protected ${quota.used} of ${quota.limit} orders on your plan.`
               : ""}
           </s-paragraph>
-          <div className="app-actions">
-            <AppButton href="/app/settings" variant="secondary">
+          <s-button-group gap="base">
+            <s-button href="/app/settings" variant="secondary">
               Manage settings
-            </AppButton>
-            <AppButton href="/app/claims" variant="secondary">
+            </s-button>
+            <s-button href="/app/claims" variant="secondary">
               {openClaims > 0 ? `View claims (${openClaims})` : "View claims"}
-            </AppButton>
-            <AppButton href="/app/orders" variant="secondary">
+            </s-button>
+            <s-button href="/app/orders" variant="secondary">
               View orders
-            </AppButton>
-          </div>
+            </s-button>
+          </s-button-group>
         </Card>
       )}
 
       <Card heading="How protection works">
-        <ol className="app-steps">
+        <s-ordered-list>
           {FLOW.map((step) => (
-            <li key={step}>
-              <span>{step}</span>
-            </li>
+            <s-list-item key={step}>{step}</s-list-item>
           ))}
-        </ol>
+        </s-ordered-list>
         <s-banner tone="info">
           Shopping Guarantee is currently a self-funded, manually reviewed
           guarantee. It is not underwritten insurance, and claims are not
@@ -200,7 +204,7 @@ export default function Guide() {
       </Card>
 
       <Card heading="Common tasks">
-        <div className="app-help-links">
+        <s-stack direction="block" gap="small-200">
           <Link to="/app/settings">
             Change who pays, pricing or eligibility
           </Link>
@@ -214,18 +218,18 @@ export default function Guide() {
           <Link to="/app/billing">
             {hasActiveBilling ? "Change your plan" : "Choose a plan"}
           </Link>
-        </div>
+        </s-stack>
       </Card>
 
       <Card heading="Questions">
-        <div className="app-faq">
+        <s-stack direction="block" gap="base">
           {FAQ.map(([question, answer]) => (
-            <details key={question}>
-              <summary>{question}</summary>
-              <p>{answer}</p>
-            </details>
+            <s-stack key={question} direction="block" gap="small-300">
+              <s-text type="strong">{question}</s-text>
+              <s-paragraph color="subdued">{answer}</s-paragraph>
+            </s-stack>
           ))}
-        </div>
+        </s-stack>
       </Card>
 
       {!badgesEnabled && state !== "setup" && (
