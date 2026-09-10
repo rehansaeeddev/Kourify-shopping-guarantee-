@@ -68,10 +68,5 @@
     "@shopify/plugin-cloudflare"
   ],
   "author": "apple",
-  "allowScripts": {
-    "prisma@6.19.3": true,
-    "@prisma/client@6.19.3": true,
-    "@prisma/engines@6.19.3": true,
-    "esbuild@0.25.12": true
-  }
+  "packageManager": "pnpm@11.25.0"
 }

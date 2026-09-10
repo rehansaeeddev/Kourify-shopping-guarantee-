@@ -33,3 +33,6 @@ extensions/*/shopify.d.ts
 
 # Local admin preview scratch file
 .kourify-preview-admin.html
+
+# npm is not this project's package manager — use pnpm (see pnpm-workspace.yaml).
+package-lock.json
