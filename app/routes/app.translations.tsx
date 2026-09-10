@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { useFetcher, useLoaderData, useSearchParams } from "react-router";
 
-import { AppButton } from "../components/AppButton";
 import { Card } from "../components/Card";
 import { EmptyState } from "../components/EmptyState";
 import { useFetcherToast } from "../hooks/useFetcherToast";
@@ -260,8 +259,8 @@ export default function Translations() {
               heading="No languages yet"
               description="Add English and French to match the current defaults, then add more languages like Arabic or Hindi."
             />
-            <div>
-              <AppButton
+            <s-stack direction="inline">
+              <s-button
                 variant="primary"
                 disabled={fetcher.state !== "idle"}
                 onClick={() =>
@@ -272,8 +271,8 @@ export default function Translations() {
                 }
               >
                 Add English &amp; French
-              </AppButton>
-            </div>
+              </s-button>
+            </s-stack>
           </s-stack>
         </Card>
       ) : (
@@ -287,41 +286,41 @@ export default function Translations() {
                   name="locale"
                   value={renamingLang.locale}
                 />
-                <div className="app-lang-row">
-                  <div className="app-lang-row__name">
-                    <s-text-field
-                      label="Display name"
-                      name="label"
-                      value={renamingLang.label}
-                    />
-                  </div>
-                  <div className="app-lang-row__dir">
-                    <s-select
-                      label="Direction"
-                      name="direction"
-                      value={renamingLang.direction}
-                    >
-                      <s-option value="ltr">Left to right</s-option>
-                      <s-option value="rtl">Right to left</s-option>
-                    </s-select>
-                  </div>
-                </div>
-                <div className="app-actions">
-                  <AppButton
+                <s-grid
+                  gridTemplateColumns="1fr 1fr"
+                  gap="base"
+                  alignItems="end"
+                >
+                  <s-text-field
+                    label="Display name"
+                    name="label"
+                    value={renamingLang.label}
+                  />
+                  <s-select
+                    label="Direction"
+                    name="direction"
+                    value={renamingLang.direction}
+                  >
+                    <s-option value="ltr">Left to right</s-option>
+                    <s-option value="rtl">Right to left</s-option>
+                  </s-select>
+                </s-grid>
+                <s-button-group gap="base">
+                  <s-button
                     type="submit"
                     variant="primary"
                     disabled={fetcher.state !== "idle"}
                     onClick={() => setRenaming(null)}
                   >
                     Save
-                  </AppButton>
-                  <AppButton
+                  </s-button>
+                  <s-button
                     variant="secondary"
                     onClick={() => setRenaming(null)}
                   >
                     Cancel
-                  </AppButton>
-                </div>
+                  </s-button>
+                </s-button-group>
               </fetcher.Form>
             </Card>
           ) : null}
@@ -355,20 +354,20 @@ export default function Translations() {
                       </s-badge>
                     </s-table-cell>
                     <s-table-cell>
-                      <div className="app-row-actions">
-                        <AppButton
+                      <s-button-group gap="base">
+                        <s-button
                           variant="primary"
                           onClick={() => setSearchParams({ edit: lang.locale })}
                         >
                           Edit
-                        </AppButton>
-                        <AppButton
+                        </s-button>
+                        <s-button
                           variant="secondary"
                           onClick={() => setRenaming(lang.locale)}
                         >
                           Rename
-                        </AppButton>
-                        <AppButton
+                        </s-button>
+                        <s-button
                           variant="secondary"
                           disabled={fetcher.state !== "idle"}
                           onClick={() =>
@@ -383,9 +382,9 @@ export default function Translations() {
                           }
                         >
                           {lang.enabled ? "Hide" : "Show"}
-                        </AppButton>
+                        </s-button>
                         {lang.locale !== fallback ? (
-                          <AppButton
+                          <s-button
                             variant="secondary"
                             disabled={fetcher.state !== "idle"}
                             onClick={() =>
@@ -396,10 +395,10 @@ export default function Translations() {
                             }
                           >
                             Make default
-                          </AppButton>
+                          </s-button>
                         ) : null}
                         {lang.locale !== fallback ? (
-                          <AppButton
+                          <s-button
                             variant="secondary"
                             disabled={fetcher.state !== "idle"}
                             onClick={() => {
@@ -416,9 +415,9 @@ export default function Translations() {
                             }}
                           >
                             Remove
-                          </AppButton>
+                          </s-button>
                         ) : null}
-                      </div>
+                      </s-button-group>
                     </s-table-cell>
                   </s-table-row>
                 ))}
@@ -453,41 +452,39 @@ function AddLanguage({
             <s-text type="strong">de</s-text> (German). New languages start
             seeded from English for you to translate.
           </s-paragraph>
-          <s-stack direction="inline" gap="base" alignItems="end">
-            <div style={{ inlineSize: "120px", flex: "0 0 auto" }}>
-              <s-text-field
-                label="Language code"
-                name="locale"
-                placeholder="ar"
-              />
-            </div>
-            <div style={{ inlineSize: "200px", flex: "0 0 auto" }}>
-              <s-text-field
-                label="Display name"
-                name="label"
-                placeholder="العربية"
-              />
-            </div>
-            <div style={{ inlineSize: "160px", flex: "0 0 auto" }}>
-              <s-select
-                label="Direction"
-                value={direction}
-                onChange={(event) =>
-                  setDirection(event.currentTarget.value ?? "ltr")
-                }
-              >
-                <s-option value="ltr">Left to right</s-option>
-                <s-option value="rtl">Right to left</s-option>
-              </s-select>
-            </div>
-            <AppButton
+          <s-grid
+            gridTemplateColumns="1fr 1fr 1fr auto"
+            gap="base"
+            alignItems="end"
+          >
+            <s-text-field
+              label="Language code"
+              name="locale"
+              placeholder="ar"
+            />
+            <s-text-field
+              label="Display name"
+              name="label"
+              placeholder="العربية"
+            />
+            <s-select
+              label="Direction"
+              value={direction}
+              onChange={(event) =>
+                setDirection(event.currentTarget.value ?? "ltr")
+              }
+            >
+              <s-option value="ltr">Left to right</s-option>
+              <s-option value="rtl">Right to left</s-option>
+            </s-select>
+            <s-button
               type="submit"
               variant="primary"
               disabled={fetcher.state !== "idle"}
             >
               Add language
-            </AppButton>
-          </s-stack>
+            </s-button>
+          </s-grid>
         </s-stack>
       </fetcher.Form>
     </Card>
@@ -600,74 +597,55 @@ function LanguageEditor({
         <input type="hidden" name="enabled" value={String(editing.enabled)} />
 
         <Card heading="Translations">
-          <div className="app-tr-bar">
-            <div className="app-tr-bar__head">
-              <span className="app-tr-bar__label">Translated</span>
-              <span className="app-tr-bar__value">
-                {`${doneCount} of ${keys.length}`}
-              </span>
-            </div>
-            <div
-              className="app-tr-bar__track"
-              role="progressbar"
-              aria-valuenow={doneCount}
-              aria-valuemin={0}
-              aria-valuemax={keys.length}
-              aria-label="Strings translated"
-            >
-              <div className="app-tr-bar__fill" style={{ width: `${pct}%` }} />
-            </div>
-          </div>
+          <s-stack direction="inline" gap="small-200" alignItems="center">
+            <s-text color="subdued">Translated</s-text>
+            <s-text type="strong" fontVariantNumeric="tabular-nums">
+              {`${doneCount} of ${keys.length}`}
+            </s-text>
+            {doneCount === keys.length && (
+              <s-badge tone="success">Complete</s-badge>
+            )}
+          </s-stack>
 
-          <div
-            className="app-tr-tabs"
-            role="tablist"
-            aria-label="String groups"
-          >
+          <s-button-group gap="base" accessibilityLabel="String groups">
             {groups.map((group) => {
               const groupKeys = buckets.get(group.id) ?? [];
               const remaining = groupKeys.filter((key) => !filled[key]).length;
               return (
-                <button
+                <s-button
                   key={group.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === group.id}
-                  aria-controls={`tr-panel-${group.id}`}
-                  className="app-tr-tab"
+                  variant={tab === group.id ? "primary" : "tertiary"}
                   onClick={() => setTab(group.id)}
                 >
-                  {group.title}
-                  <span
-                    className={`app-tr-tab__count${
-                      remaining === 0 ? " app-tr-tab__count--done" : ""
-                    }`}
-                  >
-                    {remaining === 0 ? "✓" : remaining}
-                  </span>
-                </button>
+                  {remaining === 0
+                    ? group.title
+                    : `${group.title} (${remaining} left)`}
+                </s-button>
               );
             })}
-          </div>
+          </s-button-group>
 
+          {/* A bare <div hidden> rather than an s-box: the panels must stay in
+              the DOM whichever tab is open, because the save action rebuilds
+              the whole `strings` blob from the submitted form and would delete
+              anything missing. Polaris sets its own display on s-box, which
+              would defeat the hidden attribute. No class, no CSS — this is
+              visibility, not layout. */}
           {groups.map((group) => (
-            <div
-              key={group.id}
-              id={`tr-panel-${group.id}`}
-              role="tabpanel"
-              className="app-tr-panel"
-              hidden={tab !== group.id}
-            >
-              {(buckets.get(group.id) ?? []).map((key) => (
-                <div
-                  key={key}
-                  className={`app-tr-field${filled[key] ? " app-tr-field--done" : ""}`}
-                >
-                  <div className="app-tr-field__head">
-                    <code className="app-tr-key">{key}</code>
-                    <span className="app-tr-en">{referenceEn[key]}</span>
-                  </div>
-                  <div className="app-tr-input">
+            <div key={group.id} hidden={tab !== group.id}>
+              <s-stack direction="block" gap="base">
+                {(buckets.get(group.id) ?? []).map((key) => (
+                  <s-stack key={key} direction="block" gap="small-300">
+                    <s-stack
+                      direction="inline"
+                      gap="small-200"
+                      alignItems="center"
+                    >
+                      <s-badge tone={filled[key] ? "success" : "neutral"}>
+                        {key}
+                      </s-badge>
+                      <s-text color="subdued">{referenceEn[key]}</s-text>
+                    </s-stack>
                     <s-text-field
                       label={key}
                       labelAccessibilityVisibility="exclusive"
@@ -684,21 +662,21 @@ function LanguageEditor({
                         );
                       }}
                     />
-                  </div>
-                </div>
-              ))}
+                  </s-stack>
+                ))}
+              </s-stack>
             </div>
           ))}
 
-          <div className="app-tr-save">
-            <AppButton
+          <s-stack direction="inline" justifyContent="end">
+            <s-button
               type="submit"
               variant="primary"
               disabled={fetcher.state !== "idle"}
             >
               Save translations
-            </AppButton>
-          </div>
+            </s-button>
+          </s-stack>
         </Card>
       </fetcher.Form>
     </s-page>

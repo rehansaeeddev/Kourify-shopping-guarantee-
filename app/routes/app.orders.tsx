@@ -714,7 +714,7 @@ export default function Orders() {
           >
             <s-stack direction="inline" gap="small-200" alignItems="center">
               <s-text color="subdued">Show</s-text>
-              <div style={{ inlineSize: "90px", flex: "0 0 auto" }}>
+              <s-box inlineSize="90px">
                 <s-select
                   label="Rows per page"
                   labelAccessibilityVisibility="exclusive"
@@ -731,7 +731,7 @@ export default function Orders() {
                     </s-option>
                   ))}
                 </s-select>
-              </div>
+              </s-box>
               <s-text color="subdued">orders per page</s-text>
             </s-stack>
 
@@ -763,15 +763,15 @@ export default function Orders() {
             <input type="hidden" name="orderId" value={fulfillmentOrder.id} />
             <input type="hidden" name="confirmed" value="true" />
             <s-stack gap="base">
-              <div style={{ maxInlineSize: "360px" }}>
+              <s-box maxInlineSize="360px">
                 <s-text-field label="Tracking number" name="trackingNumber" />
-              </div>
-              <div style={{ maxInlineSize: "360px" }}>
+              </s-box>
+              <s-box maxInlineSize="360px">
                 <s-text-field label="Shipping carrier" name="trackingCompany" />
-              </div>
-              <div style={{ maxInlineSize: "420px" }}>
+              </s-box>
+              <s-box maxInlineSize="420px">
                 <s-text-field label="Tracking URL" name="trackingUrl" />
-              </div>
+              </s-box>
               <s-checkbox
                 label="Notify the customer"
                 name="notifyCustomer"
