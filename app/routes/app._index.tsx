@@ -20,6 +20,7 @@ import { TrustBadgePreview } from "../components/TrustBadgePreview";
 import { getProtectionTelemetry } from "../lib/protection-telemetry.server";
 import { getProtectionAnalytics } from "../lib/protection-orders.server";
 import { getBillingState } from "../lib/billing-state.server";
+import { getProtectionQuota } from "../lib/plan-limits.server";
 
 const BADGE_STYLES = ["classic", "minimal", "bold"] as const;
 
@@ -51,7 +52,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     recentClaims,
     telemetry,
     analytics,
-    { hasActiveBilling },
+    { hasActiveBilling, activePlan },
   ] = await Promise.all([
     db.protectionClaim.count({
       where: { shop: session.shop, status: { in: ["submitted", "reviewing"] } },
@@ -67,6 +68,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     getBillingState(billing),
   ]);
 
+  const quota = await getProtectionQuota(session.shop, activePlan);
+
   const shopName = session.shop.replace(/\.myshopify\.com$/, "");
   const greeting = `${greetingForHour(new Date().getHours())}, ${shopName}`;
 
@@ -79,6 +82,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     telemetry,
     analytics,
     hasActiveBilling,
+    quota,
   };
 };
 
@@ -128,7 +132,7 @@ export default function Index() {
     recentClaims,
     telemetry,
     analytics,
-    hasActiveBilling,
+    quota,
   } = useLoaderData<typeof loader>();
 
   const badgeFetcher = useFetcher<typeof action>();
@@ -157,8 +161,14 @@ export default function Index() {
         ? `${(settings.protectionPercentBasisPoints / 100).toFixed(1)}% of order`
         : `$${(settings.protectionFlatFeeCents / 100).toFixed(2)} per order`;
 
-  const protectionStatus = !hasActiveBilling
-    ? { tone: "warning" as const, value: "Locked", sub: "Choose a plan" }
+  // Allowance spent outranks the stored on/off state — protection really is
+  // off on the storefront, so the tile must not still read "Live".
+  const protectionStatus = quota.exhausted
+    ? {
+        tone: "warning" as const,
+        value: "Limit reached",
+        sub: `${quota.used} of ${quota.limit} orders`,
+      }
     : !settings.protectionEnabled
       ? { tone: "default" as const, value: "Off", sub: null }
       : { tone: "success" as const, value: "Live", sub: feeSummary };
@@ -178,7 +188,7 @@ export default function Index() {
               reviewed manually rather than paid out automatically.
             </InfoTip>
             <AppButton href="/app/guide" variant="secondary">
-              User guide
+              Help
             </AppButton>
             <AppButton href="/app/order-sync" variant="secondary">
               Order sync
@@ -189,7 +199,7 @@ export default function Index() {
 
       <GettingStarted
         title="Get started with Kourify"
-        help={{ label: "New here? Read the full user guide →", href: "/app/guide" }}
+        help={{ label: "New here? Open Help & getting started →", href: "/app/guide" }}
         steps={[
           {
             label: "Turn on trust badges",

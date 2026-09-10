@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { useState } from "react";
-import { redirect, useFetcher, useLoaderData } from "react-router";
+import { useFetcher, useLoaderData } from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { PageHeader } from "../components/PageHeader";
@@ -19,6 +19,21 @@ import { syncProtectionProduct } from "../lib/protection-product.server";
 import { getBillingState } from "../lib/billing-state.server";
 import { detectPlanTier } from "../lib/plan-tier.server";
 import { syncDynamicFee } from "../lib/cart-transform.server";
+import { getProtectionQuota } from "../lib/plan-limits.server";
+import {
+  BASIC_PROTECTED_ORDER_LIMIT,
+  planAllowsCustomerPays,
+  planProtectedOrderLimit,
+  type PlanId,
+} from "../lib/plans";
+
+/** Merchant-facing plan names, so copy never says "basic" in lowercase. */
+const PLAN_LABELS: Record<PlanId, string> = {
+  basic: "Basic",
+  usage: "Usage",
+  unlimited: "Unlimited",
+  unlimited_annual: "Unlimited yearly",
+};
 
 // These persisted enums drive checkout/claim behaviour and (payer/feeType) the
 // Cart Transform, so never store an arbitrary client-supplied string — only a
@@ -69,7 +84,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     },
   });
 
-  const { hasActiveBilling, activePlan } = await getBillingState(billing);
+  const { activePlan } = await getBillingState(billing);
   const currentSettings =
     activePlan && settings.plan !== activePlan
       ? await db.merchantSettings.update({
@@ -77,14 +92,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           data: { plan: activePlan },
         })
       : settings;
-  // Nothing here applies without an active plan — send merchants to Billing
-  // to choose one instead of showing a second copy of the plan picker.
-  if (!hasActiveBilling) {
-    throw redirect("/app/billing");
-  }
-
   const planTier = await detectPlanTier(admin, session.shop);
-  return { settings: currentSettings, hasActiveBilling, planTier };
+  const quota = await getProtectionQuota(session.shop, activePlan);
+  return { settings: currentSettings, activePlan, planTier, quota };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -94,7 +104,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     where: { shop: session.shop },
   });
 
-  const { hasActiveBilling, activePlan } = await getBillingState(billing);
+  const { activePlan } = await getBillingState(billing);
+  // Basic is a real (free) plan, so every shop can configure. This used to
+  // gate on a paid subscription, which now only decides entitlements.
+  const canConfigure = true;
 
   // Charging the customer at checkout cleanly (Cart Transform price override)
   // only works on Shopify Plus; on other plans it would surface as a separate
@@ -102,20 +115,25 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   // forced to merchant-pays server-side, regardless of what the form submits.
   // "unknown" fails open so a detection hiccup can't lock a real Plus store out.
   const planTier = await detectPlanTier(admin, session.shop);
-  const customerPaysAllowed = planTier === "plus" || planTier === "unknown";
+  // Customer-pays needs both a Plus store (clean checkout pricing) and a plan
+  // without a protected-order allowance — a capped plan can't promise the slot
+  // will still exist when Shopify charges the shopper.
+  const customerPaysAllowed =
+    (planTier === "plus" || planTier === "unknown") &&
+    planAllowsCustomerPays(activePlan);
   const requestedPayer = pickEnum(
     PROTECTION_PAYERS,
     formData.get("protectionPayer"),
     current.protectionPayer,
   );
-  const protectionPayer = hasActiveBilling
+  const protectionPayer = canConfigure
     ? customerPaysAllowed
       ? requestedPayer
       : "merchant"
     : current.protectionPayer;
   // Keep only recognised claim types, in canonical form, so an unknown/garbage
   // value can never reach the storefront claim form or downstream logic.
-  const enabledClaimTypes = hasActiveBilling
+  const enabledClaimTypes = canConfigure
     ? String(formData.get("enabledClaimTypes") ?? "")
         .split(",")
         .map((type) => type.trim())
@@ -124,7 +142,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     : current.enabledClaimTypes;
   // Re-serialize through the validating parser (and clamp to non-negative,
   // whole days) rather than persisting the raw client JSON.
-  const claimWindows = hasActiveBilling
+  const claimWindows = canConfigure
     ? JSON.stringify(
         Object.fromEntries(
           Object.entries(
@@ -139,20 +157,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         ),
       )
     : current.claimWindows;
-  const protectionFeeType = hasActiveBilling
+  const protectionFeeType = canConfigure
     ? pickEnum(
         PROTECTION_FEE_TYPES,
         formData.get("protectionFeeType"),
         current.protectionFeeType,
       )
     : current.protectionFeeType;
-  const protectionFlatFeeCents = hasActiveBilling
+  const protectionFlatFeeCents = canConfigure
     ? Math.max(
         0,
         Math.round(Number(formData.get("protectionFlatFeeCents")) || 0),
       )
     : current.protectionFlatFeeCents;
-  const protectionPercentBasisPoints = hasActiveBilling
+  const protectionPercentBasisPoints = canConfigure
     ? Math.min(
         10000,
         Math.max(
@@ -161,13 +179,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         ),
       )
     : current.protectionPercentBasisPoints;
-  const protectionMinFeeCents = hasActiveBilling
+  const protectionMinFeeCents = canConfigure
     ? Math.max(
         0,
         Math.round(Number(formData.get("protectionMinFeeCents")) || 0),
       )
     : current.protectionMinFeeCents;
-  const protectionMaxFeeCents = hasActiveBilling
+  const protectionMaxFeeCents = canConfigure
     ? Math.max(
         protectionMinFeeCents,
         Math.round(Number(formData.get("protectionMaxFeeCents")) || 0),
@@ -177,29 +195,24 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   // rather than falling back to some implied amount — there is no default
   // monetary threshold anywhere in this app.
   const rawMaxEligible = formData.get("maxEligibleItemValueCents");
-  const maxEligibleItemValueCents = hasActiveBilling
+  const maxEligibleItemValueCents = canConfigure
     ? rawMaxEligible === null || String(rawMaxEligible).trim() === ""
       ? null
       : Math.max(0, Math.round(Number(rawMaxEligible) || 0)) || null
     : current.maxEligibleItemValueCents;
-  const protectionEnabled = hasActiveBilling
+  // A plan whose protected-order allowance is spent can't have protection
+  // switched on. Enforced here as well as in the UI so the toggle can't be
+  // forced by a crafted request. The *stored* preference is left as-is, so
+  // upgrading restores protection without the merchant re-enabling it.
+  const quota = await getProtectionQuota(session.shop, activePlan);
+  const requestedEnabled = canConfigure
     ? formData.get("protectionEnabled") === "true"
     : current.protectionEnabled;
-  // `plan` decides whether the $0.60 per-order usage fee is waived, so it must
-  // never come from client input. Derive it from the verified active
-  // subscription — "unlimited" only when Shopify confirms an unlimited plan.
-  const plan = activePlan === "unlimited" ? "unlimited" : "usage";
-
-  if (
-    formData.get("protectionEnabled") === "true" &&
-    !current.protectionEnabled &&
-    !hasActiveBilling
-  ) {
-    return {
-      settings: current,
-      error: "Approve a Kourify plan before enabling protection.",
-    };
-  }
+  const protectionEnabled = quota.exhausted ? false : requestedEnabled;
+  // `plan` decides whether the $0.60 per-order usage fee is waived and what
+  // protected-order allowance applies, so it must never come from client
+  // input — it's taken from the verified subscription state.
+  const plan = activePlan;
 
   const settings = await db.merchantSettings.update({
     where: { shop: session.shop },
@@ -218,16 +231,25 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     },
   });
 
+  // On merchant-pays the variant must cost nothing. The variant id is public
+  // (the storefront needs it to add the line), so a shopper could POST it to
+  // /cart/add.js themselves. Pricing it at 0 makes "the customer is never
+  // charged on this payer mode" true by construction rather than by the
+  // storefront choosing not to offer it.
+  const effectiveVariantPriceCents =
+    protectionPayer === "merchant" ? 0 : protectionFlatFeeCents;
+
   try {
     const productSettings =
       protectionEnabled &&
       (!current.protectionEnabled ||
         current.protectionFlatFeeCents !== protectionFlatFeeCents ||
+        current.protectionPayer !== protectionPayer ||
         !current.protectionVariantId)
         ? await syncProtectionProduct(
             session.shop,
             admin,
-            protectionFlatFeeCents,
+            effectiveVariantPriceCents,
           )
         : settings;
 
@@ -257,7 +279,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function Settings() {
-  const { settings, planTier } = useLoaderData<typeof loader>();
+  const { settings, planTier, quota, activePlan } = useLoaderData<typeof loader>();
+  // Allowance spent → protection reads off and can't be switched on.
+  const quotaExhausted = quota.exhausted;
   // Percentage pricing at checkout runs via a Cart Transform price override,
   // which only takes effect on Shopify Plus. Warn whenever we positively know
   // the store isn't Plus (skip "unknown" to avoid a false alarm).
@@ -266,7 +290,12 @@ export default function Settings() {
     planTier !== "unknown" &&
     settings.protectionFeeType === "percentage";
   // Customer-pays checkout pricing is Plus-only; hide it on known non-Plus.
-  const customerPaysAllowed = planTier === "plus" || planTier === "unknown";
+  // Customer-pays needs both a Plus store (clean checkout pricing) and a plan
+  // without a protected-order allowance — a capped plan can't promise the slot
+  // will still exist when Shopify charges the shopper.
+  const customerPaysAllowed =
+    (planTier === "plus" || planTier === "unknown") &&
+    planAllowsCustomerPays(activePlan);
   const settingsFetcher = useFetcher<{
     settings?: typeof settings;
     error?: string;
@@ -448,15 +477,20 @@ export default function Settings() {
                   <s-stack direction="block" gap="small-200">
                     <s-text>Protection at checkout</s-text>
                     <s-text color="subdued">
-                      {currentSettings.protectionEnabled
-                        ? "Customers can add protection to eligible orders at checkout."
-                        : "Turn on to offer package protection at checkout."}
+                      {quotaExhausted
+                        ? "Switched off automatically — your plan's protected-order limit has been reached."
+                        : currentSettings.protectionEnabled
+                          ? "Customers can add protection to eligible orders at checkout."
+                          : "Turn on to offer package protection at checkout."}
                     </s-text>
                   </s-stack>
                   <s-switch
                     label="Enable protection at checkout"
-                    checked={currentSettings.protectionEnabled}
-                    disabled={settingsFetcher.state !== "idle"}
+                    // Reads off, and can't be switched on, once the plan's
+                    // allowance is spent. The saved preference is untouched, so
+                    // upgrading brings protection straight back.
+                    checked={currentSettings.protectionEnabled && !quotaExhausted}
+                    disabled={quotaExhausted || settingsFetcher.state !== "idle"}
                     onChange={(e) =>
                       saveSettings({
                         protectionEnabled: e.currentTarget.checked,
@@ -464,6 +498,19 @@ export default function Settings() {
                     }
                   />
                 </s-stack>
+
+                {quotaExhausted && (
+                  <div style={{ marginTop: "0.85rem" }}>
+                    <s-banner tone="warning">
+                      {`You've used all ${quota.limit} protected orders on your plan, so protection is off and the storefront widget is hidden. Existing protected orders keep their coverage and can still be claimed. Upgrade from Billing to protect new orders again.`}
+                    </s-banner>
+                    <div style={{ marginTop: "0.75rem" }}>
+                      <AppButton href="/app/billing" variant="primary">
+                        View plans
+                      </AppButton>
+                    </div>
+                  </div>
+                )}
               </Card>
 
               <Card heading="How protection works">
@@ -524,7 +571,9 @@ export default function Settings() {
                   </span>
                   {!customerPaysAllowed && (
                     <span className="app-payer-card__lock">
-                      Requires Shopify Plus
+                      {planAllowsCustomerPays(activePlan)
+                        ? "Requires Shopify Plus"
+                        : "Not available on this plan"}
                     </span>
                   )}
                   <span className="app-payer-card__check">
@@ -532,6 +581,17 @@ export default function Settings() {
                   </span>
                 </button>
               </div>
+
+              {!planAllowsCustomerPays(activePlan) && (
+                <s-banner tone="info">
+                  {/* Plan name and limit are derived, not written in, so the
+                      copy stays true if either changes. */}
+                  {`${PLAN_LABELS[activePlan]} includes up to ${
+                    planProtectedOrderLimit(activePlan) ??
+                    BASIC_PROTECTED_ORDER_LIMIT
+                  } protected orders. Protection is merchant-funded on this plan.`}
+                </s-banner>
+              )}
 
               {merchantPays ? null : (
                 <>

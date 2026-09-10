@@ -7,6 +7,25 @@ import { Card } from "../components/Card";
 import { AppButton } from "../components/AppButton";
 import { DEFAULT_CLAIM_WINDOWS } from "../lib/claim-window";
 import { getBillingState } from "../lib/billing-state.server";
+import { getProtectionQuota } from "../lib/plan-limits.server";
+import { BASIC_PROTECTED_ORDER_LIMIT, type PlanId } from "../lib/plans";
+
+/**
+ * Per-order Kourify usage charge on the Usage plan. Billed to the *merchant*.
+ * Distinct from the protection price a customer may pay, from coverage, and
+ * from any claim settlement — those live in Settings, not here.
+ */
+const USAGE_FEE_CENTS = 60;
+
+const PLAN_SUMMARY: Record<
+  PlanId,
+  { name: string; price: string; interval: string }
+> = {
+  basic: { name: "Basic", price: "Free", interval: "—" },
+  usage: { name: "Usage", price: "$10.00", interval: "Every 30 days" },
+  unlimited: { name: "Unlimited", price: "$20.00", interval: "Every 30 days" },
+  unlimited_annual: { name: "Unlimited", price: "$200.00", interval: "Annual" },
+};
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session, billing } = await authenticate.admin(request);
@@ -20,76 +39,58 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     },
   });
 
+  // Shopify is the billing authority. The local `plan` column is only a
+  // mirror, refreshed here from the verified subscription — never from the
+  // browser, form data or a URL parameter.
   const { hasActiveBilling, activePlan } = await getBillingState(billing);
-  const currentSettings =
-    activePlan && settings.plan !== activePlan
-      ? await db.merchantSettings.update({
-          where: { shop: session.shop },
-          data: { plan: activePlan },
-        })
-      : settings;
+  if (settings.plan !== activePlan) {
+    await db.merchantSettings.update({
+      where: { shop: session.shop },
+      data: { plan: activePlan },
+    });
+  }
 
-  return { settings: currentSettings, hasActiveBilling };
+  const quota = await getProtectionQuota(session.shop, activePlan);
+  const protectedOrders = await db.protectedOrder.count({
+    where: { shop: session.shop, revokedAt: null },
+  });
+  // Only events actually charged — pending/waived/reversed would overstate it.
+  const billedUsage = await db.usageEvent.aggregate({
+    where: { shop: session.shop, status: "billed" },
+    _sum: { amountCents: true },
+  });
+
+  return {
+    activePlan,
+    hasActiveBilling,
+    quota,
+    protectedOrders,
+    billedUsageCents: billedUsage._sum.amountCents ?? 0,
+  };
 };
 
-const PLANS = [
-  {
-    id: "usage",
-    name: "Usage",
-    price: "$10",
-    period: "/month",
-    detail: "Plus $0.60 per protected order",
-    features: [
-      "$0.60 only on orders customers protect",
-      "Trust badges on product pages and cart",
-      "Customer-paid or merchant-paid protection",
-      "Flat fee or percentage of order value",
-      "Unlimited claim reviews and CSV export",
-      "Best for stores getting started",
-    ],
-  },
-  {
-    id: "unlimited",
-    name: "Unlimited",
-    price: "$20",
-    period: "/month",
-    detail: "No per-order fees",
-    features: [
-      "Everything in Usage, no per-order fee",
-      "Unlimited protected orders every month",
-      "Predictable flat monthly cost",
-      "Claim reasons and filing windows you control",
-      "Multi-language storefront widgets",
-      "Best value above ~17 protected orders",
-    ],
-  },
-] as const;
-
-const WILL_CONFIGURE: Array<[string, string]> = [
-  ["Who pays", "Charge customers at checkout, or cover it for every order."],
-  [
-    "Pricing",
-    "A flat fee or a percentage of order value, with a floor and ceiling.",
-  ],
-  ["Claim reasons", "Choose which claim types customers can file."],
-  ["Filing windows", "Set how long after shipping each claim can be filed."],
-];
+function money(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
 
 export default function Billing() {
-  const { settings, hasActiveBilling } = useLoaderData<typeof loader>();
+  const {
+    activePlan,
+    hasActiveBilling,
+    quota,
+    protectedOrders,
+    billedUsageCents,
+  } = useLoaderData<typeof loader>();
 
-  const startBilling = (plan: string) => {
-    const url = new URL(window.location.href);
-    url.pathname = "/app/billing/start";
-    url.searchParams.set("plan", plan);
-    window.location.assign(url.toString());
-  };
+  const plan = PLAN_SUMMARY[activePlan];
+  const isUsage = activePlan === "usage";
+  const isBasic = activePlan === "basic";
 
   return (
     <s-page>
       <PageHeader
         title="Billing"
-        subtitle="Manage your Kourify plan and billing."
+        subtitle="Manage your Kourify subscription through Shopify."
         actions={
           <AppButton href="/app" variant="secondary">
             Back
@@ -97,61 +98,126 @@ export default function Billing() {
         }
       />
 
-      <div className="app-plan-grid">
-        {PLANS.map((plan) => {
-          const isCurrent = hasActiveBilling && settings.plan === plan.id;
-          return (
-            <div
-              key={plan.id}
-              className={"app-plan" + (isCurrent ? " app-plan--current" : "")}
-            >
-              <div className="app-plan__head">
-                <span className="app-plan__name">{plan.name}</span>
-                {isCurrent && <s-badge tone="success">Current plan</s-badge>}
-              </div>
+      <Card heading="Current plan">
+        <dl className="app-billing-facts">
+          <div>
+            <dt>Plan</dt>
+            <dd>{plan.name}</dd>
+          </div>
+          <div>
+            <dt>Price</dt>
+            <dd>{plan.price}</dd>
+          </div>
+          <div>
+            <dt>Billing interval</dt>
+            <dd>{plan.interval}</dd>
+          </div>
+          <div>
+            <dt>Status</dt>
+            <dd>
+              <s-badge tone={hasActiveBilling ? "success" : "neutral"}>
+                {hasActiveBilling ? "Active" : "Free plan"}
+              </s-badge>
+            </dd>
+          </div>
+        </dl>
+      </Card>
 
-              <span className="app-plan__price">
-                {plan.price}
-                <span className="app-plan__period">{plan.period}</span>
-              </span>
-              <span className="app-plan__detail">{plan.detail}</span>
-
-              <ul className="app-plan__features">
-                {plan.features.map((feature) => (
-                  <li key={feature}>{feature}</li>
-                ))}
-              </ul>
-
-              <div className="app-plan__action">
-                <AppButton
-                  variant={isCurrent ? "secondary" : "primary"}
-                  disabled={isCurrent}
-                  onClick={() => startBilling(plan.id)}
-                >
-                  {isCurrent
-                    ? "Current plan"
-                    : hasActiveBilling
-                      ? `Switch to ${plan.name}`
-                      : `Choose ${plan.name}`}
-                </AppButton>
-              </div>
+      <Card heading="Usage this period">
+        <dl className="app-billing-facts">
+          <div>
+            <dt>Protected orders</dt>
+            <dd>{protectedOrders}</dd>
+          </div>
+          {isBasic && quota.limit !== null && (
+            <div>
+              <dt>Remaining allowance</dt>
+              <dd>{`${quota.remaining} of ${quota.limit}`}</dd>
             </div>
-          );
-        })}
-      </div>
+          )}
+          {isUsage && (
+            <div>
+              <dt>Kourify usage fee</dt>
+              <dd>{`${money(USAGE_FEE_CENTS)} per protected order`}</dd>
+            </div>
+          )}
+          <div>
+            <dt>Usage charges</dt>
+            <dd>{money(isUsage ? billedUsageCents : 0)}</dd>
+          </div>
+        </dl>
 
-      {!hasActiveBilling && (
-        <Card heading="What you'll set up once active">
-          <s-stack direction="block" gap="base">
-            {WILL_CONFIGURE.map(([title, description]) => (
-              <s-stack key={title} direction="block" gap="small-200">
-                <s-text>{title}</s-text>
-                <s-text color="subdued">{description}</s-text>
-              </s-stack>
-            ))}
-          </s-stack>
-        </Card>
-      )}
+        {!isUsage && (
+          <s-paragraph>
+            {isBasic
+              ? "No Kourify usage fee on Basic."
+              : "No per-order usage fee on Unlimited."}
+          </s-paragraph>
+        )}
+
+        <s-banner tone="info">
+          {`A Kourify usage fee is ${money(USAGE_FEE_CENTS)} billed to you for each completed protected order on the Usage plan. It is not the protection price your customers pay, not coverage, and not a claim settlement — those are configured separately in Settings.`}
+        </s-banner>
+
+        {quota.overAllowance && (
+          <s-banner tone="warning">
+            {`You're over your plan allowance — ${quota.used} protected orders against a limit of ${quota.limit}. Protection a customer already paid for is always honoured, so orders that were mid-checkout when the limit was reached still went through. New merchant-paid coverage is paused until you upgrade.`}
+          </s-banner>
+        )}
+
+        {quota.exhausted && !quota.overAllowance && (
+          <s-banner tone="warning">
+            {`You've used all ${quota.limit} protected orders on Basic. Protection is switched off for new orders — existing protected orders keep their coverage and can still be claimed.`}
+          </s-banner>
+        )}
+      </Card>
+
+      <Card heading="Plans">
+        <s-paragraph>
+          Your plans and pricing are managed through Shopify. Changing plan
+          takes you to Shopify to approve the charge.
+        </s-paragraph>
+        <ul className="app-guide__list">
+          <li>
+            <strong>Basic</strong> — free, up to {BASIC_PROTECTED_ORDER_LIMIT}{" "}
+            protected orders.
+          </li>
+          <li>
+            <strong>Usage</strong> — $10.00 every 30 days, plus a{" "}
+            {money(USAGE_FEE_CENTS)} Kourify usage fee per protected order.
+          </li>
+          <li>
+            <strong>Unlimited</strong> — $20.00 every 30 days, no usage fee.
+          </li>
+        </ul>
+        <div className="app-actions">
+          {activePlan !== "usage" && (
+            <AppButton href="/app/billing/start?plan=usage" variant="secondary">
+              Switch to Usage
+            </AppButton>
+          )}
+          {activePlan !== "unlimited" && (
+            <AppButton
+              href="/app/billing/start?plan=unlimited"
+              variant="secondary"
+            >
+              Switch to Unlimited
+            </AppButton>
+          )}
+          {hasActiveBilling && (
+            <AppButton href="/app/billing/start?plan=basic" variant="secondary">
+              Downgrade to Basic
+            </AppButton>
+          )}
+        </div>
+      </Card>
+
+      <Card heading="Billing information">
+        <s-paragraph>
+          Shopify handles subscription billing and charges your store through
+          Shopify. Kourify never sees or stores your payment details.
+        </s-paragraph>
+      </Card>
     </s-page>
   );
 }
