@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs } from "react-router";
 import { useState } from "react";
-import { useLoaderData, useSearchParams } from "react-router";
+import { Link, useLoaderData, useSearchParams } from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { PageHeader } from "../components/PageHeader";
@@ -79,6 +79,8 @@ type BillingCycle = "monthly" | "annual";
 type PlanCard = {
   /** Plan the CTA subscribes to — matches app.billing.start's `plan` param. */
   id: PlanId;
+  /** Drives the card's colour. Annual and monthly Unlimited share one tier. */
+  tier: "basic" | "usage" | "unlimited";
   name: string;
   /** null renders as "Free" rather than "$0". */
   amountCents: number | null;
@@ -103,6 +105,7 @@ function planCards(cycle: BillingCycle): PlanCard[] {
   return [
     {
       id: "basic",
+      tier: "basic",
       name: "Basic",
       amountCents: null,
       interval: "",
@@ -116,6 +119,7 @@ function planCards(cycle: BillingCycle): PlanCard[] {
     },
     {
       id: "usage",
+      tier: "usage",
       name: "Usage",
       amountCents: 1000,
       interval: "/ month",
@@ -132,6 +136,7 @@ function planCards(cycle: BillingCycle): PlanCard[] {
     },
     {
       id: annual ? "unlimited_annual" : "unlimited",
+      tier: "unlimited",
       name: "Unlimited",
       amountCents: annual ? 20000 : 2000,
       interval: annual ? "/ year" : "/ month",
@@ -183,6 +188,7 @@ function PlanPicker({
           const isCurrent = card.id === activePlan;
           const className = [
             "app-plans__card",
+            `app-plans__card--t-${card.tier}`,
             card.featured && !isCurrent ? "app-plans__card--featured" : "",
             isCurrent ? "app-plans__card--current" : "",
           ]
@@ -233,24 +239,24 @@ function PlanPicker({
 
               <div className="app-plans__cta">
                 {isCurrent ? (
-                  <AppButton variant="secondary" disabled>
+                  <span className="app-plans__btn app-plans__btn--static">
                     Your current plan
-                  </AppButton>
-                ) : card.id === "basic" ? (
-                  <AppButton
-                    href="/app/billing/start?plan=basic"
-                    variant="secondary"
-                    disabled={!hasActiveBilling}
-                  >
-                    {hasActiveBilling ? "Downgrade to Basic" : "Included"}
-                  </AppButton>
+                  </span>
+                ) : card.id === "basic" && !hasActiveBilling ? (
+                  <span className="app-plans__btn app-plans__btn--static">
+                    Included
+                  </span>
                 ) : (
-                  <AppButton
-                    href={`/app/billing/start?plan=${card.id}`}
-                    variant={card.featured ? "primary" : "secondary"}
+                  <Link
+                    className={`app-plans__btn app-plans__btn--${
+                      card.featured ? "primary" : "ghost"
+                    }`}
+                    to={`/app/billing/start?plan=${card.id}`}
                   >
-                    {`Choose ${card.name}`}
-                  </AppButton>
+                    {card.id === "basic"
+                      ? "Downgrade to Basic"
+                      : `Choose ${card.name}`}
+                  </Link>
                 )}
               </div>
             </div>
@@ -298,13 +304,15 @@ function Stat({
   label,
   value,
   small,
+  accent,
 }: {
   label: string;
   value: string;
   small?: boolean;
+  accent?: boolean;
 }) {
   return (
-    <div className="app-bill-stat">
+    <div className={`app-bill-stat${accent ? " app-bill-stat--accent" : ""}`}>
       <span className="app-bill-stat__label">{label}</span>
       <span
         className={`app-bill-stat__value${small ? " app-bill-stat__value--sm" : ""}`}
@@ -378,7 +386,7 @@ export default function Billing() {
 
       <Card heading="Usage this period">
         <div className="app-bill-stats">
-          <Stat label="Protected orders" value={String(protectedOrders)} />
+          <Stat label="Protected orders" value={String(protectedOrders)} accent />
           {isUsage && (
             <Stat
               label="Kourify usage fee"
@@ -389,6 +397,7 @@ export default function Billing() {
           <Stat
             label="Usage charges"
             value={money(isUsage ? billedUsageCents : 0)}
+            accent
           />
           {isBasic && quota.limit !== null && (
             <Stat
