@@ -2,6 +2,8 @@ import type { LoaderFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { isRateLimited, clientIpFromRequest } from "../lib/rate-limit.server";
+import { getProtectionQuota } from "../lib/plan-limits.server";
+import { planAllowsCustomerPays, type PlanId } from "../lib/plans";
 
 const DEFAULT_SETTINGS = {
   badgesEnabled: false,
@@ -56,7 +58,20 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // before the store's plan was detected). "unknown" keeps the saved value.
   const nonPlus =
     settings.planTier === "standard" || settings.planTier === "dev";
-  const protectionPayer = nonPlus ? "merchant" : settings.protectionPayer;
+  // A capped plan can't guarantee a slot will still be free by the time the
+  // charge lands, so it never offers paid protection — see planAllowsCustomerPays.
+  const planPaysOnly = !planAllowsCustomerPays((settings.plan ?? "basic") as PlanId);
+  const protectionPayer =
+    nonPlus || planPaysOnly ? "merchant" : settings.protectionPayer;
+
+  // Basic plan allowance. Once a free shop has protected its quota, the
+  // storefront stops offering protection — the widget hides rather than
+  // letting a shopper select coverage the backend would then refuse.
+  const quota = await getProtectionQuota(
+    session.shop,
+    (settings.plan ?? "basic") as PlanId,
+  );
+  const protectionEnabled = settings.protectionEnabled && !quota.exhausted;
 
   return Response.json(
     {
@@ -73,10 +88,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       protectionMinFeeCents: settings.protectionMinFeeCents,
       protectionMaxFeeCents: settings.protectionMaxFeeCents,
       maxEligibleItemValueCents: settings.maxEligibleItemValueCents,
-      protectionEnabled: settings.protectionEnabled,
-      protectionVariantId: settings.protectionVariantId,
+      protectionEnabled,
+      // Only handed out when the customer is actually meant to buy a
+      // protection line. On merchant-pays there is no line to add, and
+      // publishing the id would just tell a shopper what to POST to
+      // /cart/add.js. Defence in depth — the variant is also priced at 0 in
+      // that mode, so injecting it costs nothing.
+      protectionVariantId: protectionPayer === "customer"
+        ? settings.protectionVariantId
+        : null,
       protectionVariantLegacyId:
-        settings.protectionVariantId?.split("/").pop() ?? null,
+        protectionPayer === "customer"
+          ? (settings.protectionVariantId?.split("/").pop() ?? null)
+          : null,
       currency: settings.currency,
     },
     { headers: corsHeaders },

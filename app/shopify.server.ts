@@ -11,6 +11,14 @@ import prisma from "./db.server";
 
 export const USAGE_PLAN = "Kourify Usage";
 export const UNLIMITED_PLAN = "Kourify Unlimited";
+export const UNLIMITED_ANNUAL_PLAN = "Kourify Unlimited Annual";
+
+/**
+ * Basic is free, so it has no entry here on purpose: a shop with no active
+ * paid subscription *is* on Basic. Shopify's billing API is for charges, and
+ * creating a $0 subscription just to represent "free" would add an approval
+ * step for a plan that costs nothing.
+ */
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
@@ -68,6 +76,18 @@ const shopify = shopifyApp({
           amount: 20,
           currencyCode: "USD",
           interval: BillingInterval.Every30Days,
+        },
+      ],
+    },
+    // Annual is offered on Unlimited only. Shopify's usage line items are
+    // valid with EVERY_30_DAYS but not ANNUAL, so an annual Usage plan
+    // couldn't carry the per-order charge that defines it.
+    [UNLIMITED_ANNUAL_PLAN]: {
+      lineItems: [
+        {
+          amount: 200,
+          currencyCode: "USD",
+          interval: BillingInterval.Annual,
         },
       ],
     },
