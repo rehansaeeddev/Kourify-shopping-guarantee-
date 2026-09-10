@@ -1,7 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router";
 import { Card } from "./Card";
-import { AppButton } from "./AppButton";
 
 type Step = {
   label: string;
@@ -10,6 +8,14 @@ type Step = {
   action?: { label: string; href: string };
 };
 
+/**
+ * App Home's setup-guide composition: the steps as a list you can click
+ * through, with the selected one showing its detail and its call to action.
+ *
+ * A step's state is carried by its icon *and* its wording, never by colour
+ * alone — the check icon reads the same to someone who can't tell the tones
+ * apart.
+ */
 export function GettingStarted({
   title,
   steps,
@@ -36,87 +42,51 @@ export function GettingStarted({
   const activeStep = steps[activeIndex];
 
   return (
-    <Card>
-      <div className="app-getting-started__header">
-        <div className="app-getting-started__heading-row">
-          <div className="app-getting-started__icon">
-            <s-icon type="reward" tone="auto" />
-          </div>
-          <div>
-            <h4 className="app-getting-started__title">{title}</h4>
-            <p className="app-getting-started__subtitle">
-              {doneCount} of {steps.length} steps complete · ~{estimatedMinutes}{" "}
-              min to finish
-            </p>
-          </div>
-        </div>
-      </div>
+    <Card heading={title}>
+      <s-paragraph color="subdued">
+        {`${doneCount} of ${steps.length} steps complete · about ${estimatedMinutes} minutes to finish`}
+      </s-paragraph>
 
-      <ol className="app-stepper">
-        {steps.map((step, index) => {
-          const isDone = step.done;
-          const isActive = index === activeIndex;
-          const connectorDone = index > 0 && steps[index - 1].done;
-          return (
-            <li
-              key={step.label}
-              className={
-                "app-stepper__step" +
-                (index > 0 ? " app-stepper__step--connected" : "") +
-                (connectorDone ? " app-stepper__step--connector-done" : "")
-              }
-            >
-              <button
-                type="button"
-                className="app-stepper__button"
-                onClick={() => setActiveIndex(index)}
-                aria-current={isActive ? "step" : undefined}
-              >
-                <span
-                  className={
-                    "app-stepper__circle" +
-                    (isDone ? " app-stepper__circle--done" : "") +
-                    (isActive && !isDone ? " app-stepper__circle--current" : "")
-                  }
-                >
-                  {isDone ? (
-                    "✓"
-                  ) : isActive ? (
-                    <span className="app-stepper__dot" />
-                  ) : (
-                    ""
-                  )}
-                </span>
-                <span
-                  className={
-                    "app-stepper__label" +
-                    (isActive ? " app-stepper__label--current" : "") +
-                    (isDone ? " app-stepper__label--done" : "")
-                  }
-                >
-                  {step.label}
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ol>
+      <s-stack direction="block" gap="small-200">
+        {steps.map((step, index) => (
+          <s-clickable
+            key={step.label}
+            padding="small-200"
+            borderRadius="base"
+            background={index === activeIndex ? "subdued" : undefined}
+            accessibilityLabel={`${step.label}${step.done ? ", done" : ""}`}
+            onClick={() => setActiveIndex(index)}
+          >
+            <s-stack direction="inline" gap="small-200" alignItems="center">
+              <s-icon
+                type={step.done ? "check-circle" : "circle"}
+                tone={step.done ? "success" : "neutral"}
+                size="base"
+              />
+              <s-text type={index === activeIndex ? "strong" : undefined}>
+                {step.label}
+              </s-text>
+              {step.done && <s-badge tone="success">Done</s-badge>}
+            </s-stack>
+          </s-clickable>
+        ))}
+      </s-stack>
 
-      <div className="app-stepper__panel">
-        <div className="app-getting-started__detail">{activeStep.detail}</div>
-        {activeStep.action ? (
-          <div className="app-getting-started__row-action">
-            <AppButton variant="gradient" href={activeStep.action.href}>
+      <s-stack direction="block" gap="base">
+        <s-paragraph>{activeStep.detail}</s-paragraph>
+        {activeStep.action && (
+          <s-stack direction="inline">
+            <s-button variant="primary" href={activeStep.action.href}>
               {activeStep.action.label}
-            </AppButton>
-          </div>
-        ) : null}
-        {help ? (
-          <p className="app-getting-started__help">
-            <Link to={help.href}>{help.label}</Link>
-          </p>
-        ) : null}
-      </div>
+            </s-button>
+          </s-stack>
+        )}
+        {help && (
+          <s-paragraph color="subdued">
+            <s-link href={help.href}>{help.label}</s-link>
+          </s-paragraph>
+        )}
+      </s-stack>
     </Card>
   );
 }
