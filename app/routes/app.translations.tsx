@@ -330,11 +330,11 @@ export default function Translations() {
             </s-paragraph>
             <s-table variant="auto">
               <s-table-header-row>
-                <s-table-header>Language</s-table-header>
-                <s-table-header>Code</s-table-header>
-                <s-table-header>Direction</s-table-header>
-                <s-table-header>Visible</s-table-header>
-                <s-table-header>Actions</s-table-header>
+                <s-table-header listSlot="primary">Language</s-table-header>
+                <s-table-header listSlot="secondary">Code</s-table-header>
+                <s-table-header listSlot="labeled">Direction</s-table-header>
+                <s-table-header listSlot="labeled">Visible</s-table-header>
+                <s-table-header listSlot="inline">Actions</s-table-header>
               </s-table-header-row>
               <s-table-body>
                 {languages.map((lang) => (

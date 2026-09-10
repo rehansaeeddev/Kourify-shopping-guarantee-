@@ -571,14 +571,16 @@ export default function Claims() {
               hasNextPage={pagination.hasNextPage}
             >
               <s-table-header-row>
-                <s-table-header>Order</s-table-header>
-                <s-table-header>Customer</s-table-header>
-                <s-table-header>Issue</s-table-header>
-                <s-table-header>Item claimed</s-table-header>
-                <s-table-header>Eligible loss</s-table-header>
-                <s-table-header>Flags</s-table-header>
-                <s-table-header>Submitted</s-table-header>
-                <s-table-header>Status</s-table-header>
+                <s-table-header listSlot="primary">Order</s-table-header>
+                <s-table-header listSlot="secondary">Customer</s-table-header>
+                <s-table-header listSlot="labeled">Issue</s-table-header>
+                <s-table-header listSlot="labeled">Item claimed</s-table-header>
+                <s-table-header listSlot="labeled">
+                  Eligible loss
+                </s-table-header>
+                <s-table-header listSlot="labeled">Flags</s-table-header>
+                <s-table-header listSlot="kicker">Submitted</s-table-header>
+                <s-table-header listSlot="inline">Status</s-table-header>
               </s-table-header-row>
               <s-table-body>
                 {claims.map((claim) => {
