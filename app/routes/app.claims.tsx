@@ -464,7 +464,10 @@ export default function Claims() {
         }}
       />
 
-      <div className="app-card-row" style={{ marginBottom: "1.25rem" }}>
+      <s-grid
+        gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
+        gap="base"
+      >
         <StatTile
           icon="clock"
           label="Open claims"
@@ -479,59 +482,66 @@ export default function Claims() {
           value={String(resolvedClaims)}
           sub="Last 14 days"
         />
-      </div>
+      </s-grid>
 
       <Card heading={`Claims (${totalClaims})`}>
-        <div className="app-segmented-row">
-          <div className="app-segmented">
-            <div className="app-segmented__group">
-              {TABS.map((t) => (
-                <AppButton
-                  key={t.value}
-                  variant={tab === t.value ? "primary" : "secondary"}
-                  href={
-                    t.value === "all"
-                      ? "/app/claims"
-                      : `/app/claims?tab=${t.value}`
-                  }
-                >
-                  {t.label}
-                </AppButton>
-              ))}
-            </div>
-            <div className="app-segmented__end">
-              <AppButton
-                href={`/app/claims/export?${exportParams.toString()}`}
-                variant="secondary"
-                download
+        <s-stack
+          direction="inline"
+          gap="base"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <s-button-group gap="base" accessibilityLabel="Filter claims">
+            {TABS.map((t) => (
+              <s-button
+                key={t.value}
+                variant={tab === t.value ? "primary" : "tertiary"}
+                href={
+                  t.value === "all"
+                    ? "/app/claims"
+                    : `/app/claims?tab=${t.value}`
+                }
               >
-                Export CSV
-              </AppButton>
-            </div>
-          </div>
-        </div>
+                {t.label}
+              </s-button>
+            ))}
+          </s-button-group>
+          <s-button
+            href={`/app/claims/export?${exportParams.toString()}`}
+            variant="secondary"
+            download=""
+            target="_blank"
+          >
+            Export CSV
+          </s-button>
+        </s-stack>
 
-        <Form method="get" className="app-search">
+        <Form method="get">
           <input type="hidden" name="tab" value={tab} />
-          <input
-            type="search"
-            name="q"
-            defaultValue={q}
-            placeholder="Search order, name, or email"
-            aria-label="Search claims"
-            className="app-input"
-          />
-          <AppButton type="submit" variant="secondary">
-            Search
-          </AppButton>
-          {q ? (
-            <AppButton
-              href={tab === "all" ? "/app/claims" : `/app/claims?tab=${tab}`}
-              variant="secondary"
-            >
-              Clear
-            </AppButton>
-          ) : null}
+          <s-grid
+            gridTemplateColumns="1fr auto auto"
+            gap="base"
+            alignItems="end"
+          >
+            <s-search-field
+              label="Search claims"
+              labelAccessibilityVisibility="exclusive"
+              name="q"
+              value={q}
+              placeholder="Search order, name, or email"
+            />
+            <s-button type="submit" variant="secondary">
+              Search
+            </s-button>
+            {q ? (
+              <s-button
+                href={tab === "all" ? "/app/claims" : `/app/claims?tab=${tab}`}
+                variant="tertiary"
+              >
+                Clear
+              </s-button>
+            ) : null}
+          </s-grid>
         </Form>
 
         {claims.length === 0 ? (
@@ -546,13 +556,13 @@ export default function Claims() {
           />
         ) : (
           <>
-            <div className="app-result-count">
+            <s-box paddingBlock="small-200">
               <s-text color="subdued">
                 {`Showing ${(page - 1) * PAGE_SIZE + 1}–${
                   (page - 1) * PAGE_SIZE + claims.length
                 } of ${filteredCount} claim${filteredCount === 1 ? "" : "s"}`}
               </s-text>
-            </div>
+            </s-box>
             <s-table
               ref={pagination.ref as never}
               variant="auto"
@@ -604,14 +614,14 @@ export default function Claims() {
                         {claim.evidenceUrl && (
                           <>
                             <br />
-                            <AppButton
+                            <s-button
                               variant="secondary"
                               command="--show"
                               commandFor="kourify-evidence-modal"
                               onClick={() => setPreviewUrl(claim.evidenceUrl)}
                             >
                               View photo
-                            </AppButton>
+                            </s-button>
                           </>
                         )}
                       </s-table-cell>
@@ -631,11 +641,14 @@ export default function Claims() {
                       </s-table-cell>
                       <s-table-cell>
                         <s-stack direction="block" gap="small-100">
-                          <span className="app-protection-fee">
+                          <s-text
+                            type="strong"
+                            fontVariantNumeric="tabular-nums"
+                          >
                             {claim.eligibleLossCents != null
                               ? money(claim.eligibleLossCents)
                               : "—"}
-                          </span>
+                          </s-text>
                           {claim.settlementCents != null && (
                             <s-text color="subdued">
                               {`Approved ${money(claim.settlementCents)}`}
@@ -664,48 +677,31 @@ export default function Claims() {
                       </s-table-cell>
                       <s-table-cell>
                         <s-stack direction="block" gap="small-200">
-                          <div
-                            className={`app-status-cell${
-                              flashedClaimId === claim.id ? " is-updated" : ""
-                            }${savingClaimId === claim.id ? " is-saving" : ""}`}
-                            style={{
-                              display: "grid",
-                              gridTemplateColumns: "88px 160px",
-                              alignItems: "center",
-                              columnGap: "12px",
-                              minInlineSize: "260px",
-                            }}
+                          <s-grid
+                            gridTemplateColumns="auto 1fr"
+                            gap="base"
+                            alignItems="center"
                           >
-                            <div style={{ inlineSize: "88px" }}>
-                              <StatusBadge status={claim.status} />
-                            </div>
-                            <div
-                              style={{
-                                inlineSize: "160px",
-                                minInlineSize: "160px",
-                                maxInlineSize: "160px",
-                              }}
+                            <StatusBadge status={claim.status} />
+                            <s-select
+                              label="Status"
+                              labelAccessibilityVisibility="exclusive"
+                              value={claim.status}
+                              onChange={(e) =>
+                                updateStatus(
+                                  claim.id,
+                                  e.currentTarget.value ?? claim.status,
+                                )
+                              }
                             >
-                              <s-select
-                                label="Status"
-                                labelAccessibilityVisibility="exclusive"
-                                value={claim.status}
-                                onChange={(e) =>
-                                  updateStatus(
-                                    claim.id,
-                                    e.currentTarget.value ?? claim.status,
-                                  )
-                                }
-                              >
-                                {STATUSES.map((status) => (
-                                  <s-option key={status} value={status}>
-                                    {status.charAt(0).toUpperCase() +
-                                      status.slice(1)}
-                                  </s-option>
-                                ))}
-                              </s-select>
-                            </div>
-                          </div>
+                              {STATUSES.map((status) => (
+                                <s-option key={status} value={status}>
+                                  {status.charAt(0).toUpperCase() +
+                                    status.slice(1)}
+                                </s-option>
+                              ))}
+                            </s-select>
+                          </s-grid>
                           {claim.status === "resolved" &&
                             claim.shopifyOrderId && (
                               <s-link
