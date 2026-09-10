@@ -16,3 +16,5 @@ allowBuilds:
 overrides:
   p-map: ^4.0.0
   onetime: 5.1.2
+minimumReleaseAgeExclude:
+  - nodemailer@10.0.3
