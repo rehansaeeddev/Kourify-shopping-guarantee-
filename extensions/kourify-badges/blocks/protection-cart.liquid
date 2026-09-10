@@ -35,10 +35,13 @@
     </label>
   </div>
 
-  <p class="kourify-protection__footnote">
-    {%- assign kourify_cap = block.settings.coverage_cap | times: 100 | money -%}
-    {{ 'protection.coverage_up_to' | t: amount: kourify_cap }}
-  </p>
+  {%- comment -%}
+    Filled in by kourify-protection.js from the merchant's configured
+    eligibility ceiling, and left empty when no ceiling is set. The value is
+    never hardcoded in the theme — a stale block setting must not be able to
+    state a coverage limit the backend doesn't enforce.
+  {%- endcomment -%}
+  <p class="kourify-protection__footnote" data-kourify-coverage-note hidden></p>
 </div>
 
 {{ 'kourify-protection.css' | asset_url | stylesheet_tag }}
@@ -78,12 +81,6 @@
       "id": "preview_price_cents",
       "label": "Preview price in cents",
       "default": 299
-    },
-    {
-      "type": "number",
-      "id": "coverage_cap",
-      "label": "Coverage cap ($)",
-      "default": 900
     },
     {
       "type": "color",

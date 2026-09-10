@@ -1,5 +1,5 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Form,
   useFetcher,
@@ -10,6 +10,8 @@ import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { PageHeader } from "../components/PageHeader";
 import { Card, StatTile } from "../components/Card";
+import { Sparkline } from "../components/Sparkline";
+import { getResolvedClaimsTrend } from "../lib/protection-telemetry.server";
 import { AppButton } from "../components/AppButton";
 import { EmptyState } from "../components/EmptyState";
 import { StatusBadge } from "../components/StatusBadge";
@@ -21,6 +23,7 @@ import { useTablePagination } from "../hooks/useTablePagination";
 import { WorkspaceTabs } from "../components/WorkspaceTabs";
 import { getWorkspaceCounts } from "../lib/workspace-counts.server";
 
+const STATUS_CONFIRM_MODAL_ID = "kourify-status-confirm-modal";
 const STATUSES = ["submitted", "reviewing", "resolved", "denied"] as const;
 const TERMINAL_STATUSES = ["resolved", "denied"];
 
@@ -30,6 +33,10 @@ const TABS = [
   { value: "high_risk", label: "High risk" },
   { value: "resolved_today", label: "Resolved today" },
 ] as const;
+
+function money(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
 
 function ordinal(n: number): string {
   const s = ["th", "st", "nd", "rd"];
@@ -75,6 +82,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     totalClaims,
     openClaims,
     resolvedClaims,
+    resolvedTrend,
   ] = await Promise.all([
     db.protectionClaim.count({ where }),
     db.protectionClaim.findMany({
@@ -100,15 +108,40 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     db.protectionClaim.count({
       where: { shop: session.shop, status: "resolved" },
     }),
+    getResolvedClaimsTrend(session.shop),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(filteredCount / PAGE_SIZE));
   const workspaceCounts = await getWorkspaceCounts(session.shop);
 
+  // Claimed item titles for this page. protectedItemId is a plain nullable
+  // column rather than a Prisma relation — claims filed before item-level
+  // coverage have none — so this is one scoped follow-up read, not an include.
+  const itemIds = claims
+    .map((claim) => claim.protectedItemId)
+    .filter((id): id is string => Boolean(id));
+  const itemsById = new Map(
+    itemIds.length
+      ? (
+          await db.protectedOrderItem.findMany({
+            where: { shop: session.shop, id: { in: itemIds } },
+            select: { id: true, title: true, sku: true },
+          })
+        ).map((item) => [item.id, item])
+      : [],
+  );
+  const claimsWithItems = claims.map((claim) => ({
+    ...claim,
+    protectedItem: claim.protectedItemId
+      ? (itemsById.get(claim.protectedItemId) ?? null)
+      : null,
+  }));
+
   return {
-    claims,
+    claims: claimsWithItems,
     openClaims,
     resolvedClaims,
+    resolvedTrend,
     totalClaims,
     filteredCount,
     tab,
@@ -144,10 +177,39 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     where: { id: claimId, shop: session.shop },
   });
 
+  // Settlement amount — what the merchant approves and funds. Only meaningful
+  // on approval, and capped at the eligible loss Kourify calculated so an
+  // approval can't quietly exceed the item's own covered value. Kourify never
+  // sets this itself; absent merchant input it stays null.
+  let settlementCents: number | null | undefined;
+  if (status === "resolved") {
+    const raw = formData.get("settlementCents");
+    if (raw !== null && String(raw).trim() !== "") {
+      const parsed = Math.max(0, Math.round(Number(raw) || 0));
+      const ceiling = existing?.eligibleLossCents ?? null;
+      if (ceiling != null && parsed > ceiling) {
+        return {
+          ok: false,
+          error: `Settlement can't exceed the eligible loss of $${(ceiling / 100).toFixed(2)}.`,
+        };
+      }
+      settlementCents = parsed;
+    }
+  } else if (status === "denied") {
+    // A denial settles nothing.
+    settlementCents = null;
+  }
+
+  const note = formData.get("decisionNote");
+
   await db.protectionClaim.updateMany({
     where: { id: claimId, shop: session.shop },
     data: {
       status,
+      ...(settlementCents !== undefined ? { settlementCents } : {}),
+      ...(note !== null && String(note).trim() !== ""
+        ? { decisionNote: String(note).trim().slice(0, 2000) }
+        : {}),
       resolvedAt:
         TERMINAL_STATUSES.includes(status) && !existing?.resolvedAt
           ? new Date()
@@ -172,6 +234,7 @@ export default function Claims() {
     claims,
     openClaims,
     resolvedClaims,
+    resolvedTrend,
     totalClaims,
     tab,
     q,
@@ -185,17 +248,118 @@ export default function Claims() {
   const [searchParams] = useSearchParams();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
+  // Which row is mid-save, straight off the in-flight form data, and which
+  // one just finished — the latter drives a one-shot confirmation flash so a
+  // status change is visibly acknowledged in place.
+  const savingClaimId =
+    claimFetcher.state !== "idle"
+      ? String(claimFetcher.formData?.get("claimId") ?? "")
+      : null;
+  const submittedClaimId = useRef<string | null>(null);
+  const [flashedClaimId, setFlashedClaimId] = useState<string | null>(null);
+  const [pendingStatus, setPendingStatus] = useState<{
+    claimId: string;
+    status: string;
+    eligibleLossCents: number | null;
+  } | null>(null);
+  const [settlementInput, setSettlementInput] = useState("");
+  const confirmModalRef = useRef<{
+    showOverlay: () => void;
+    hideOverlay: () => void;
+  } | null>(null);
+
+  type StatusOutcome = {
+    status: string;
+    orderName: string;
+    shopifyOrderId: string | null;
+  };
+  const submittedOutcome = useRef<StatusOutcome | null>(null);
+  const [statusBanner, setStatusBanner] = useState<StatusOutcome | null>(null);
+
+  useEffect(() => {
+    if (claimFetcher.state !== "idle" || !claimFetcher.data) return;
+    if (!submittedClaimId.current) return;
+
+    setFlashedClaimId(submittedClaimId.current);
+    submittedClaimId.current = null;
+
+    // Resolve/deny emails the customer, so it gets a persistent banner rather
+    // than only the in-row flash, which is easy to miss.
+    if (submittedOutcome.current) {
+      setStatusBanner(submittedOutcome.current);
+      submittedOutcome.current = null;
+    }
+
+    const timer = setTimeout(() => setFlashedClaimId(null), 1200);
+    return () => clearTimeout(timer);
+  }, [claimFetcher.state, claimFetcher.data]);
+
+  const submitStatus = (
+    claimId: string,
+    status: string,
+    settlementCents?: number | null,
+  ) => {
+    submittedClaimId.current = claimId;
+    // Capture the row now: once the action lands the loader revalidates and
+    // this claim's status flips, so the banner couldn't tell what changed.
+    const claim = claims.find((row) => row.id === claimId);
+    submittedOutcome.current = TERMINAL_STATUSES.includes(status)
+      ? {
+          status,
+          orderName: claim?.shopifyOrderName ?? claim?.orderNumber ?? "",
+          shopifyOrderId: claim?.shopifyOrderId ?? null,
+        }
+      : null;
+    claimFetcher.submit(
+      {
+        claimId,
+        status,
+        ...(settlementCents != null
+          ? { settlementCents: String(settlementCents) }
+          : {}),
+      },
+      { method: "POST" },
+    );
+  };
+
   const updateStatus = (claimId: string, status: string) => {
     // Resolving or denying emails the customer immediately, so confirm the
     // terminal transitions — an accidental dropdown change shouldn't send mail.
     if (TERMINAL_STATUSES.includes(status)) {
-      const message =
-        status === "resolved"
-          ? "Mark this claim resolved? The customer will be emailed that their claim was resolved."
-          : "Deny this claim? The customer will be emailed that their claim was not approved.";
-      if (!window.confirm(message)) return;
+      const claim = claims.find((row) => row.id === claimId);
+      setPendingStatus({
+        claimId,
+        status,
+        // Pre-fill approval with the full eligible loss. The merchant may
+        // lower it; Kourify never decides the amount on their behalf.
+        eligibleLossCents: claim?.eligibleLossCents ?? null,
+      });
+      setSettlementInput(
+        claim?.eligibleLossCents != null
+          ? (claim.eligibleLossCents / 100).toFixed(2)
+          : "",
+      );
+      confirmModalRef.current?.showOverlay();
+      return;
     }
-    claimFetcher.submit({ claimId, status }, { method: "POST" });
+    submitStatus(claimId, status);
+  };
+
+  const confirmStatusChange = () => {
+    if (pendingStatus) {
+      const settlement =
+        pendingStatus.status === "resolved" && settlementInput.trim() !== ""
+          ? Math.max(0, Math.round(Number(settlementInput) * 100))
+          : null;
+      submitStatus(pendingStatus.claimId, pendingStatus.status, settlement);
+    }
+    setPendingStatus(null);
+    confirmModalRef.current?.hideOverlay();
+  };
+
+  const cancelStatusChange = () => {
+    setPendingStatus(null);
+    confirmModalRef.current?.hideOverlay();
   };
 
   const pageHref = (targetPage: number) => {
@@ -227,6 +391,35 @@ export default function Claims() {
           </>
         }
       />
+
+      {statusBanner && (
+        <s-banner
+          tone={statusBanner.status === "resolved" ? "success" : "info"}
+          heading={
+            statusBanner.status === "resolved"
+              ? `Claim ${statusBanner.orderName} resolved`
+              : `Claim ${statusBanner.orderName} denied`
+          }
+          dismissible
+          onDismiss={() => setStatusBanner(null)}
+        >
+          {statusBanner.status === "resolved"
+            ? "The customer has been emailed to say their claim was approved."
+            : "The customer has been emailed to say their claim wasn't approved."}
+          {statusBanner.shopifyOrderId && (
+            <s-button
+              slot="primary-action"
+              href={`shopify://admin/orders/${statusBanner.shopifyOrderId
+                .split("/")
+                .pop()}`}
+              target="_top"
+            >
+              View order
+            </s-button>
+          )}
+        </s-banner>
+      )}
+
       <WorkspaceTabs
         active="claims"
         counts={{
@@ -244,12 +437,20 @@ export default function Claims() {
           label="Open claims"
           tone={openClaims > 0 ? "warning" : "default"}
           value={String(openClaims)}
+          sub="Awaiting your review"
         />
         <StatTile
           icon="check-circle"
           label="Resolved"
           tone="success"
           value={String(resolvedClaims)}
+          sub="Last 14 days"
+          graphic={
+            <Sparkline
+              values={resolvedTrend}
+              label="Claims resolved over the last 14 days"
+            />
+          }
         />
       </div>
 
@@ -336,6 +537,8 @@ export default function Claims() {
               <s-table-header>Order</s-table-header>
               <s-table-header>Customer</s-table-header>
               <s-table-header>Issue</s-table-header>
+              <s-table-header>Item claimed</s-table-header>
+              <s-table-header>Eligible loss</s-table-header>
               <s-table-header>Flags</s-table-header>
               <s-table-header>Submitted</s-table-header>
               <s-table-header>Status</s-table-header>
@@ -385,6 +588,34 @@ export default function Claims() {
                       )}
                     </s-table-cell>
                     <s-table-cell>
+                      {claim.protectedItem ? (
+                        <s-stack direction="block" gap="small-100">
+                          <s-text>{claim.protectedItem.title}</s-text>
+                          <s-text color="subdued">
+                            {`${claim.claimedQuantity ?? 1} × ${money(claim.itemValueCents ?? 0)}`}
+                          </s-text>
+                        </s-stack>
+                      ) : (
+                        <s-text color="subdued">
+                          Filed before item-level coverage
+                        </s-text>
+                      )}
+                    </s-table-cell>
+                    <s-table-cell>
+                      <s-stack direction="block" gap="small-100">
+                        <span className="app-protection-fee">
+                          {claim.eligibleLossCents != null
+                            ? money(claim.eligibleLossCents)
+                            : "—"}
+                        </span>
+                        {claim.settlementCents != null && (
+                          <s-text color="subdued">
+                            {`Approved ${money(claim.settlementCents)}`}
+                          </s-text>
+                        )}
+                      </s-stack>
+                    </s-table-cell>
+                    <s-table-cell>
                       <s-stack direction="block" gap="small-200">
                         {claimNumberForEmail > 1 && (
                           <s-badge tone="warning">
@@ -405,6 +636,9 @@ export default function Claims() {
                     <s-table-cell>
                       <s-stack direction="block" gap="small-200">
                         <div
+                          className={`app-status-cell${
+                            flashedClaimId === claim.id ? " is-updated" : ""
+                          }${savingClaimId === claim.id ? " is-saving" : ""}`}
                           style={{
                             display: "grid",
                             gridTemplateColumns: "88px 160px",
@@ -462,6 +696,51 @@ export default function Claims() {
           </>
         )}
       </Card>
+
+      <s-modal
+        ref={confirmModalRef as never}
+        id={STATUS_CONFIRM_MODAL_ID}
+        heading={
+          pendingStatus?.status === "resolved" ? "Resolve claim" : "Deny claim"
+        }
+      >
+        <s-paragraph>
+          {pendingStatus?.status === "resolved"
+            ? "The customer will be emailed straight away to say their claim was approved. This can't be undone."
+            : "The customer will be emailed straight away to say their claim wasn't approved. This can't be undone."}
+        </s-paragraph>
+
+        {pendingStatus?.status === "resolved" && (
+          <s-stack direction="block" gap="small-200" paddingBlockStart="base">
+            <s-number-field
+              label="Settlement amount you'll fund"
+              prefix="$"
+              min={0}
+              step={0.01}
+              value={settlementInput}
+              onChange={(e) => setSettlementInput(e.currentTarget.value ?? "")}
+            />
+            <s-text color="subdued">
+              {pendingStatus.eligibleLossCents != null
+                ? `Eligible loss is ${money(pendingStatus.eligibleLossCents)}. You can approve less, but not more. Leave empty to record no amount.`
+                : "This claim predates item-level coverage, so there's no calculated eligible loss. Enter the amount you're funding, or leave empty."}
+            </s-text>
+          </s-stack>
+        )}
+        <s-button
+          slot="primary-action"
+          variant="primary"
+          tone={pendingStatus?.status === "denied" ? "critical" : "auto"}
+          onClick={confirmStatusChange}
+        >
+          {pendingStatus?.status === "resolved"
+            ? "Resolve and notify"
+            : "Deny and notify"}
+        </s-button>
+        <s-button slot="secondary-actions" onClick={cancelStatusChange}>
+          Cancel
+        </s-button>
+      </s-modal>
 
       <s-modal id="kourify-evidence-modal" heading="Evidence photo">
         {previewUrl && (

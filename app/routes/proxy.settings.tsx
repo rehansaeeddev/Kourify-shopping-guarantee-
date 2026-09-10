@@ -16,6 +16,8 @@ const DEFAULT_SETTINGS = {
   protectionPercentBasisPoints: 200,
   protectionMinFeeCents: 99,
   protectionMaxFeeCents: 999,
+  // Coverage ceiling, distinct from the fee fields above. null = no ceiling.
+  maxEligibleItemValueCents: null as number | null,
   protectionEnabled: false,
   protectionVariantId: null as string | null,
   protectionVariantLegacyId: null as string | null,
@@ -70,6 +72,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       protectionPercentBasisPoints: settings.protectionPercentBasisPoints,
       protectionMinFeeCents: settings.protectionMinFeeCents,
       protectionMaxFeeCents: settings.protectionMaxFeeCents,
+      maxEligibleItemValueCents: settings.maxEligibleItemValueCents,
       protectionEnabled: settings.protectionEnabled,
       protectionVariantId: settings.protectionVariantId,
       protectionVariantLegacyId:

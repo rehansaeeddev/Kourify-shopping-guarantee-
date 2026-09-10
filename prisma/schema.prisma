@@ -51,6 +51,12 @@ model MerchantSettings {
   protectionPercentBasisPoints Int @default(200) // 200 = 2.00% of order value
   protectionMinFeeCents     Int    @default(99)
   protectionMaxFeeCents     Int    @default(999)
+  // Coverage eligibility — deliberately separate from the pricing fields above.
+  // The protection *price* is what the shopper pays; this is the ceiling on the
+  // merchandise value that may receive protection at all. Per-item unit value,
+  // excluding shipping and tax. NULL means the merchant has set no ceiling, so
+  // no threshold is applied — there is no built-in monetary default.
+  maxEligibleItemValueCents Int?
   protectionEnabled         Boolean @default(false)
   plan                      String  @default("usage") // usage | unlimited
   currency                  String  @default("USD")
@@ -69,15 +75,48 @@ model ProtectedOrder {
   shop                 String
   shopifyOrderId       String
   shopifyOrderName     String?
+  // What the shopper paid for protection. NOT the coverage amount.
   protectionPriceCents Int
+  // Sum of eligible item line values at the time protection was recorded,
+  // excluding shipping, tax and the protection line itself. This is the
+  // merchandise value coverage is assessed against.
+  coveredMerchandiseCents Int   @default(0)
+  // The merchant's eligibility ceiling as it stood when this order was
+  // protected, so later settings changes can't retroactively alter a claim.
+  maxEligibleItemValueCents Int?
   currency             String
   customerSelected     Boolean  @default(true)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
   usageEvents           UsageEvent[]
+  items                 ProtectedOrderItem[]
 
   @@unique([shop, shopifyOrderId])
   @@index([shop, createdAt])
+}
+
+// Item-level coverage. One row per merchandise line on a protected order, so a
+// claim can name the specific item, its quantity and its unit value rather than
+// asserting a whole-order loss.
+model ProtectedOrderItem {
+  id               String   @id @default(cuid())
+  shop             String
+  protectedOrderId String
+  lineItemId       String // Shopify line item id from the order payload
+  title            String
+  variantId        String?
+  sku              String?
+  quantity         Int
+  // Per-unit merchandise price, excluding shipping and tax.
+  unitPriceCents   Int
+  // Evaluated once, at protection time, against the merchant's ceiling.
+  eligible         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  protectedOrder   ProtectedOrder @relation(fields: [protectedOrderId], references: [id], onDelete: Cascade)
+
+  @@unique([protectedOrderId, lineItemId])
+  @@index([shop])
 }
 
 model UsageEvent {
@@ -110,6 +149,22 @@ model ProtectionClaim {
   orderRiskLevel    String? // LOW | MEDIUM | HIGH | null if lookup failed/unavailable
   evidenceUrl       String? // Shopify-hosted image URL, required for damaged/concealed
   resolvedAt        DateTime? // set the first time status becomes resolved or denied
+
+  // --- Item-level coverage ---
+  // Links the claim to the protection that authorises it. Set at submission and
+  // required by the claim endpoint, so a claim cannot exist without protection.
+  protectedOrderId  String?
+  protectedItemId   String? // ProtectedOrderItem.id — which item is claimed
+  claimedQuantity   Int? // units affected, bounded by the item's ordered quantity
+  itemValueCents    Int? // unit value captured at submission
+  // claimedQuantity × itemValueCents, less anything already settled on this
+  // item. The ceiling on what the merchant could approve — never a payout.
+  eligibleLossCents Int?
+  // What the merchant actually approved. Entered by the merchant on approval;
+  // null on denied or still-open claims. Kourify never sets this on its own.
+  settlementCents   Int?
+  decisionNote      String? @db.Text
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -117,6 +172,8 @@ model ProtectionClaim {
   @@index([shop, email])
   @@index([shop, status])
   @@index([shop, createdAt])
+  @@index([protectedOrderId])
+  @@index([protectedItemId])
 }
 
 // NEW: Order caching for production scaling (see CODE_REVIEW.md)

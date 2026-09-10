@@ -8,6 +8,10 @@ import {
   parseClaimWindows,
   EVIDENCE_REQUIRED_TYPES,
 } from "../lib/claim-window";
+import {
+  assessEligibleLoss,
+  LOSS_ERROR_MESSAGES,
+} from "../lib/coverage.server";
 import { uploadEvidenceImage } from "../lib/upload-evidence.server";
 import { isRateLimited, clientIpFromRequest } from "../lib/rate-limit.server";
 import { notifyClaimSubmitted } from "../lib/notify.server";
@@ -108,6 +112,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     issueType,
     details,
     evidenceImage,
+    protectedItemId,
+    claimedQuantity,
   } = body as Record<string, unknown>;
 
   if (
@@ -208,6 +214,66 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     );
   }
 
+  // Protection gate. A claim is only meaningful against an order that actually
+  // carries protection, so this is checked before anything else about the loss.
+  const protectedOrder = await db.protectedOrder.findUnique({
+    where: {
+      shop_shopifyOrderId: { shop: session.shop, shopifyOrderId: order.id },
+    },
+  });
+  if (!protectedOrder) {
+    return Response.json(
+      {
+        error:
+          "This order doesn't include Kourify protection, so a claim can't be filed against it.",
+      },
+      { status: 400 },
+    );
+  }
+
+  // Item-level coverage: the claim must name a protected item and how many
+  // units are affected.
+  if (typeof protectedItemId !== "string" || !protectedItemId.trim()) {
+    return Response.json(
+      { error: "Choose which item from your order is affected." },
+      { status: 400 },
+    );
+  }
+  const requestedQuantity = Number(claimedQuantity ?? 1);
+
+  const assessment = await assessEligibleLoss({
+    shop: session.shop,
+    protectedItemId: protectedItemId.trim(),
+    requestedQuantity,
+  });
+  if (!assessment.ok) {
+    return Response.json(
+      {
+        error:
+          LOSS_ERROR_MESSAGES[assessment.reason] ??
+          "That item can't be claimed right now.",
+      },
+      { status: 400 },
+    );
+  }
+
+  // Belt-and-braces: confirm the chosen item belongs to *this* protected order,
+  // so a valid item id from another order can't be attached to this claim.
+  const itemBelongs = await db.protectedOrderItem.findFirst({
+    where: {
+      id: protectedItemId.trim(),
+      protectedOrderId: protectedOrder.id,
+      shop: session.shop,
+    },
+    select: { id: true },
+  });
+  if (!itemBelongs) {
+    return Response.json(
+      { error: "We couldn't find that item on your protected order." },
+      { status: 400 },
+    );
+  }
+
   if (!order.shippedAt) {
     return Response.json(
       {
@@ -282,6 +348,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       shopifyOrderName: order.name,
       orderRiskLevel: riskLevel,
       evidenceUrl,
+      protectedOrderId: protectedOrder.id,
+      protectedItemId: protectedItemId.trim(),
+      claimedQuantity: assessment.claimedQuantity,
+      itemValueCents: assessment.itemValueCents,
+      // A ceiling for the merchant to decide against — never an approval.
+      eligibleLossCents: assessment.eligibleLossCents,
     },
   });
 
