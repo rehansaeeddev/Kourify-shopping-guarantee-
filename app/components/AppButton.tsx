@@ -7,6 +7,8 @@ type AppButtonProps = {
   type?: "button" | "submit" | "reset";
   href?: string;
   disabled?: boolean;
+  /** Shows s-button's own spinner while an action is in flight. */
+  loading?: boolean;
   onClick?: (event: Event) => void;
   command?: string;
   commandFor?: string;
@@ -41,6 +43,7 @@ export function AppButton({
   type,
   href,
   disabled,
+  loading,
   onClick,
   command,
   commandFor,
@@ -55,6 +58,7 @@ export function AppButton({
       href={href}
       target={download ? "_blank" : undefined}
       disabled={disabled}
+      loading={loading}
       onClick={onClick as never}
       command={command as never}
       commandFor={commandFor}
