@@ -525,7 +525,8 @@ export default function Settings() {
       {activeTab === "pricing" && (
         <Card heading="Pricing">
           <s-paragraph>
-            Who pays for protection, and how the fee is calculated.
+            Who pays for protection, and — when the customer pays — how that fee
+            is calculated.
           </s-paragraph>
           <s-stack direction="block" gap="base" paddingBlockStart="base">
             <s-choice-list
@@ -562,6 +563,14 @@ export default function Settings() {
                   BASIC_PROTECTED_ORDER_LIMIT
                 } protected orders. Protection is merchant-funded on this plan.`}
               </s-banner>
+            )}
+
+            {merchantPays && (
+              <s-paragraph color="subdued">
+                {customerPaysAllowed
+                  ? "There's no fee to set while you're covering protection. Switch to Customer pays to price it."
+                  : "There's no fee to set: you're covering protection, and customer-paid protection isn't available on this store."}
+              </s-paragraph>
             )}
 
             {merchantPays ? null : (
