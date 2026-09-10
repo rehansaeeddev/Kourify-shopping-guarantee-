@@ -16,5 +16,9 @@ const STATUS_TONE: Record<
 };
 
 export function StatusBadge({ status }: { status: string }) {
-  return <s-badge tone={STATUS_TONE[status] ?? "neutral"}>{STATUS_LABEL[status] ?? status}</s-badge>;
+  return (
+    <s-badge tone={STATUS_TONE[status] ?? "neutral"}>
+      {STATUS_LABEL[status] ?? status}
+    </s-badge>
+  );
 }

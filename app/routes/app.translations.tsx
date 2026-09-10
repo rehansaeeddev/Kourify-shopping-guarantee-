@@ -5,7 +5,6 @@ import { useFetcher, useLoaderData, useSearchParams } from "react-router";
 import { AppButton } from "../components/AppButton";
 import { Card } from "../components/Card";
 import { EmptyState } from "../components/EmptyState";
-import { PageHeader } from "../components/PageHeader";
 import { useFetcherToast } from "../hooks/useFetcherToast";
 import db from "../db.server";
 import {
@@ -244,16 +243,14 @@ export default function Translations() {
   }
 
   return (
-    <s-page>
-      <PageHeader
-        title="Claim page languages"
-        subtitle="Choose which languages the storefront claim page offers, and translate every label. Customers switch language with no page reload."
-        actions={
-          <AppButton href="/app/claims" variant="secondary">
-            Back to claims
-          </AppButton>
-        }
-      />
+    <s-page heading="Claim page languages">
+      <s-button slot="secondary-actions" href="/app/claims" variant="secondary">
+        Back to claims
+      </s-button>
+      <s-paragraph color="subdued">
+        Choose which languages the storefront claim page offers, and translate
+        every label. Customers switch language with no page reload.
+      </s-paragraph>
 
       {languages.length === 0 ? (
         <Card heading="Get started">
@@ -582,16 +579,13 @@ function LanguageEditor({
   const pct = keys.length ? Math.round((doneCount / keys.length) * 100) : 0;
 
   return (
-    <s-page>
-      <PageHeader
-        title={`Edit ${editing.label}`}
-        subtitle={`Translate each label for “${editing.locale}”. Blank fields fall back to English automatically.`}
-        actions={
-          <AppButton variant="secondary" onClick={onDone}>
-            Back to languages
-          </AppButton>
-        }
-      />
+    <s-page heading={`Edit ${editing.label}`}>
+      <s-button slot="secondary-actions" variant="secondary" onClick={onDone}>
+        Back to languages
+      </s-button>
+      <s-paragraph color="subdued">
+        {`Translate each label for “${editing.locale}”. Blank fields fall back to English automatically.`}
+      </s-paragraph>
 
       <fetcher.Form method="post">
         <input type="hidden" name="intent" value="save" />

@@ -43,7 +43,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const settings = await db.merchantSettings.upsert({
     where: { shop: session.shop },
     update: {},
-    create: { shop: session.shop, claimWindows: JSON.stringify(DEFAULT_CLAIM_WINDOWS) },
+    create: {
+      shop: session.shop,
+      claimWindows: JSON.stringify(DEFAULT_CLAIM_WINDOWS),
+    },
   });
 
   const [
@@ -180,12 +183,12 @@ export default function Index() {
         subtitle="Build shopper confidence from cart to delivery."
         actions={
           <>
-            <InfoTip label="Why this matters">
+            <InfoTip id="tip-why-this-matters" label="Why this matters">
               Trust badges and buyer guarantees increase checkout confidence and
-              reduce chargebacks. We roll out each capability only once it&apos;s
-              backed by a real, honest guarantee — package protection today is a
-              self-funded policy, not underwritten insurance, and claims are
-              reviewed manually rather than paid out automatically.
+              reduce chargebacks. We roll out each capability only once
+              it&apos;s backed by a real, honest guarantee — package protection
+              today is a self-funded policy, not underwritten insurance, and
+              claims are reviewed manually rather than paid out automatically.
             </InfoTip>
             <AppButton href="/app/guide" variant="secondary">
               Help
@@ -199,7 +202,10 @@ export default function Index() {
 
       <GettingStarted
         title="Get started with Kourify"
-        help={{ label: "New here? Open Help & getting started →", href: "/app/guide" }}
+        help={{
+          label: "New here? Open Help & getting started →",
+          href: "/app/guide",
+        }}
         steps={[
           {
             label: "Turn on trust badges",
@@ -211,7 +217,7 @@ export default function Index() {
           {
             label: "Package protection is live on your storefront",
             detail:
-              "The \"Protect your order\" widget is on your product page and cart. Customize copy and price from the theme editor blocks.",
+              'The "Protect your order" widget is on your product page and cart. Customize copy and price from the theme editor blocks.',
             done: true,
           },
           {
@@ -249,8 +255,16 @@ export default function Index() {
         <StatTile
           icon="chart-line"
           label="Claim incident rate"
-          tone={telemetry.incidentRate !== null && telemetry.incidentRate > 3 ? "critical" : "default"}
-          value={telemetry.incidentRate !== null ? `${telemetry.incidentRate.toFixed(1)}%` : "No data yet"}
+          tone={
+            telemetry.incidentRate !== null && telemetry.incidentRate > 3
+              ? "critical"
+              : "default"
+          }
+          value={
+            telemetry.incidentRate !== null
+              ? `${telemetry.incidentRate.toFixed(1)}%`
+              : "No data yet"
+          }
           sub="Of fulfilled orders"
           href="/app/claims"
         />
@@ -349,7 +363,9 @@ export default function Index() {
                 label="Badge style"
                 value={current.badgeStyle}
                 disabled={!current.badgesEnabled}
-                onChange={(e) => saveBadges({ badgeStyle: e.currentTarget.value })}
+                onChange={(e) =>
+                  saveBadges({ badgeStyle: e.currentTarget.value })
+                }
               >
                 {BADGE_STYLES.map((style) => (
                   <s-option key={style} value={style}>
@@ -407,7 +423,8 @@ export default function Index() {
         <Card heading="Recent claims">
           {recentClaims.length === 0 ? (
             <s-banner tone="info">
-              No claims yet — they'll show up here once a customer files one from your storefront.
+              No claims yet — they'll show up here once a customer files one
+              from your storefront.
             </s-banner>
           ) : (
             <>
@@ -423,7 +440,9 @@ export default function Index() {
                     <s-table-row key={claim.id}>
                       <s-table-cell>{claim.orderNumber}</s-table-cell>
                       <s-table-cell>{claim.fullName}</s-table-cell>
-                      <s-table-cell>{issueTypeLabel(claim.issueType)}</s-table-cell>
+                      <s-table-cell>
+                        {issueTypeLabel(claim.issueType)}
+                      </s-table-cell>
                       <s-table-cell>
                         <StatusBadge status={claim.status} />
                       </s-table-cell>
@@ -440,7 +459,6 @@ export default function Index() {
           )}
         </Card>
       </div>
-
     </s-page>
   );
 }

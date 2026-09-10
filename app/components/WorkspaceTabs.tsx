@@ -1,5 +1,3 @@
-import { Link } from "react-router";
-
 type Active = "orders" | "claims" | "order-sync";
 
 type Counts = { orders?: number; claims?: number };
@@ -11,10 +9,12 @@ const TABS: Array<{ id: Active; label: string; href: string }> = [
 ];
 
 /**
- * Shared sub-navigation for the Orders / Claims / Order sync workspace. Each
- * tab is still its own route — this only styles the links and marks the active
- * one — so every page keeps its own loader and action. An optional per-tab
- * count renders a notification badge (like an unread-message count).
+ * Sub-navigation for the Orders / Claims / Order sync workspace. Each tab is
+ * still its own route — this only marks which one you're on.
+ *
+ * App Home has no tabs component, so this is a button group: the current view
+ * is the pressed one, and a count rides in the label rather than as a badge,
+ * since a button takes text and not markup.
  */
 export function WorkspaceTabs({
   active,
@@ -24,33 +24,28 @@ export function WorkspaceTabs({
   counts?: Counts;
 }) {
   const countFor = (id: Active) =>
-    id === "orders" ? counts?.orders : id === "claims" ? counts?.claims : 0;
+    (id === "orders" ? counts?.orders : id === "claims" ? counts?.claims : 0) ??
+    0;
 
   return (
-    <nav className="app-tabs" aria-label="Orders, claims and order sync">
+    <s-button-group
+      gap="base"
+      accessibilityLabel="Orders, claims and order sync"
+    >
       {TABS.map((tab) => {
-        const count = countFor(tab.id) ?? 0;
+        const count = countFor(tab.id);
         return (
-          <Link
+          <s-button
             key={tab.id}
-            to={tab.href}
-            className={
-              "app-tab" + (tab.id === active ? " app-tab--active" : "")
-            }
-            aria-current={tab.id === active ? "page" : undefined}
+            href={tab.href}
+            variant={tab.id === active ? "primary" : "tertiary"}
           >
-            {tab.label}
-            {count > 0 && (
-              <span
-                className="app-tab__count"
-                aria-label={`${count} needing attention`}
-              >
-                {count > 99 ? "99+" : count}
-              </span>
-            )}
-          </Link>
+            {count > 0
+              ? `${tab.label} (${count > 99 ? "99+" : count})`
+              : tab.label}
+          </s-button>
         );
       })}
-    </nav>
+    </s-button-group>
   );
 }

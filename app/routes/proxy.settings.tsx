@@ -31,8 +31,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const ip = clientIpFromRequest(request);
   // Scope by shop so an undeterminable client IP can't lock out every store.
-  const shopParam =
-    new URL(request.url).searchParams.get("shop") ?? "unknown";
+  const shopParam = new URL(request.url).searchParams.get("shop") ?? "unknown";
   if (await isRateLimited(`settings:${shopParam}:${ip}`, 60, 60 * 1000)) {
     return Response.json(
       { error: "Too many requests" },
@@ -60,7 +59,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     settings.planTier === "standard" || settings.planTier === "dev";
   // A capped plan can't guarantee a slot will still be free by the time the
   // charge lands, so it never offers paid protection — see planAllowsCustomerPays.
-  const planPaysOnly = !planAllowsCustomerPays((settings.plan ?? "basic") as PlanId);
+  const planPaysOnly = !planAllowsCustomerPays(
+    (settings.plan ?? "basic") as PlanId,
+  );
   const protectionPayer =
     nonPlus || planPaysOnly ? "merchant" : settings.protectionPayer;
 
@@ -94,9 +95,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       // publishing the id would just tell a shopper what to POST to
       // /cart/add.js. Defence in depth — the variant is also priced at 0 in
       // that mode, so injecting it costs nothing.
-      protectionVariantId: protectionPayer === "customer"
-        ? settings.protectionVariantId
-        : null,
+      protectionVariantId:
+        protectionPayer === "customer" ? settings.protectionVariantId : null,
       protectionVariantLegacyId:
         protectionPayer === "customer"
           ? (settings.protectionVariantId?.split("/").pop() ?? null)

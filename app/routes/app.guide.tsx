@@ -4,7 +4,6 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
-import { PageHeader } from "../components/PageHeader";
 import { Card } from "../components/Card";
 import { AppButton } from "../components/AppButton";
 import { getBillingState } from "../lib/billing-state.server";
@@ -75,8 +74,13 @@ const FAQ: Array<[string, string]> = [
 ];
 
 export default function Guide() {
-  const { protectionEnabled, badgesEnabled, hasActiveBilling, quota, openClaims } =
-    useLoaderData<typeof loader>();
+  const {
+    protectionEnabled,
+    badgesEnabled,
+    hasActiveBilling,
+    quota,
+    openClaims,
+  } = useLoaderData<typeof loader>();
 
   // Three real states, derived from what actually stops protection running.
   const state = quota.exhausted
@@ -86,16 +90,14 @@ export default function Guide() {
       : "setup";
 
   return (
-    <s-page>
-      <PageHeader
-        title="Help & getting started"
-        subtitle="Set up Shopping Guarantee, understand how protection works, and manage claims and orders."
-        actions={
-          <AppButton href="/app" variant="secondary">
-            Back to home
-          </AppButton>
-        }
-      />
+    <s-page heading="Help &amp; getting started">
+      <s-button slot="secondary-actions" href="/app" variant="secondary">
+        Back to home
+      </s-button>
+      <s-paragraph color="subdued">
+        Set up Shopping Guarantee, understand how protection works, and manage
+        claims and orders.
+      </s-paragraph>
 
       {/* A banner, not a card: protection has stopped and there is one thing to
           do about it. The other two states are steady-state content and stay

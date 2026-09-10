@@ -45,7 +45,8 @@ export function GettingStarted({
           <div>
             <h4 className="app-getting-started__title">{title}</h4>
             <p className="app-getting-started__subtitle">
-              {doneCount} of {steps.length} steps complete · ~{estimatedMinutes} min to finish
+              {doneCount} of {steps.length} steps complete · ~{estimatedMinutes}{" "}
+              min to finish
             </p>
           </div>
         </div>
@@ -78,7 +79,13 @@ export function GettingStarted({
                     (isActive && !isDone ? " app-stepper__circle--current" : "")
                   }
                 >
-                  {isDone ? "✓" : isActive ? <span className="app-stepper__dot" /> : ""}
+                  {isDone ? (
+                    "✓"
+                  ) : isActive ? (
+                    <span className="app-stepper__dot" />
+                  ) : (
+                    ""
+                  )}
                 </span>
                 <span
                   className={

@@ -77,10 +77,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       : "";
 
   // Injected dictionary drives client-side language switching (no reload).
-  const injectedI18n = JSON.stringify({ locales, initial, fallback }).replaceAll(
-    "<",
-    "\\u003c",
-  );
+  const injectedI18n = JSON.stringify({
+    locales,
+    initial,
+    fallback,
+  }).replaceAll("<", "\\u003c");
 
   const page = `<!doctype html>
 <html lang="${escapeHtml(initial)}" dir="${bundle.direction}">

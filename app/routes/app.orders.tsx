@@ -6,7 +6,6 @@ import { useFetcher, useLoaderData, useNavigate } from "react-router";
 import { AppButton } from "../components/AppButton";
 import { Card, StatTile } from "../components/Card";
 import { EmptyState } from "../components/EmptyState";
-import { PageHeader } from "../components/PageHeader";
 import db from "../db.server";
 import { sendProtectionOffer } from "../lib/notify.server";
 import { isRateLimited } from "../lib/rate-limit.server";
@@ -28,7 +27,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   )
     ? (requestedFilter as (typeof FILTERS)[number])
     : "all";
-  const page = Math.max(1, Math.floor(Number(url.searchParams.get("page")) || 1));
+  const page = Math.max(
+    1,
+    Math.floor(Number(url.searchParams.get("page")) || 1),
+  );
   const requestedPageSize = Number(url.searchParams.get("pageSize"));
   const pageSize = PAGE_SIZES.includes(
     requestedPageSize as (typeof PAGE_SIZES)[number],
@@ -42,7 +44,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // total order count, so it stays cheap even for large stores.
   const protectedOrders = await db.protectedOrder.findMany({
     where: { shop: session.shop },
-    select: { shopifyOrderId: true, protectionPriceCents: true, currency: true },
+    select: {
+      shopifyOrderId: true,
+      protectionPriceCents: true,
+      currency: true,
+    },
   });
   const protectedById = new Map(
     protectedOrders.map((order) => [order.shopifyOrderId, order]),
@@ -56,34 +62,28 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         ? { id: { notIn: protectedIds } }
         : {};
 
-  const [
-    filteredCount,
-    orders,
-    totalCount,
-    protectedCount,
-    offers,
-    settings,
-  ] = await Promise.all([
-    db.order.count({ where: { shop: session.shop, ...filterWhere } }),
-    db.order.findMany({
-      where: { shop: session.shop, ...filterWhere },
-      // Newest orders first by when the customer placed them. createdAt is
-      // only the cache-write time — a backfill stamps every row "now" — so it
-      // serves purely as a fallback for rows cached before placedAt existed.
-      orderBy: [{ placedAt: "desc" }, { createdAt: "desc" }],
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    db.order.count({ where: { shop: session.shop } }),
-    db.order.count({
-      where: { shop: session.shop, id: { in: protectedIds } },
-    }),
-    db.protectionOffer.findMany({
-      where: { shop: session.shop },
-      orderBy: { createdAt: "desc" },
-    }),
-    db.merchantSettings.findUnique({ where: { shop: session.shop } }),
-  ]);
+  const [filteredCount, orders, totalCount, protectedCount, offers, settings] =
+    await Promise.all([
+      db.order.count({ where: { shop: session.shop, ...filterWhere } }),
+      db.order.findMany({
+        where: { shop: session.shop, ...filterWhere },
+        // Newest orders first by when the customer placed them. createdAt is
+        // only the cache-write time — a backfill stamps every row "now" — so it
+        // serves purely as a fallback for rows cached before placedAt existed.
+        orderBy: [{ placedAt: "desc" }, { createdAt: "desc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      db.order.count({ where: { shop: session.shop } }),
+      db.order.count({
+        where: { shop: session.shop, id: { in: protectedIds } },
+      }),
+      db.protectionOffer.findMany({
+        where: { shop: session.shop },
+        orderBy: { createdAt: "desc" },
+      }),
+      db.merchantSettings.findUnique({ where: { shop: session.shop } }),
+    ]);
   const currency = settings?.currency ?? "USD";
   const latestOffers = new Map<string, (typeof offers)[number]>();
   for (const offer of offers) {
@@ -136,7 +136,11 @@ const handleAction = async ({ request }: ActionFunctionArgs) => {
   const [maxRequests, windowMs] =
     intent === "send_offer" ? [30, 10 * 60 * 1000] : [60, 60 * 1000];
   if (
-    await isRateLimited(`orders:${intent}:${session.shop}`, maxRequests, windowMs)
+    await isRateLimited(
+      `orders:${intent}:${session.shop}`,
+      maxRequests,
+      windowMs,
+    )
   ) {
     return {
       ok: false,
@@ -396,7 +400,9 @@ export const action = async (args: ActionFunctionArgs) => {
 function isOrderFulfilled(status: string): boolean {
   // Guard against the substring trap: "unfulfilled" contains "fulfilled".
   const normalized = status.toLowerCase();
-  return normalized.includes("fulfilled") && !normalized.includes("unfulfilled");
+  return (
+    normalized.includes("fulfilled") && !normalized.includes("unfulfilled")
+  );
 }
 
 function fulfillmentLabel(status: string): string {
@@ -461,7 +467,8 @@ export default function Orders() {
   const pageHref = (targetPage: number) => {
     const params = new URLSearchParams();
     if (filter !== "all") params.set("filter", filter);
-    if (pageSize !== DEFAULT_PAGE_SIZE) params.set("pageSize", String(pageSize));
+    if (pageSize !== DEFAULT_PAGE_SIZE)
+      params.set("pageSize", String(pageSize));
     if (targetPage > 1) params.set("page", String(targetPage));
     const query = params.toString();
     return query ? `/app/orders?${query}` : "/app/orders";
@@ -478,11 +485,11 @@ export default function Orders() {
   };
 
   return (
-    <s-page>
-      <PageHeader
-        title="Orders"
-        subtitle="See which Shopify orders include Kourify protection and which remain unprotected."
-      />
+    <s-page heading="Orders">
+      <s-paragraph color="subdued">
+        See which Shopify orders include Kourify protection and which remain
+        unprotected.
+      </s-paragraph>
       <WorkspaceTabs
         active="orders"
         counts={{
@@ -548,150 +555,150 @@ export default function Orders() {
               </s-text>
             </div>
             <s-table variant="auto">
-            <s-table-header-row>
-              <s-table-header>Order</s-table-header>
-              <s-table-header>Customer</s-table-header>
-              <s-table-header>Total</s-table-header>
-              <s-table-header>Fulfillment</s-table-header>
-              <s-table-header>Protection</s-table-header>
-              <s-table-header>Action</s-table-header>
-            </s-table-header-row>
-            <s-table-body>
-              {rows.map((order) => {
-                const orderId = order.id.split("/").pop();
-                const isFulfilled = isOrderFulfilled(order.status);
-                return (
-                  <s-table-row key={order.id}>
-                    <s-table-cell>
-                      <s-text type="strong">{order.name}</s-text>
-                    </s-table-cell>
-                    <s-table-cell>
-                      {order.customerName || order.email ? (
-                        <s-stack direction="block" gap="small-100">
-                          {order.customerName ? (
-                            <s-text>{order.customerName}</s-text>
-                          ) : null}
-                          {order.email ? (
-                            <s-text color="subdued">{order.email}</s-text>
-                          ) : null}
-                        </s-stack>
-                      ) : (
-                        "Customer details unavailable"
-                      )}
-                    </s-table-cell>
-                    <s-table-cell>
-                      <span className="app-num">
-                        {formatMoney(order.totalPrice, currency)}
-                      </span>
-                    </s-table-cell>
-                    <s-table-cell>
-                      {/* One badge per cell — "Delivered" supersedes
-                          "Fulfilled", so rows keep a uniform height. */}
-                      <s-badge
-                        tone={
-                          order.deliveredAt
-                            ? "success"
-                            : isFulfilled
-                              ? "info"
-                              : "neutral"
-                        }
-                      >
-                        {order.deliveredAt
-                          ? "Delivered"
-                          : fulfillmentLabel(order.status)}
-                      </s-badge>
-                    </s-table-cell>
-                    <s-table-cell>
-                      {order.protected ? (
-                        /* The fee itself carries the status — a protected
-                           order is the only one with money in this column. */
-                        <span className="app-protection-fee">
-                          {order.protectionPriceCents
-                            ? formatMoney(
-                                order.protectionPriceCents / 100,
-                                order.protectionCurrency,
-                              )
-                            : "Covered by you"}
+              <s-table-header-row>
+                <s-table-header>Order</s-table-header>
+                <s-table-header>Customer</s-table-header>
+                <s-table-header>Total</s-table-header>
+                <s-table-header>Fulfillment</s-table-header>
+                <s-table-header>Protection</s-table-header>
+                <s-table-header>Action</s-table-header>
+              </s-table-header-row>
+              <s-table-body>
+                {rows.map((order) => {
+                  const orderId = order.id.split("/").pop();
+                  const isFulfilled = isOrderFulfilled(order.status);
+                  return (
+                    <s-table-row key={order.id}>
+                      <s-table-cell>
+                        <s-text type="strong">{order.name}</s-text>
+                      </s-table-cell>
+                      <s-table-cell>
+                        {order.customerName || order.email ? (
+                          <s-stack direction="block" gap="small-100">
+                            {order.customerName ? (
+                              <s-text>{order.customerName}</s-text>
+                            ) : null}
+                            {order.email ? (
+                              <s-text color="subdued">{order.email}</s-text>
+                            ) : null}
+                          </s-stack>
+                        ) : (
+                          "Customer details unavailable"
+                        )}
+                      </s-table-cell>
+                      <s-table-cell>
+                        <span className="app-num">
+                          {formatMoney(order.totalPrice, currency)}
                         </span>
-                      ) : (
-                        <s-stack direction="block" gap="small-100">
-                          <span className="app-protection-state">
-                            {protectionLabel(order.offerStatus)}
-                          </span>
-                          {order.offerStatus === "offer_sent" &&
-                          order.offerExpiresAt ? (
-                            <s-text color="subdued">
-                              {offerExpiryLabel(order.offerExpiresAt)}
-                            </s-text>
-                          ) : null}
-                        </s-stack>
-                      )}
-                    </s-table-cell>
-                    <s-table-cell>
-                      <div className="app-row-actions">
-                        <AppButton
-                          href={`shopify://admin/orders/${orderId}`}
-                          variant="secondary"
+                      </s-table-cell>
+                      <s-table-cell>
+                        {/* One badge per cell — "Delivered" supersedes
+                          "Fulfilled", so rows keep a uniform height. */}
+                        <s-badge
+                          tone={
+                            order.deliveredAt
+                              ? "success"
+                              : isFulfilled
+                                ? "info"
+                                : "neutral"
+                          }
                         >
-                          View
-                        </AppButton>
-                        {!order.protected &&
-                        !isFulfilled &&
-                        order.email &&
-                        !["offer_sent", "awaiting_payment"].includes(
-                          order.offerStatus ?? "",
-                        ) ? (
-                          <AppButton
-                            variant="primary"
-                            disabled={offerFetcher.state !== "idle"}
-                            onClick={() =>
-                              offerFetcher.submit(
-                                { intent: "send_offer", orderId: order.id },
-                                { method: "POST" },
-                              )
-                            }
-                          >
-                            Send offer
-                          </AppButton>
-                        ) : null}
-                        {order.protected && !isFulfilled ? (
-                          <AppButton
-                            variant="primary"
-                            onClick={() => setFulfillmentOrder(order)}
-                          >
-                            Fulfill order
-                          </AppButton>
-                        ) : null}
-                        {order.protected &&
-                        isFulfilled &&
-                        !order.deliveredAt ? (
-                          <AppButton
-                            variant="secondary"
-                            onClick={() => {
-                              if (
-                                window.confirm(
-                                  `Confirm that ${order.name} was actually delivered?`,
+                          {order.deliveredAt
+                            ? "Delivered"
+                            : fulfillmentLabel(order.status)}
+                        </s-badge>
+                      </s-table-cell>
+                      <s-table-cell>
+                        {order.protected ? (
+                          /* The fee itself carries the status — a protected
+                           order is the only one with money in this column. */
+                          <span className="app-protection-fee">
+                            {order.protectionPriceCents
+                              ? formatMoney(
+                                  order.protectionPriceCents / 100,
+                                  order.protectionCurrency,
                                 )
-                              ) {
-                                offerFetcher.submit(
-                                  {
-                                    intent: "deliver",
-                                    orderId: order.id,
-                                    confirmed: "true",
-                                  },
-                                  { method: "POST" },
-                                );
-                              }
-                            }}
+                              : "Covered by you"}
+                          </span>
+                        ) : (
+                          <s-stack direction="block" gap="small-100">
+                            <span className="app-protection-state">
+                              {protectionLabel(order.offerStatus)}
+                            </span>
+                            {order.offerStatus === "offer_sent" &&
+                            order.offerExpiresAt ? (
+                              <s-text color="subdued">
+                                {offerExpiryLabel(order.offerExpiresAt)}
+                              </s-text>
+                            ) : null}
+                          </s-stack>
+                        )}
+                      </s-table-cell>
+                      <s-table-cell>
+                        <div className="app-row-actions">
+                          <AppButton
+                            href={`shopify://admin/orders/${orderId}`}
+                            variant="secondary"
                           >
-                            Mark as delivered
+                            View
                           </AppButton>
-                        ) : null}
-                      </div>
-                    </s-table-cell>
-                  </s-table-row>
-                );
-              })}
+                          {!order.protected &&
+                          !isFulfilled &&
+                          order.email &&
+                          !["offer_sent", "awaiting_payment"].includes(
+                            order.offerStatus ?? "",
+                          ) ? (
+                            <AppButton
+                              variant="primary"
+                              disabled={offerFetcher.state !== "idle"}
+                              onClick={() =>
+                                offerFetcher.submit(
+                                  { intent: "send_offer", orderId: order.id },
+                                  { method: "POST" },
+                                )
+                              }
+                            >
+                              Send offer
+                            </AppButton>
+                          ) : null}
+                          {order.protected && !isFulfilled ? (
+                            <AppButton
+                              variant="primary"
+                              onClick={() => setFulfillmentOrder(order)}
+                            >
+                              Fulfill order
+                            </AppButton>
+                          ) : null}
+                          {order.protected &&
+                          isFulfilled &&
+                          !order.deliveredAt ? (
+                            <AppButton
+                              variant="secondary"
+                              onClick={() => {
+                                if (
+                                  window.confirm(
+                                    `Confirm that ${order.name} was actually delivered?`,
+                                  )
+                                ) {
+                                  offerFetcher.submit(
+                                    {
+                                      intent: "deliver",
+                                      orderId: order.id,
+                                      confirmed: "true",
+                                    },
+                                    { method: "POST" },
+                                  );
+                                }
+                              }}
+                            >
+                              Mark as delivered
+                            </AppButton>
+                          ) : null}
+                        </div>
+                      </s-table-cell>
+                    </s-table-row>
+                  );
+                })}
               </s-table-body>
             </s-table>
           </>

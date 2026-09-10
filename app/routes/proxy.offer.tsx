@@ -78,43 +78,44 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const { liquid, session, admin } =
     await authenticate.public.appProxy(request);
   try {
-  const formData = await request.formData();
-  const token = String(formData.get("token") ?? "");
-  const offer = session ? await getOffer(session.shop, token) : null;
-  if (
-    !offer ||
-    offer.expiresAt <= new Date() ||
-    offer.status !== "offer_sent" ||
-    !admin
-  ) {
-    return liquid("<p>This offer is no longer available.</p>", {
-      layout: false,
-    });
-  }
+    const formData = await request.formData();
+    const token = String(formData.get("token") ?? "");
+    const offer = session ? await getOffer(session.shop, token) : null;
+    if (
+      !offer ||
+      offer.expiresAt <= new Date() ||
+      offer.status !== "offer_sent" ||
+      !admin
+    ) {
+      return liquid("<p>This offer is no longer available.</p>", {
+        layout: false,
+      });
+    }
 
-  const beginResponse = await admin.graphql(
-    `#graphql
+    const beginResponse = await admin.graphql(
+      `#graphql
       mutation kourifyOfferBegin($id: ID!) {
         orderEditBegin(id: $id) {
           calculatedOrder { id }
           userErrors { field message }
         }
       }`,
-    { variables: { id: offer.originalOrderId } },
-  );
-  const beginJson = await beginResponse.json();
-  const calculatedOrderId = beginJson.data?.orderEditBegin?.calculatedOrder?.id;
-  if (!calculatedOrderId) {
-    return offerFailure(liquid, {
-      step: "orderEditBegin",
-      orderId: offer.originalOrderId,
-      errors: (beginJson as { errors?: unknown }).errors,
-      userErrors: beginJson.data?.orderEditBegin?.userErrors,
-    });
-  }
+      { variables: { id: offer.originalOrderId } },
+    );
+    const beginJson = await beginResponse.json();
+    const calculatedOrderId =
+      beginJson.data?.orderEditBegin?.calculatedOrder?.id;
+    if (!calculatedOrderId) {
+      return offerFailure(liquid, {
+        step: "orderEditBegin",
+        orderId: offer.originalOrderId,
+        errors: (beginJson as { errors?: unknown }).errors,
+        userErrors: beginJson.data?.orderEditBegin?.userErrors,
+      });
+    }
 
-  const addResponse = await admin.graphql(
-    `#graphql
+    const addResponse = await admin.graphql(
+      `#graphql
       mutation kourifyOfferAdd($id: ID!, $price: MoneyInput!) {
         orderEditAddCustomItem(
           id: $id,
@@ -128,28 +129,28 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           userErrors { field message }
         }
       }`,
-    {
-      variables: {
-        id: calculatedOrderId,
-        price: {
-          amount: (offer.protectionPriceCents / 100).toFixed(2),
-          currencyCode: offer.currency,
+      {
+        variables: {
+          id: calculatedOrderId,
+          price: {
+            amount: (offer.protectionPriceCents / 100).toFixed(2),
+            currencyCode: offer.currency,
+          },
         },
       },
-    },
-  );
-  const addJson = await addResponse.json();
-  if (!addJson.data?.orderEditAddCustomItem?.calculatedLineItem?.id) {
-    return offerFailure(liquid, {
-      step: "orderEditAddCustomItem",
-      calculatedOrderId,
-      errors: (addJson as { errors?: unknown }).errors,
-      userErrors: addJson.data?.orderEditAddCustomItem?.userErrors,
-    });
-  }
+    );
+    const addJson = await addResponse.json();
+    if (!addJson.data?.orderEditAddCustomItem?.calculatedLineItem?.id) {
+      return offerFailure(liquid, {
+        step: "orderEditAddCustomItem",
+        calculatedOrderId,
+        errors: (addJson as { errors?: unknown }).errors,
+        userErrors: addJson.data?.orderEditAddCustomItem?.userErrors,
+      });
+    }
 
-  const commitResponse = await admin.graphql(
-    `#graphql
+    const commitResponse = await admin.graphql(
+      `#graphql
       mutation kourifyOfferCommit($id: ID!) {
         orderEditCommit(
           id: $id,
@@ -160,26 +161,26 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           userErrors { field message }
         }
       }`,
-    { variables: { id: calculatedOrderId } },
-  );
-  const commitJson = await commitResponse.json();
-  if (!commitJson.data?.orderEditCommit?.order?.id) {
-    return offerFailure(liquid, {
-      step: "orderEditCommit",
-      calculatedOrderId,
-      errors: (commitJson as { errors?: unknown }).errors,
-      userErrors: commitJson.data?.orderEditCommit?.userErrors,
-    });
-  }
+      { variables: { id: calculatedOrderId } },
+    );
+    const commitJson = await commitResponse.json();
+    if (!commitJson.data?.orderEditCommit?.order?.id) {
+      return offerFailure(liquid, {
+        step: "orderEditCommit",
+        calculatedOrderId,
+        errors: (commitJson as { errors?: unknown }).errors,
+        userErrors: commitJson.data?.orderEditCommit?.userErrors,
+      });
+    }
 
-  await db.protectionOffer.update({
-    where: { id: offer.id },
-    data: { status: "awaiting_payment" },
-  });
-  return liquid(
-    "<p>Protection was added to your order. Shopify has sent payment instructions. Your order becomes protected only after payment succeeds.</p>",
-    { layout: false },
-  );
+    await db.protectionOffer.update({
+      where: { id: offer.id },
+      data: { status: "awaiting_payment" },
+    });
+    return liquid(
+      "<p>Protection was added to your order. Shopify has sent payment instructions. Your order becomes protected only after payment succeeds.</p>",
+      { layout: false },
+    );
   } catch (error) {
     return offerFailure(liquid, {
       step: "exception",
