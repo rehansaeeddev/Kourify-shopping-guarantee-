@@ -14,7 +14,6 @@ import { GettingStarted } from "../components/GettingStarted";
 import { StatusBadge } from "../components/StatusBadge";
 import { issueTypeLabel } from "../lib/claim-issue-type";
 import { AppButton } from "../components/AppButton";
-import { InfoTip } from "../components/InfoTip";
 import { TrustBadgePreview } from "../components/TrustBadgePreview";
 import { getProtectionTelemetry } from "../lib/protection-telemetry.server";
 import { getProtectionAnalytics } from "../lib/protection-orders.server";
@@ -221,15 +220,6 @@ export default function Index() {
       />
 
       <Card heading="Status">
-        <s-stack direction="inline">
-          <InfoTip id="tip-why-this-matters" label="Why this matters">
-            Trust badges and buyer guarantees increase checkout confidence and
-            reduce chargebacks. We roll out each capability only once it&apos;s
-            backed by a real, honest guarantee — package protection today is a
-            self-funded policy, not underwritten insurance, and claims are
-            reviewed manually rather than paid out automatically.
-          </InfoTip>
-        </s-stack>
         <s-grid
           gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
           gap="base"
@@ -277,7 +267,7 @@ export default function Index() {
           tile showed, so that duplicate is gone rather than shown twice. */}
       <Card heading="Performance">
         <s-grid
-          gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
+          gridTemplateColumns="repeat(auto-fit, minmax(220px, 1fr))"
           gap="base"
         >
           <StatTile
@@ -411,10 +401,10 @@ export default function Index() {
           <>
             <s-table variant="auto">
               <s-table-header-row>
-                <s-table-header>Order</s-table-header>
-                <s-table-header>Customer</s-table-header>
-                <s-table-header>Issue</s-table-header>
-                <s-table-header>Status</s-table-header>
+                <s-table-header listSlot="primary">Order</s-table-header>
+                <s-table-header listSlot="secondary">Customer</s-table-header>
+                <s-table-header listSlot="labeled">Issue</s-table-header>
+                <s-table-header listSlot="inline">Status</s-table-header>
               </s-table-header-row>
               <s-table-body>
                 {recentClaims.map((claim) => (

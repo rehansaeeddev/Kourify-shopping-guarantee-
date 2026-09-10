@@ -279,9 +279,9 @@ export default function OrderSync() {
             hasNextPage={jobPagination.hasNextPage}
           >
             <s-table-header-row>
-              <s-table-header>Status</s-table-header>
-              <s-table-header>Date</s-table-header>
-              <s-table-header>Result</s-table-header>
+              <s-table-header listSlot="primary">Status</s-table-header>
+              <s-table-header listSlot="secondary">Date</s-table-header>
+              <s-table-header listSlot="labeled">Result</s-table-header>
             </s-table-header-row>
             <s-table-body>
               {jobs.map((job) => (

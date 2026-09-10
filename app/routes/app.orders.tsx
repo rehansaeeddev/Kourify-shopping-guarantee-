@@ -553,12 +553,12 @@ export default function Orders() {
             </s-box>
             <s-table variant="auto">
               <s-table-header-row>
-                <s-table-header>Order</s-table-header>
-                <s-table-header>Customer</s-table-header>
-                <s-table-header>Total</s-table-header>
-                <s-table-header>Fulfillment</s-table-header>
-                <s-table-header>Protection</s-table-header>
-                <s-table-header>Action</s-table-header>
+                <s-table-header listSlot="primary">Order</s-table-header>
+                <s-table-header listSlot="secondary">Customer</s-table-header>
+                <s-table-header listSlot="labeled">Total</s-table-header>
+                <s-table-header listSlot="labeled">Fulfillment</s-table-header>
+                <s-table-header listSlot="labeled">Protection</s-table-header>
+                <s-table-header listSlot="inline">Action</s-table-header>
               </s-table-header-row>
               <s-table-body>
                 {rows.map((order) => {
