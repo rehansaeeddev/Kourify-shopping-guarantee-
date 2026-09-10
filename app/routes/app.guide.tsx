@@ -97,15 +97,20 @@ export default function Guide() {
         }
       />
 
+      {/* A banner, not a card: protection has stopped and there is one thing to
+          do about it. The other two states are steady-state content and stay
+          cards — a banner that is always on screen stops being read. */}
       {state === "limit" && (
-        <Card heading="Upgrade to keep protecting orders">
-          <s-paragraph>
-            {`You've used all ${quota.limit} protected orders on your current plan, so protection is switched off. Orders already protected keep their coverage.`}
-          </s-paragraph>
-          <div className="app-actions">
-            <AppButton href="/app/billing">View billing</AppButton>
-          </div>
-        </Card>
+        <s-banner tone="warning" heading="Protection is switched off">
+          {`You've used all ${quota.limit} protected orders on your current plan. Orders already protected keep their coverage and can still be claimed.`}
+          <AppButton
+            slot="secondary-actions"
+            variant="secondary"
+            href="/app/billing"
+          >
+            View billing
+          </AppButton>
+        </s-banner>
       )}
 
       {state === "setup" && (
