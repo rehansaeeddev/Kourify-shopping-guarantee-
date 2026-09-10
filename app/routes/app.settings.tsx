@@ -423,9 +423,6 @@ export default function Settings() {
       <s-button slot="secondary-actions" href="/app" variant="secondary">
         Back
       </s-button>
-      <s-paragraph color="subdued">
-        Package protection and claims for your storefront.
-      </s-paragraph>
       <s-stack direction="inline">
         <InfoTip id="tip-how-protection-works" label="How protection works">
           The &quot;Protect your order&quot; widget is live on your product page

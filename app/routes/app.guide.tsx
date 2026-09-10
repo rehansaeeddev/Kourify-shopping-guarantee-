@@ -94,10 +94,6 @@ export default function Guide() {
       <s-button slot="secondary-actions" href="/app" variant="secondary">
         Back to home
       </s-button>
-      <s-paragraph color="subdued">
-        Set up Shopping Guarantee, understand how protection works, and manage
-        claims and orders.
-      </s-paragraph>
 
       {/* A banner, not a card: protection has stopped and there is one thing to
           do about it. The other two states are steady-state content and stay
@@ -222,10 +218,13 @@ export default function Guide() {
       </Card>
 
       <Card heading="Questions">
+        {/* A rule between entries, so a run of question/answer pairs reads as
+            separate items rather than one wall of text. */}
         <s-stack direction="block" gap="base">
-          {FAQ.map(([question, answer]) => (
+          {FAQ.map(([question, answer], index) => (
             <s-stack key={question} direction="block" gap="small-300">
-              <s-text type="strong">{question}</s-text>
+              {index > 0 && <s-divider />}
+              <s-heading>{question}</s-heading>
               <s-paragraph color="subdued">{answer}</s-paragraph>
             </s-stack>
           ))}
