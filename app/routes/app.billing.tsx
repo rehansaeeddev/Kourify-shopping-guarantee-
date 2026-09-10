@@ -1,11 +1,8 @@
 import type { LoaderFunctionArgs } from "react-router";
 import { useState } from "react";
-import { Link, useLoaderData, useSearchParams } from "react-router";
+import { useLoaderData, useSearchParams } from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
-import { PageHeader } from "../components/PageHeader";
-import { Card } from "../components/Card";
-import { AppButton } from "../components/AppButton";
 import { DEFAULT_CLAIM_WINDOWS } from "../lib/claim-window";
 import { getBillingState } from "../lib/billing-state.server";
 import { getProtectionQuota } from "../lib/plan-limits.server";
@@ -69,7 +66,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     billedUsageCents: billedUsage._sum.amountCents ?? 0,
   };
 };
-
 function money(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
@@ -79,18 +75,16 @@ type BillingCycle = "monthly" | "annual";
 type PlanCard = {
   /** Plan the CTA subscribes to — matches app.billing.start's `plan` param. */
   id: PlanId;
-  /** Drives the card's colour. Annual and monthly Unlimited share one tier. */
-  tier: "basic" | "usage" | "unlimited";
   name: string;
   /** null renders as "Free" rather than "$0". */
   amountCents: number | null;
   interval: string;
   /** Sub-line under the price: what the number actually buys. */
   meta: string;
-  /** Small pill — a real saving, or an honest caveat about the cycle. */
+  /** A real saving, or an honest caveat about the cycle. */
   note?: string;
   features: string[];
-  featured?: boolean;
+  recommended?: boolean;
 };
 
 /**
@@ -105,7 +99,6 @@ function planCards(cycle: BillingCycle): PlanCard[] {
   return [
     {
       id: "basic",
-      tier: "basic",
       name: "Basic",
       amountCents: null,
       interval: "",
@@ -119,13 +112,12 @@ function planCards(cycle: BillingCycle): PlanCard[] {
     },
     {
       id: "usage",
-      tier: "usage",
       name: "Usage",
       amountCents: 1000,
       interval: "/ month",
-      meta: `+ ${money(USAGE_FEE_CENTS)} per protected order`,
+      meta: `Plus ${money(USAGE_FEE_CENTS)} per protected order`,
       note: annual ? "Billed monthly — usage plans can't be annual" : undefined,
-      featured: true,
+      recommended: true,
       features: [
         "No cap on protected orders",
         "Charge the customer, or cover protection yourself",
@@ -136,14 +128,13 @@ function planCards(cycle: BillingCycle): PlanCard[] {
     },
     {
       id: annual ? "unlimited_annual" : "unlimited",
-      tier: "unlimited",
       name: "Unlimited",
       amountCents: annual ? 20000 : 2000,
       interval: annual ? "/ year" : "/ month",
       meta: annual
-        ? `${money(20000 / 12)} / mo · no per-order fee`
+        ? `${money(20000 / 12)} a month, no per-order fee`
         : "No per-order fee, whatever your volume",
-      note: annual ? "Save $40 — 2 months free" : undefined,
+      note: annual ? "Save $40 — two months free" : undefined,
       features: [
         "Everything in Usage",
         `No ${money(USAGE_FEE_CENTS)} per-order usage fee`,
@@ -164,162 +155,104 @@ function PlanPicker({
   const cards = planCards(cycle);
 
   return (
-    <div className="app-plans">
-      <div className="app-plans__toggle" role="group" aria-label="Billing cycle">
-        <button
-          type="button"
-          aria-pressed={cycle === "monthly"}
-          onClick={() => setCycle("monthly")}
-        >
-          Monthly
-        </button>
-        <button
-          type="button"
-          aria-pressed={cycle === "annual"}
-          onClick={() => setCycle("annual")}
-        >
-          Annual
-          <span className="app-plans__save">Save 2 months</span>
-        </button>
-      </div>
+    <s-stack direction="block" gap="base">
+      <s-choice-list
+        label="Billing cycle"
+        name="cycle"
+        values={[cycle]}
+        onChange={(event: { currentTarget: { values?: string[] } }) => {
+          const next = event.currentTarget.values?.[0];
+          if (next === "monthly" || next === "annual") setCycle(next);
+        }}
+      >
+        <s-choice value="monthly">Monthly</s-choice>
+        <s-choice value="annual">Annual — save two months on Unlimited</s-choice>
+      </s-choice-list>
 
-      <div className="app-plans__grid">
+      <s-grid
+        gridTemplateColumns="repeat(auto-fit, minmax(240px, 1fr))"
+        gap="base"
+        alignItems="stretch"
+      >
         {cards.map((card) => {
           const isCurrent = card.id === activePlan;
-          const className = [
-            "app-plans__card",
-            `app-plans__card--t-${card.tier}`,
-            card.featured && !isCurrent ? "app-plans__card--featured" : "",
-            isCurrent ? "app-plans__card--current" : "",
-          ]
-            .filter(Boolean)
-            .join(" ");
-
           return (
-            <div key={card.name} className={className}>
-              {(isCurrent || card.featured) && (
-                <span className="app-plans__ribbon">
-                  {isCurrent ? "Current plan" : "Most popular"}
-                </span>
-              )}
+            <s-box
+              key={card.name}
+              padding="base"
+              border="base"
+              borderRadius="base"
+              background={isCurrent ? "subdued" : undefined}
+            >
+              <s-stack direction="block" gap="base">
+                <s-stack direction="inline" gap="small-200" alignItems="center">
+                  <s-heading>{card.name}</s-heading>
+                  {isCurrent && <s-badge tone="success">Current plan</s-badge>}
+                  {!isCurrent && card.recommended && (
+                    <s-badge tone="info">Recommended</s-badge>
+                  )}
+                </s-stack>
 
-              <h3 className="app-plans__name">{card.name}</h3>
+                <s-stack direction="inline" gap="small-200" alignItems="baseline">
+                  <s-text type="strong" fontVariantNumeric="tabular-nums">
+                    {card.amountCents === null
+                      ? "Free"
+                      : money(card.amountCents)}
+                  </s-text>
+                  {card.interval && (
+                    <s-text color="subdued">{card.interval}</s-text>
+                  )}
+                </s-stack>
 
-              <div className="app-plans__price">
-                {card.amountCents === null ? (
-                  <span className="app-plans__amount">Free</span>
-                ) : (
-                  <>
-                    <span className="app-plans__currency">$</span>
-                    <span className="app-plans__amount">
-                      {(card.amountCents / 100).toFixed(0)}
-                    </span>
-                  </>
-                )}
-                {card.interval && (
-                  <span className="app-plans__interval">{card.interval}</span>
-                )}
-              </div>
+                <s-paragraph color="subdued">{card.meta}</s-paragraph>
+                {card.note && <s-badge tone="info">{card.note}</s-badge>}
 
-              <p className="app-plans__meta">{card.meta}</p>
-              {card.note && (
-                <span className="app-plans__note">{card.note}</span>
-              )}
+                <s-unordered-list>
+                  {card.features.map((feature) => (
+                    <s-list-item key={feature}>{feature}</s-list-item>
+                  ))}
+                </s-unordered-list>
 
-              <ul className="app-plans__features">
-                {card.features.map((feature) => (
-                  <li key={feature}>
-                    <span className="app-plans__check" aria-hidden="true">
-                      ✓
-                    </span>
-                    <span className="app-plans__feature-text">{feature}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <div className="app-plans__cta">
                 {isCurrent ? (
-                  <span className="app-plans__btn app-plans__btn--static">
+                  <s-button variant="secondary" disabled>
                     Your current plan
-                  </span>
+                  </s-button>
                 ) : card.id === "basic" && !hasActiveBilling ? (
-                  <span className="app-plans__btn app-plans__btn--static">
+                  <s-button variant="secondary" disabled>
                     Included
-                  </span>
+                  </s-button>
                 ) : (
-                  <Link
-                    className={`app-plans__btn app-plans__btn--${
-                      card.featured ? "primary" : "ghost"
-                    }`}
-                    to={`/app/billing/start?plan=${card.id}`}
+                  <s-button
+                    href={`/app/billing/start?plan=${card.id}`}
+                    variant={card.recommended ? "primary" : "secondary"}
                   >
                     {card.id === "basic"
                       ? "Downgrade to Basic"
                       : `Choose ${card.name}`}
-                  </Link>
+                  </s-button>
                 )}
-              </div>
-            </div>
+              </s-stack>
+            </s-box>
           );
         })}
-      </div>
+      </s-grid>
 
-      <p className="app-plans__footnote">
+      <s-paragraph color="subdued">
         Shopify handles the charge and shows you the amount before you approve
         it. You can change or cancel your plan at any time.
-      </p>
-    </div>
+      </s-paragraph>
+    </s-stack>
   );
 }
 
-/** Allowance spent, as a bar. Only capped plans have something to meter. */
-function AllowanceMeter({ used, limit }: { used: number; limit: number }) {
-  const pct = Math.min(100, Math.round((used / limit) * 100));
-  const tone = pct >= 100 ? "full" : pct >= 80 ? "warn" : "ok";
-
+function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="app-meter">
-      <div className="app-meter__head">
-        <span className="app-meter__label">Protected orders used</span>
-        <span className="app-meter__value">{`${used} of ${limit}`}</span>
-      </div>
-      <div
-        className="app-meter__track"
-        role="progressbar"
-        aria-valuenow={used}
-        aria-valuemin={0}
-        aria-valuemax={limit}
-        aria-label="Protected orders used"
-      >
-        <div
-          className={`app-meter__fill${tone === "ok" ? "" : ` app-meter__fill--${tone}`}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  small,
-  accent,
-}: {
-  label: string;
-  value: string;
-  small?: boolean;
-  accent?: boolean;
-}) {
-  return (
-    <div className={`app-bill-stat${accent ? " app-bill-stat--accent" : ""}`}>
-      <span className="app-bill-stat__label">{label}</span>
-      <span
-        className={`app-bill-stat__value${small ? " app-bill-stat__value--sm" : ""}`}
-      >
+    <s-stack direction="block" gap="small-500">
+      <s-text color="subdued">{label}</s-text>
+      <s-text type="strong" fontVariantNumeric="tabular-nums">
         {value}
-      </span>
-    </div>
+      </s-text>
+    </s-stack>
   );
 }
 
@@ -343,76 +276,65 @@ export default function Billing() {
   const showPlans = !hasActiveBilling || searchParams.get("plans") === "1";
 
   return (
-    <s-page>
-      <PageHeader
-        title="Billing"
-        subtitle={
-          showPlans
-            ? "Choose the plan that fits how many orders you protect."
-            : "Manage your Kourify subscription through Shopify."
-        }
-        actions={
-          <AppButton href="/app" variant="secondary">
-            Back
-          </AppButton>
-        }
-      />
+    <s-page heading="Billing">
+      <s-button slot="secondary-actions" href="/app" variant="secondary">
+        Back
+      </s-button>
 
       {!showPlans && (
-        <Card heading="Current plan">
-          <div className="app-bill-hero">
-            <div className="app-bill-hero__main">
-              <span className="app-bill-hero__name">{plan.name}</span>
-              <span className="app-bill-hero__price">
-                {plan.interval === "—"
-                  ? plan.price
-                  : `${plan.price} · ${plan.interval}`}
-              </span>
-            </div>
-            <div className="app-bill-hero__side">
-              <s-badge tone={hasActiveBilling ? "success" : "neutral"}>
-                {hasActiveBilling ? "Active" : "Free plan"}
-              </s-badge>
-              <AppButton
-                variant="secondary"
-                onClick={() => setSearchParams({ plans: "1" })}
-              >
-                Change plan
-              </AppButton>
-            </div>
-          </div>
-        </Card>
+        <s-section heading="Current plan">
+          <s-grid
+            gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
+            gap="base"
+          >
+            <Stat label="Plan" value={plan.name} />
+            <Stat label="Price" value={plan.price} />
+            <Stat label="Billing interval" value={plan.interval} />
+            <s-stack direction="block" gap="small-500">
+              <s-text color="subdued">Status</s-text>
+              <s-stack direction="inline">
+                <s-badge tone={hasActiveBilling ? "success" : "neutral"}>
+                  {hasActiveBilling ? "Active" : "Free plan"}
+                </s-badge>
+              </s-stack>
+            </s-stack>
+          </s-grid>
+
+          <s-button
+            variant="secondary"
+            onClick={() => setSearchParams({ plans: "1" })}
+          >
+            Change plan
+          </s-button>
+        </s-section>
       )}
 
-      <Card heading="Usage this period">
-        <div className="app-bill-stats">
-          <Stat label="Protected orders" value={String(protectedOrders)} accent />
+      <s-section heading="Usage this period">
+        <s-grid
+          gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
+          gap="base"
+        >
+          <Stat label="Protected orders" value={String(protectedOrders)} />
           {isUsage && (
             <Stat
               label="Kourify usage fee"
               value={`${money(USAGE_FEE_CENTS)} per order`}
-              small
             />
           )}
           <Stat
             label="Usage charges"
             value={money(isUsage ? billedUsageCents : 0)}
-            accent
           />
           {isBasic && quota.limit !== null && (
             <Stat
-              label="Remaining allowance"
-              value={`${quota.remaining} of ${quota.limit}`}
+              label="Allowance used"
+              value={`${quota.used} of ${quota.limit}`}
             />
           )}
-        </div>
-
-        {isBasic && quota.limit !== null && (
-          <AllowanceMeter used={quota.used} limit={quota.limit} />
-        )}
+        </s-grid>
 
         {!isUsage && (
-          <s-paragraph>
+          <s-paragraph color="subdued">
             {isBasic
               ? "No Kourify usage fee on Basic."
               : "No per-order usage fee on Unlimited."}
@@ -420,33 +342,33 @@ export default function Billing() {
         )}
 
         {quota.overAllowance && (
-          <s-banner tone="warning">
-            {`You're over your plan allowance — ${quota.used} protected orders against a limit of ${quota.limit}. Protection a customer already paid for is always honoured, so orders that were mid-checkout when the limit was reached still went through. New merchant-paid coverage is paused until you upgrade.`}
+          <s-banner tone="warning" heading="Over your plan allowance">
+            {`${quota.used} protected orders against a limit of ${quota.limit}. Protection a customer already paid for is always honoured, so orders that were mid-checkout when the limit was reached still went through. New merchant-paid coverage is paused until you upgrade.`}
           </s-banner>
         )}
 
         {quota.exhausted && !quota.overAllowance && (
-          <s-banner tone="warning">
+          <s-banner tone="warning" heading="Allowance used up">
             {`You've used all ${quota.limit} protected orders on Basic. Protection is switched off for new orders — existing protected orders keep their coverage and can still be claimed.`}
           </s-banner>
         )}
-      </Card>
+      </s-section>
 
       {showPlans ? (
-        <Card heading="Plans">
+        <s-section heading="Plans">
           <PlanPicker
             activePlan={activePlan}
             hasActiveBilling={hasActiveBilling}
           />
-        </Card>
+        </s-section>
       ) : (
-        <Card heading="Billing information">
+        <s-section heading="Billing information">
           <s-paragraph>
             {`Shopify handles subscription billing and charges your store through Shopify. Kourify never sees or stores your payment details. The ${money(
               USAGE_FEE_CENTS,
             )} usage fee is billed to you per protected order on the Usage plan — it is not the protection price your customers pay, not coverage, and not a claim settlement.`}
           </s-paragraph>
-        </Card>
+        </s-section>
       )}
     </s-page>
   );
