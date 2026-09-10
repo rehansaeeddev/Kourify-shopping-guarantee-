@@ -28,8 +28,9 @@ export function WorkspaceTabs({
     0;
 
   return (
-    <s-button-group
-      gap="base"
+    <s-stack
+      direction="inline"
+      gap="small-200"
       accessibilityLabel="Orders, claims and order sync"
     >
       {TABS.map((tab) => {
@@ -46,6 +47,6 @@ export function WorkspaceTabs({
           </s-button>
         );
       })}
-    </s-button-group>
+    </s-stack>
   );
 }

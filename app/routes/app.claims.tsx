@@ -491,7 +491,11 @@ export default function Claims() {
           alignItems="center"
           justifyContent="space-between"
         >
-          <s-button-group gap="base" accessibilityLabel="Filter claims">
+          <s-stack
+            direction="inline"
+            gap="small-200"
+            accessibilityLabel="Filter claims"
+          >
             {TABS.map((t) => (
               <s-button
                 key={t.value}
@@ -505,7 +509,7 @@ export default function Claims() {
                 {t.label}
               </s-button>
             ))}
-          </s-button-group>
+          </s-stack>
           <s-button
             href={`/app/claims/export?${exportParams.toString()}`}
             variant="secondary"

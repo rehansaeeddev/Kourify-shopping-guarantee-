@@ -313,11 +313,10 @@ export default function Index() {
           Build confidence with a trust badge across your store.
         </s-paragraph>
 
-        <s-stack
-          direction="inline"
+        <s-grid
+          gridTemplateColumns="1fr 1fr"
           gap="large-100"
           alignItems="start"
-          justifyContent="space-between"
         >
           <s-stack direction="block" gap="base">
             <s-switch
@@ -374,16 +373,11 @@ export default function Index() {
               </s-text>
             </s-stack>
           </s-stack>
-        </s-stack>
+        </s-grid>
       </Card>
 
       <Card heading="Guarantee tab">
-        <s-stack
-          direction="inline"
-          gap="large-100"
-          alignItems="center"
-          justifyContent="space-between"
-        >
+        <s-grid gridTemplateColumns="1fr auto" gap="base" alignItems="end">
           <s-paragraph>
             The floating Kourify Guarantee tab shoppers use to learn about
             protection and file claims.
@@ -403,7 +397,7 @@ export default function Index() {
               ))}
             </s-select>
           </s-box>
-        </s-stack>
+        </s-grid>
       </Card>
 
       <Card heading="Recent claims">

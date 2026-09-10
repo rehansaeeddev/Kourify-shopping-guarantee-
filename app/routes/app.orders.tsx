@@ -518,7 +518,11 @@ export default function Orders() {
       </s-grid>
 
       <Card heading="Shopify orders">
-        <s-button-group gap="base" accessibilityLabel="Filter orders">
+        <s-stack
+          direction="inline"
+          gap="small-200"
+          accessibilityLabel="Filter orders"
+        >
           {FILTERS.map((value) => (
             <s-button
               key={value}
@@ -534,7 +538,7 @@ export default function Orders() {
                   : "Unprotected"}
             </s-button>
           ))}
-        </s-button-group>
+        </s-stack>
 
         {rows.length === 0 ? (
           <EmptyState
@@ -635,7 +639,7 @@ export default function Orders() {
                         )}
                       </s-table-cell>
                       <s-table-cell>
-                        <s-button-group gap="base">
+                        <s-stack direction="inline" gap="small-200">
                           <AppButton
                             href={`shopify://admin/orders/${orderId}`}
                             variant="secondary"
@@ -695,7 +699,7 @@ export default function Orders() {
                               Mark as delivered
                             </AppButton>
                           ) : null}
-                        </s-button-group>
+                        </s-stack>
                       </s-table-cell>
                     </s-table-row>
                   );
