@@ -116,12 +116,31 @@ export async function assessEligibleLoss(params: {
   shop: string;
   protectedItemId: string;
   requestedQuantity: number;
+  /** Set when re-assessing an existing claim, to skip the open-claim guard. */
+  excludeClaimId?: string;
 }): Promise<LossAssessment> {
   const item = await db.protectedOrderItem.findFirst({
     where: { id: params.protectedItemId, shop: params.shop },
   });
   if (!item) return { ok: false, reason: "ITEM_NOT_FOUND" };
   if (!item.eligible) return { ok: false, reason: "ITEM_NOT_ELIGIBLE" };
+
+  // One open claim per item at a time. A shopper can still file legitimately
+  // for a different item on the same order, and can file again on this item
+  // once the merchant has decided — a denial releases it, and an approval is
+  // bounded by the remaining-quantity check below. What this stops is the same
+  // item being claimed repeatedly while a decision is still pending.
+  if (params.excludeClaimId === undefined) {
+    const openClaim = await db.protectionClaim.findFirst({
+      where: {
+        shop: params.shop,
+        protectedItemId: item.id,
+        status: { in: ["submitted", "reviewing"] },
+      },
+      select: { id: true },
+    });
+    if (openClaim) return { ok: false, reason: "OPEN_CLAIM_EXISTS" };
+  }
 
   const requested = Math.floor(params.requestedQuantity);
   if (!Number.isFinite(requested) || requested < 1) {
@@ -156,6 +175,8 @@ export async function assessEligibleLoss(params: {
 }
 
 export const LOSS_ERROR_MESSAGES: Record<string, string> = {
+  OPEN_CLAIM_EXISTS:
+    "You already have a claim open on that item. We'll email you once it's been reviewed.",
   ITEM_NOT_FOUND: "We couldn't find that item on your protected order.",
   ITEM_NOT_ELIGIBLE:
     "That item's value is above the maximum this store protects, so it isn't covered.",

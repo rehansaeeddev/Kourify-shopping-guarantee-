@@ -140,6 +140,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       { status: 400 },
     );
   }
+  // Cheap syntactic guard so garbage is rejected before any DB work. The
+  // merchant's own enabled subset is enforced further down, once settings
+  // are loaded — the UI filtering the dropdown is not enforcement.
   if (!CLAIM_ISSUE_TYPES.includes(normalizedIssueType)) {
     return Response.json({ error: "Invalid claim type" }, { status: 400 });
   }
@@ -230,6 +233,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       { status: 400 },
     );
   }
+  // Coverage reversed — protection refunded, or the order cancelled.
+  if (protectedOrder.revokedAt) {
+    return Response.json(
+      {
+        error:
+          "Protection on this order is no longer active, so a new claim can't be filed.",
+      },
+      { status: 400 },
+    );
+  }
 
   // Item-level coverage: the claim must name a protected item and how many
   // units are affected.
@@ -290,6 +303,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const settings = await db.merchantSettings.findUnique({
     where: { shop: session.shop },
   });
+
+  // Enforce the merchant's enabled claim reasons server-side. The form only
+  // renders enabled options, but a crafted POST could previously file any of
+  // the six. Mirrors the storefront fallback: a merchant who unchecks every
+  // reason gets all six back rather than disabling claims entirely.
+  const savedTypes = settings?.enabledClaimTypes.split(",").filter(Boolean);
+  const enabledTypes =
+    savedTypes && savedTypes.length > 0 ? savedTypes : CLAIM_ISSUE_TYPES;
+  if (!enabledTypes.includes(normalizedIssueType)) {
+    return Response.json(
+      { error: "This store isn't accepting that type of claim." },
+      { status: 400 },
+    );
+  }
+
   const windows = parseClaimWindows(settings?.claimWindows ?? "");
   const window = windows[normalizedIssueType];
 

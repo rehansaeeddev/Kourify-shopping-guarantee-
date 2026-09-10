@@ -95,6 +95,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       { status: 200 },
     );
   }
+  if (protectedOrder.revokedAt) {
+    return Response.json(
+      {
+        protected: false,
+        error:
+          "Protection on this order is no longer active, so a new claim can't be filed.",
+      },
+      { status: 200 },
+    );
+  }
 
   // Quantity already spoken for by open or approved claims. Denied claims
   // release their units back, matching assessEligibleLoss().
@@ -104,9 +114,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       protectedOrderId: protectedOrder.id,
       status: { in: ["submitted", "reviewing", "resolved"] },
     },
-    select: { protectedItemId: true, claimedQuantity: true },
+    select: { protectedItemId: true, claimedQuantity: true, status: true },
   });
   const claimedByItem = new Map<string, number>();
+  const itemsWithOpenClaim = new Set<string>();
   for (const claim of priorClaims) {
     if (!claim.protectedItemId) continue;
     claimedByItem.set(
@@ -114,10 +125,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       (claimedByItem.get(claim.protectedItemId) ?? 0) +
         (claim.claimedQuantity ?? 0),
     );
+    if (claim.status === "submitted" || claim.status === "reviewing") {
+      itemsWithOpenClaim.add(claim.protectedItemId);
+    }
   }
 
+  // Hide items that already have an open claim — assessEligibleLoss rejects
+  // them anyway, so offering them would only produce an error on submit.
   const items = protectedOrder.items
-    .filter((item) => item.eligible)
+    .filter((item) => item.eligible && !itemsWithOpenClaim.has(item.id))
     .map((item) => ({
       id: item.id,
       title: item.title,

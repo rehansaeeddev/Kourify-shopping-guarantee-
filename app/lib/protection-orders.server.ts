@@ -7,18 +7,56 @@ import {
 
 type WebhookLineItem = OrderLine;
 
-function isProtectionLine(line: WebhookLineItem): boolean {
-  if (line.title === "Kourify Order Protection") return true;
-  const properties = Array.isArray(line.properties)
-    ? line.properties
-    : Object.entries(line.properties ?? {}).map(([name, value]) => ({
-        name,
-        value,
-      }));
-  return properties.some(
-    (property) =>
-      property.name === "_kourify_protection" && property.value === "true",
-  );
+export const PROTECTION_LINE_TITLE = "Kourify Order Protection";
+
+/** Shopify sends variant ids as numbers on REST payloads, GIDs elsewhere. */
+function legacyVariantId(value: unknown): string | null {
+  if (value == null) return null;
+  const raw = String(value);
+  const tail = raw.split("/").pop();
+  return tail && /^\d+$/.test(tail) ? tail : null;
+}
+
+/**
+ * Identifies the protection line on an order.
+ *
+ * Trust order matters here. The line's title and its `_kourify_protection`
+ * property both travel through the public Ajax Cart API, so a shopper can put
+ * either on any cheap line item. Neither is accepted as proof on its own:
+ *
+ *  1. **Configured variant** — the line's variant matches the shop's own
+ *     `protectionVariantId`. This is the only self-sufficient signal.
+ *  2. **Accepted post-purchase offer** — the offer flow adds a *custom* item
+ *     via `orderEditAddCustomItem`, which carries no variant, so a title match
+ *     counts only when this shop has an offer for this order that reached
+ *     `awaiting_payment` or beyond.
+ *
+ * The client-supplied property is now only a hint for logging, never a grant.
+ */
+function findProtectionLine(
+  lines: WebhookLineItem[],
+  configuredVariantId: string | null,
+  hasAcceptedOffer: boolean,
+): WebhookLineItem | null {
+  const configuredLegacy = legacyVariantId(configuredVariantId);
+
+  if (configuredLegacy) {
+    const byVariant = lines.find(
+      (line) => legacyVariantId(line.variant_id) === configuredLegacy,
+    );
+    if (byVariant) return byVariant;
+  }
+
+  if (hasAcceptedOffer) {
+    const byOfferTitle = lines.find(
+      (line) =>
+        line.title === PROTECTION_LINE_TITLE &&
+        legacyVariantId(line.variant_id) === null,
+    );
+    if (byOfferTitle) return byOfferTitle;
+  }
+
+  return null;
 }
 
 export async function recordProtectionSelection(
@@ -32,9 +70,23 @@ export async function recordProtectionSelection(
   if (financialStatus !== "paid") return null;
 
   const settings = await db.merchantSettings.findUnique({ where: { shop } });
-  const protectionLine = (
-    (order.line_items as WebhookLineItem[] | undefined) ?? []
-  ).find(isProtectionLine);
+
+  const orderLines = (order.line_items as WebhookLineItem[] | undefined) ?? [];
+  // The offer flow adds a variant-less custom item, so a title match is only
+  // honoured when this shop genuinely offered protection on this order.
+  const acceptedOffer = await db.protectionOffer.findFirst({
+    where: {
+      shop,
+      originalOrderId: orderId,
+      status: { in: ["awaiting_payment", "payment_confirmed"] },
+    },
+    select: { id: true },
+  });
+  const protectionLine = findProtectionLine(
+    orderLines,
+    settings?.protectionVariantId ?? null,
+    Boolean(acceptedOffer),
+  );
 
   // An order becomes protected two ways:
   //  1. The customer selected the protection line at checkout (customer-pays).
@@ -50,9 +102,12 @@ export async function recordProtectionSelection(
   }
 
   const customerSelected = Boolean(protectionLine);
+  // Protection is sold once per order — the storefront always adds quantity 1.
+  // Recording price × quantity let an order edit (or a modified cart call)
+  // multiply the recorded protection revenue, so the unit price is taken alone
+  // regardless of what quantity the line claims.
   const priceCents = protectionLine
-    ? Math.round(Number(protectionLine.price ?? 0) * 100) *
-      Math.max(1, Number(protectionLine.quantity ?? 1))
+    ? Math.max(0, Math.round(Number(protectionLine.price ?? 0) * 100))
     : 0; // merchant-pays: no customer-facing charge
 
   const currency = String(order.currency ?? settings?.currency ?? "USD");
@@ -62,9 +117,12 @@ export async function recordProtectionSelection(
   // snapshotted onto the order so a later settings change can't retroactively
   // widen or narrow coverage that has already been sold.
   const maxEligible = settings?.maxEligibleItemValueCents ?? null;
+  // Exclude the identified protection line itself — protection is not
+  // merchandise and can't be claimed against. Compared by identity so a
+  // shopper-supplied title or property can't exclude a real product line.
   const coverageLines = buildCoverageLines(
-    (order.line_items as WebhookLineItem[] | undefined) ?? [],
-    isProtectionLine,
+    orderLines,
+    (line) => line === protectionLine,
     maxEligible,
   );
   const merchandiseCents = coveredMerchandiseCents(coverageLines);
@@ -77,6 +135,10 @@ export async function recordProtectionSelection(
       coveredMerchandiseCents: merchandiseCents,
       currency,
       customerSelected,
+      // Protection is present again on a paid order, so any earlier revocation
+      // no longer applies (e.g. refunded, then re-purchased via an offer).
+      revokedAt: null,
+      revokedReason: null,
     },
     create: {
       shop,

@@ -25,16 +25,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const totalPrice = (data.total_price as string | null) ?? null;
 
   // Extract shipped_at (updated when fulfillment is delivered)
+  // Ship date comes from when fulfillments were *created*, never when they
+  // were last updated. Keying on updated_at meant any later edit to an
+  // existing fulfillment — adding tracking, a status change — pushed the date
+  // forward and silently restarted the claim window. created_at is also what
+  // order-sync and order-bulk-sync use, so all three paths now agree.
   let shippedAt: string | null = null;
   const fulfillments =
     (data.fulfillments as Array<Record<string, unknown>>) ?? [];
   if (fulfillments.length > 0) {
-    const mostRecent = fulfillments.sort((a, b) => {
-      const aDate = new Date(a.updated_at as string).getTime();
-      const bDate = new Date(b.updated_at as string).getTime();
-      return bDate - aDate;
-    })[0];
-    shippedAt = (mostRecent?.updated_at as string) ?? null;
+    shippedAt =
+      fulfillments
+        .map((fulfillment) => fulfillment.created_at)
+        .filter((createdAt): createdAt is string => Boolean(createdAt))
+        .sort()
+        .at(-1) ?? null;
   }
 
   try {
