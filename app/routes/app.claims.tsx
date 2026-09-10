@@ -201,21 +201,61 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   const note = formData.get("decisionNote");
+  const decisionNote =
+    note !== null && String(note).trim() !== ""
+      ? String(note).trim().slice(0, 2000)
+      : undefined;
+
+  // Who decided. Identity is only present on online sessions, via
+  // onlineAccessInfo.associated_user; this app authenticates with offline
+  // tokens, so it is recorded when available and left null otherwise rather
+  // than attributed to the wrong person.
+  const isDecision = TERMINAL_STATUSES.includes(status);
+  const actor = session.onlineAccessInfo?.associated_user;
+  const decidedByUserId = actor?.id != null ? String(actor.id) : null;
+  const decidedByName =
+    [actor?.first_name, actor?.last_name].filter(Boolean).join(" ") ||
+    actor?.email ||
+    null;
 
   await db.protectionClaim.updateMany({
     where: { id: claimId, shop: session.shop },
     data: {
       status,
       ...(settlementCents !== undefined ? { settlementCents } : {}),
-      ...(note !== null && String(note).trim() !== ""
-        ? { decisionNote: String(note).trim().slice(0, 2000) }
-        : {}),
-      resolvedAt:
-        TERMINAL_STATUSES.includes(status) && !existing?.resolvedAt
-          ? new Date()
-          : undefined,
+      ...(decisionNote !== undefined ? { decisionNote } : {}),
+      ...(isDecision ? { decidedByUserId, decidedByName } : {}),
+      resolvedAt: isDecision && !existing?.resolvedAt ? new Date() : undefined,
     },
   });
+
+  // Audit trail. Every status change is recorded — approvals and denials carry
+  // money and are emailed to the customer, so the decision needs to be
+  // reconstructable after the fact.
+  if (existing && existing.status !== status) {
+    await db.auditLog.create({
+      data: {
+        shop: session.shop,
+        action: isDecision ? "claim_decision" : "claim_status_updated",
+        userId: decidedByUserId,
+        resource: `claim:${claimId}`,
+        oldValue: {
+          status: existing.status,
+          settlementCents: existing.settlementCents,
+        },
+        newValue: {
+          status,
+          settlementCents:
+            settlementCents !== undefined
+              ? settlementCents
+              : existing.settlementCents,
+          eligibleLossCents: existing.eligibleLossCents,
+          decidedByName,
+          ...(decisionNote !== undefined ? { decisionNote } : {}),
+        },
+      },
+    });
+  }
 
   if (existing && existing.status !== status) {
     await notifyClaimStatusChanged({

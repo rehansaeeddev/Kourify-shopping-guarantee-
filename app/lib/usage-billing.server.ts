@@ -11,8 +11,20 @@ export async function billUsageEvent(
   eventId: string,
   admin: AdminGraphqlClient,
 ) {
-  const event = await db.usageEvent.findUnique({ where: { id: eventId } });
+  const event = await db.usageEvent.findUnique({
+    where: { id: eventId },
+    include: { protectedOrder: { select: { revokedAt: true } } },
+  });
   if (!event || event.status !== "pending" || event.amountCents <= 0) return;
+  // Coverage was reversed between the event being queued and this run — don't
+  // bill a merchant for protection that no longer stands.
+  if (event.protectedOrder?.revokedAt) {
+    await db.usageEvent.update({
+      where: { id: event.id },
+      data: { status: "reversed" },
+    });
+    return;
+  }
 
   try {
     const subscriptionResponse = await admin.graphql(`#graphql
@@ -22,7 +34,14 @@ export async function billUsageEvent(
             name
             lineItems {
               id
-              plan { pricingDetails { ... on AppUsagePricing { terms } } }
+              plan {
+                pricingDetails {
+                  ... on AppUsagePricing {
+                    terms
+                    cappedAmount { currencyCode }
+                  }
+                }
+              }
             }
           }
         }
@@ -37,6 +56,12 @@ export async function billUsageEvent(
           Boolean(line.plan?.pricingDetails?.terms),
       );
     if (!usageLine) return;
+
+    // A usage charge must be in the subscription's own currency. Hardcoding
+    // USD mis-stated the amount for any merchant billed in something else, so
+    // take it from the plan and only fall back to USD when Shopify omits it.
+    const subscriptionCurrency: string =
+      usageLine.plan?.pricingDetails?.cappedAmount?.currencyCode ?? "USD";
 
     const response = await admin.graphql(
       `#graphql
@@ -60,7 +85,10 @@ export async function billUsageEvent(
       {
         variables: {
           description: "Kourify protected order",
-          price: { amount: event.amountCents / 100, currencyCode: "USD" },
+          price: {
+            amount: event.amountCents / 100,
+            currencyCode: subscriptionCurrency,
+          },
           subscriptionLineItemId: usageLine.id,
           idempotencyKey: event.id,
         },

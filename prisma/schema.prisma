@@ -86,6 +86,11 @@ model ProtectedOrder {
   maxEligibleItemValueCents Int?
   currency             String
   customerSelected     Boolean  @default(true)
+  // Set when the underlying protection purchase is legitimately reversed —
+  // the protection line refunded, or the order cancelled. Coverage is revoked
+  // rather than deleted so the history stays auditable, and claims check it.
+  revokedAt            DateTime?
+  revokedReason        String? // protection_refunded | order_cancelled | order_refunded
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
   usageEvents           UsageEvent[]
@@ -164,6 +169,11 @@ model ProtectionClaim {
   // null on denied or still-open claims. Kourify never sets this on its own.
   settlementCents   Int?
   decisionNote      String? @db.Text
+  // Who approved or denied, captured from the authenticated admin session at
+  // decision time. Null for claims decided before this was recorded, or where
+  // the session carries no user identity (offline tokens).
+  decidedByUserId   String?
+  decidedByName     String?
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
