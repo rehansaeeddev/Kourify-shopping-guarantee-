@@ -14,8 +14,9 @@
   --status-critical: #8a3524;
   --radius: 8px;
   --radius-lg: 10px;
-  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    Helvetica, Arial, sans-serif;
+  --font:
+    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
 }
 
 /* Inter for the custom (non-Polaris) UI. Polaris web components style
@@ -293,7 +294,9 @@ body {
   overflow: hidden;
   text-decoration: none;
   color: inherit;
-  transition: background 0.12s ease, border-color 0.12s ease;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
 }
 
 .app-stat-tile__top {
@@ -419,17 +422,10 @@ body {
   text-decoration: underline;
 }
 
-
-
-
-
-
 .app-guide__list,
-
 .app-guide__list li {
   margin: 0.35rem 0;
 }
-
 
 .app-guide s-banner {
   margin-top: 0.9rem;
@@ -774,7 +770,6 @@ body {
   margin-inline-start: auto;
 }
 
-
 .app-feature__head {
   display: flex;
   flex-direction: column;
@@ -953,7 +948,9 @@ button.app-tab {
   font-size: 0.8125rem;
   font-weight: 500;
   cursor: help;
-  transition: background 0.12s ease, border-color 0.12s ease;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
 }
 
 .app-infotip__trigger:hover {
@@ -992,7 +989,10 @@ button.app-tab {
   opacity: 0;
   visibility: hidden;
   transform: translateY(-4px);
-  transition: opacity 0.12s ease, transform 0.12s ease, visibility 0.12s;
+  transition:
+    opacity 0.12s ease,
+    transform 0.12s ease,
+    visibility 0.12s;
 }
 
 .app-infotip:hover .app-infotip__bubble,
@@ -1108,7 +1108,9 @@ button.app-tab {
   background: var(--color-card);
   font-family: inherit;
   cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease,
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
     background 0.15s ease;
 }
 
@@ -1190,9 +1192,6 @@ button.app-tab {
 }
 
 /* ---- Pricing: merchant-pays summary ---- */
-
-
-
 
 @media (max-width: 640px) {
   .app-payer-grid {
@@ -1753,7 +1752,11 @@ button.app-tab {
 .app-plans__card--featured,
 .app-plans__card--current {
   border-color: var(--tier);
-  background: linear-gradient(180deg, var(--tier-soft) 0%, var(--color-card) 62%);
+  background: linear-gradient(
+    180deg,
+    var(--tier-soft) 0%,
+    var(--color-card) 62%
+  );
 }
 
 .app-plans__card--featured {
@@ -1826,4 +1829,209 @@ button.app-tab {
 .app-plans__card--featured .app-plans__name,
 .app-plans__card--current .app-plans__name {
   padding-right: 7rem;
+}
+
+/* ---- Translation editor ------------------------------------------------
+   Tabs group ~60 string fields, but every field stays mounted: the save
+   action rebuilds the whole `strings` blob from the submitted form, so a
+   field that isn't in the DOM would be deleted rather than left alone. The
+   inactive panels are hidden, not unmounted — hidden inputs still submit. */
+
+.app-tr-panel[hidden] {
+  display: none !important;
+}
+
+.app-tr-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.app-tr-bar__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  font-size: 0.8125rem;
+}
+
+.app-tr-bar__label {
+  color: var(--color-muted);
+}
+
+.app-tr-bar__value {
+  font-weight: 600;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.app-tr-bar__track {
+  height: 7px;
+  border-radius: 999px;
+  background: var(--color-segmented-bg);
+  overflow: hidden;
+}
+
+.app-tr-bar__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-accent);
+  transition: width 0.4s ease;
+}
+
+.app-tr-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding-bottom: 0.9rem;
+  margin-bottom: 1.1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.app-tr-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-card);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-muted);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.app-tr-tab:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent-dark);
+}
+
+.app-tr-tab[aria-selected="true"] {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-white);
+}
+
+.app-tr-tab:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* How many strings in this group still fall back to English. */
+.app-tr-tab__count {
+  min-width: 1.25rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: #fdf0d5;
+  color: #8a6116;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.app-tr-tab__count--done {
+  background: var(--color-accent-light);
+  color: var(--color-accent-dark);
+}
+
+.app-tr-tab[aria-selected="true"] .app-tr-tab__count {
+  background: rgb(255 255 255 / 0.22);
+  color: var(--color-white);
+}
+
+.app-tr-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.app-tr-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding-left: 0.75rem;
+  border-left: 3px solid var(--color-border);
+  transition: border-color 0.2s ease;
+}
+
+.app-tr-field--done {
+  border-left-color: var(--color-accent);
+}
+
+.app-tr-field__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.app-tr-key {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 0.75rem;
+  color: var(--color-accent-dark);
+  background: var(--color-accent-light);
+  padding: 0.05rem 0.35rem;
+  border-radius: 4px;
+}
+
+.app-tr-en {
+  font-size: 0.8125rem;
+  color: var(--color-muted);
+  min-width: 0;
+}
+
+.app-tr-input {
+  max-inline-size: 560px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-tr-bar__fill,
+  .app-tr-tab,
+  .app-tr-field {
+    transition: none;
+  }
+}
+
+/* The <form> has to wrap both cards so they submit together, and that wrapper
+   costs them the spacing s-page gives sections everywhere else. A flex gap on
+   the form didn't reach s-section, and display:contents didn't either —
+   s-page adds no gap of its own. So the margin goes straight on the sections,
+   which is the one thing nothing here can swallow. */
+
+/* Save sits at the trailing edge, where the eye lands after the last field.
+   Logical property so it follows the admin's own direction, not the language
+   being edited. */
+.app-tr-save {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+/* Display name and Direction share a line — two short fields stacked made the
+   panel taller than its contents warranted. */
+.app-lang-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+}
+
+.app-lang-row__name {
+  flex: 1 1 240px;
+  max-inline-size: 320px;
+}
+
+.app-lang-row__dir {
+  flex: 0 1 200px;
 }
