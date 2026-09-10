@@ -251,9 +251,10 @@ export default function OrderSync() {
           ) : null}
           <syncFetcher.Form method="post">
             <input type="hidden" name="intent" value="sync" />
-            <AppButton
+            <s-button
               type="submit"
               variant="primary"
+              loading={syncing}
               disabled={syncing || !orderSyncEnabled}
             >
               {!orderSyncEnabled
@@ -261,7 +262,7 @@ export default function OrderSync() {
                 : syncing
                   ? "Sync running…"
                   : "Sync orders now"}
-            </AppButton>
+            </s-button>
           </syncFetcher.Form>
         </s-stack>
       </Card>

@@ -262,6 +262,7 @@ export default function Translations() {
             <s-stack direction="inline">
               <s-button
                 variant="primary"
+                loading={fetcher.state !== "idle"}
                 disabled={fetcher.state !== "idle"}
                 onClick={() =>
                   fetcher.submit(
@@ -309,6 +310,7 @@ export default function Translations() {
                   <s-button
                     type="submit"
                     variant="primary"
+                    loading={fetcher.state !== "idle"}
                     disabled={fetcher.state !== "idle"}
                     onClick={() => setRenaming(null)}
                   >
@@ -369,6 +371,7 @@ export default function Translations() {
                         </s-button>
                         <s-button
                           variant="secondary"
+                          loading={fetcher.state !== "idle"}
                           disabled={fetcher.state !== "idle"}
                           onClick={() =>
                             fetcher.submit(
@@ -386,6 +389,7 @@ export default function Translations() {
                         {lang.locale !== fallback ? (
                           <s-button
                             variant="secondary"
+                            loading={fetcher.state !== "idle"}
                             disabled={fetcher.state !== "idle"}
                             onClick={() =>
                               fetcher.submit(
@@ -400,6 +404,7 @@ export default function Translations() {
                         {lang.locale !== fallback ? (
                           <s-button
                             variant="secondary"
+                            loading={fetcher.state !== "idle"}
                             disabled={fetcher.state !== "idle"}
                             onClick={() => {
                               if (
@@ -480,6 +485,7 @@ function AddLanguage({
             <s-button
               type="submit"
               variant="primary"
+              loading={fetcher.state !== "idle"}
               disabled={fetcher.state !== "idle"}
             >
               Add language
@@ -672,6 +678,7 @@ function LanguageEditor({
             <s-button
               type="submit"
               variant="primary"
+              loading={fetcher.state !== "idle"}
               disabled={fetcher.state !== "idle"}
             >
               Save translations

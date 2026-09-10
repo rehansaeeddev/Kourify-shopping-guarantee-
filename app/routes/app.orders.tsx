@@ -650,6 +650,7 @@ export default function Orders() {
                           ) ? (
                             <AppButton
                               variant="primary"
+                              loading={offerFetcher.state !== "idle"}
                               disabled={offerFetcher.state !== "idle"}
                               onClick={() =>
                                 offerFetcher.submit(
