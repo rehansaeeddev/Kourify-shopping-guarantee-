@@ -4,6 +4,33 @@ import {
   coveredMerchandiseCents,
   type OrderLine,
 } from "./coverage.server";
+import {
+  planAllowsCustomerPays,
+  planProtectedOrderLimit,
+  planWaivesUsageFee,
+  type PlanId,
+} from "./plans";
+
+/**
+ * Serializable transactions can abort on a lock conflict or deadlock when two
+ * webhooks contend for the last slot. That's the isolation level doing its
+ * job — one caller retries and then correctly sees the slot as taken.
+ */
+async function withSerializableRetry<T>(
+  run: () => Promise<T>,
+  attempts = 3,
+): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      return await run();
+    } catch (error) {
+      lastError = error;
+      await new Promise((resolve) => setTimeout(resolve, 25 * (attempt + 1)));
+    }
+  }
+  throw lastError;
+}
 
 type WebhookLineItem = OrderLine;
 
@@ -101,6 +128,9 @@ export async function recordProtectionSelection(
     return null;
   }
 
+  const plan = (settings?.plan ?? "basic") as PlanId;
+  const limit = planProtectedOrderLimit(plan);
+
   const customerSelected = Boolean(protectionLine);
   // Protection is sold once per order — the storefront always adds quantity 1.
   // Recording price × quantity let an order edit (or a modified cart call)
@@ -109,6 +139,21 @@ export async function recordProtectionSelection(
   const priceCents = protectionLine
     ? Math.max(0, Math.round(Number(protectionLine.price ?? 0) * 100))
     : 0; // merchant-pays: no customer-facing charge
+
+  // Did the shopper actually pay for this protection?
+  const customerPaidForProtection = customerSelected && priceCents > 0;
+
+  // A capped plan is merchant-pays only, and its protection variant is priced
+  // at 0 and its id withheld from the storefront — so a paid line should be
+  // impossible here. If one arrives anyway (variant price edited by hand in
+  // Shopify, or an order placed before a plan change), the money has already
+  // been taken and the coverage is honoured below. Log it loudly: it means a
+  // guard upstream didn't hold, not that this order is unusual.
+  if (customerPaidForProtection && !planAllowsCustomerPays(plan)) {
+    console.warn(
+      `[kourify] ${shop}: customer-paid protection on plan "${plan}", which should be merchant-pays only. Order ${orderId}, ${priceCents} cents. Honouring the charge — check the protection variant's price.`,
+    );
+  }
 
   const currency = String(order.currency ?? settings?.currency ?? "USD");
 
@@ -127,30 +172,68 @@ export async function recordProtectionSelection(
   );
   const merchandiseCents = coveredMerchandiseCents(coverageLines);
 
-  const protectedOrder = await db.protectedOrder.upsert({
-    where: { shop_shopifyOrderId: { shop, shopifyOrderId: orderId } },
-    update: {
-      shopifyOrderName: String(order.name ?? ""),
-      protectionPriceCents: priceCents,
-      coveredMerchandiseCents: merchandiseCents,
-      currency,
-      customerSelected,
-      // Protection is present again on a paid order, so any earlier revocation
-      // no longer applies (e.g. refunded, then re-purchased via an offer).
-      revokedAt: null,
-      revokedReason: null,
-    },
-    create: {
-      shop,
-      shopifyOrderId: orderId,
-      shopifyOrderName: String(order.name ?? ""),
-      protectionPriceCents: priceCents,
-      coveredMerchandiseCents: merchandiseCents,
-      maxEligibleItemValueCents: maxEligible,
-      currency,
-      customerSelected,
-    },
-  });
+  // Allowance claim and row creation happen together, inside one serializable
+  // transaction, so two concurrent webhooks can't both read the same free slot
+  // and both insert. Reading the count and inserting separately — even
+  // milliseconds apart — is exactly the read-then-write race this replaces.
+  //
+  // The claim only gates coverage nobody paid for. Protection a customer has
+  // already been charged for is always honoured: Shopify offers no hook to
+  // stop that charge, so refusing here would take their money and give nothing
+  // back. Capped plans are merchant-pays only (planAllowsCustomerPays), so in
+  // practice this only fires for carts that predate a plan or payer change.
+  const protectedOrder = await withSerializableRetry(() =>
+    db.$transaction(
+      async (tx) => {
+        const existing = await tx.protectedOrder.findUnique({
+          where: { shop_shopifyOrderId: { shop, shopifyOrderId: orderId } },
+          select: { id: true },
+        });
+
+        // Idempotency: an order that already holds a slot never consumes a
+        // second one, however many times the webhook is replayed.
+        if (!existing && limit !== null && !customerPaidForProtection) {
+          const used = await tx.protectedOrder.count({
+            where: { shop, revokedAt: null },
+          });
+          if (used >= limit) return null;
+        }
+
+        return tx.protectedOrder.upsert({
+          where: { shop_shopifyOrderId: { shop, shopifyOrderId: orderId } },
+          update: {
+            shopifyOrderName: String(order.name ?? ""),
+            protectionPriceCents: priceCents,
+            coveredMerchandiseCents: merchandiseCents,
+            currency,
+            customerSelected,
+            // Protection is present again on a paid order, so any earlier
+            // revocation no longer applies (refunded, then re-purchased).
+            revokedAt: null,
+            revokedReason: null,
+          },
+          create: {
+            shop,
+            shopifyOrderId: orderId,
+            shopifyOrderName: String(order.name ?? ""),
+            protectionPriceCents: priceCents,
+            coveredMerchandiseCents: merchandiseCents,
+            maxEligibleItemValueCents: maxEligible,
+            currency,
+            customerSelected,
+          },
+        });
+      },
+      { isolationLevel: "Serializable" },
+    ),
+  );
+
+  if (!protectedOrder) {
+    console.log(
+      `[kourify] ${shop} is at its ${plan} allowance (${limit}); ${orderId} not protected (no customer charge to honour).`,
+    );
+    return null;
+  }
 
   // Upsert per line so a re-delivered or late webhook refreshes values without
   // duplicating rows or orphaning a claim that already points at an item.
@@ -200,8 +283,11 @@ export async function recordProtectionSelection(
     create: {
       shop,
       protectedOrderId: protectedOrder.id,
-      amountCents: settings?.plan === "unlimited" ? 0 : 60,
-      status: settings?.plan === "unlimited" ? "waived" : "pending",
+      // Basic is free and both Unlimited plans are flat-rate, so the per-order
+      // fee only applies on Usage. The event is still written on waived plans
+      // so protected-order history stays complete.
+      amountCents: planWaivesUsageFee(plan) ? 0 : 60,
+      status: planWaivesUsageFee(plan) ? "waived" : "pending",
     },
   });
 }

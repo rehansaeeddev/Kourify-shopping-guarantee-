@@ -1,10 +1,27 @@
-import { authenticate, USAGE_PLAN, UNLIMITED_PLAN } from "../shopify.server";
+import {
+  authenticate,
+  USAGE_PLAN,
+  UNLIMITED_PLAN,
+  UNLIMITED_ANNUAL_PLAN,
+} from "../shopify.server";
+import type { PlanId } from "./plans";
 
 type Billing = Awaited<ReturnType<typeof authenticate.admin>>["billing"];
 
+export type { PlanId } from "./plans";
+
 export type BillingState = {
+  /** True only for a real paid subscription. Basic is free, so this is false. */
   hasActiveBilling: boolean;
-  activePlan: "usage" | "unlimited" | null;
+  activePlan: PlanId;
+  /** Needed to cancel the paid plan when downgrading back to Basic. */
+  activeSubscriptionId: string | null;
+};
+
+const PLAN_BY_NAME: Record<string, PlanId> = {
+  [USAGE_PLAN]: "usage",
+  [UNLIMITED_PLAN]: "unlimited",
+  [UNLIMITED_ANNUAL_PLAN]: "unlimited_annual",
 };
 
 /**
@@ -26,11 +43,14 @@ export async function getBillingState(
   isTest = isBillingTest(),
 ): Promise<BillingState> {
   const state = await billing.check({
-    plans: [USAGE_PLAN, UNLIMITED_PLAN],
+    plans: [USAGE_PLAN, UNLIMITED_PLAN, UNLIMITED_ANNUAL_PLAN],
     isTest,
   });
-  const activeName = state.appSubscriptions[0]?.name;
-  const activePlan =
-    activeName === UNLIMITED_PLAN ? "unlimited" : activeName === USAGE_PLAN ? "usage" : null;
-  return { hasActiveBilling: state.hasActivePayment, activePlan };
+  const active = state.appSubscriptions[0];
+  const activePlan = PLAN_BY_NAME[active?.name ?? ""] ?? "basic";
+  return {
+    hasActiveBilling: state.hasActivePayment,
+    activePlan,
+    activeSubscriptionId: active?.id ?? null,
+  };
 }
