@@ -145,7 +145,33 @@
     }
   }
 
+  // Renders the merchant's configured eligibility ceiling, or nothing at all
+  // when none is set. Never invents a figure: the note is only shown when the
+  // backend actually has a ceiling to enforce.
+  function applyCoverageNote(settings) {
+    var maxCents = settings.maxEligibleItemValueCents;
+    document
+      .querySelectorAll("[data-kourify-coverage-note]")
+      .forEach(function (note) {
+        if (maxCents == null || Number(maxCents) <= 0) {
+          note.textContent = "";
+          note.hidden = true;
+          return;
+        }
+        var container = note.closest(".kourify-protection");
+        var currency = container
+          ? container.getAttribute("data-currency")
+          : null;
+        note.textContent = translation(
+          "coverage-up-to",
+          "Covers items up to {{ amount }} each.",
+        ).replace("{{ amount }}", formatMoney(Number(maxCents), currency));
+        note.hidden = false;
+      });
+  }
+
   function applyPayerState(settings) {
+    applyCoverageNote(settings);
     var merchantPays = settings.protectionPayer === "merchant";
     document
       .querySelectorAll(".kourify-protection")

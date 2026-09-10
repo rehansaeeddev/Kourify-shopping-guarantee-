@@ -155,7 +155,7 @@ export default function Index() {
       ? "Free for customers"
       : settings.protectionFeeType === "percentage"
         ? `${(settings.protectionPercentBasisPoints / 100).toFixed(1)}% of order`
-        : `$${(settings.protectionFlatFeeCents / 100).toFixed(2)} flat fee`;
+        : `$${(settings.protectionFlatFeeCents / 100).toFixed(2)} per order`;
 
   const protectionStatus = !hasActiveBilling
     ? { tone: "warning" as const, value: "Locked", sub: "Choose a plan" }

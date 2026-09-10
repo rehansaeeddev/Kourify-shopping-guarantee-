@@ -1,12 +1,11 @@
 import db from "../db.server";
+import {
+  buildCoverageLines,
+  coveredMerchandiseCents,
+  type OrderLine,
+} from "./coverage.server";
 
-type WebhookLineItem = {
-  title?: string;
-  quantity?: number;
-  price?: string;
-  properties?:
-    Array<{ name?: string; value?: string }> | Record<string, string>;
-};
+type WebhookLineItem = OrderLine;
 
 function isProtectionLine(line: WebhookLineItem): boolean {
   if (line.title === "Kourify Order Protection") return true;
@@ -57,11 +56,25 @@ export async function recordProtectionSelection(
     : 0; // merchant-pays: no customer-facing charge
 
   const currency = String(order.currency ?? settings?.currency ?? "USD");
+
+  // Item-level coverage. Each merchandise line is measured against the
+  // merchant's eligibility ceiling as it stands right now; the ceiling is
+  // snapshotted onto the order so a later settings change can't retroactively
+  // widen or narrow coverage that has already been sold.
+  const maxEligible = settings?.maxEligibleItemValueCents ?? null;
+  const coverageLines = buildCoverageLines(
+    (order.line_items as WebhookLineItem[] | undefined) ?? [],
+    isProtectionLine,
+    maxEligible,
+  );
+  const merchandiseCents = coveredMerchandiseCents(coverageLines);
+
   const protectedOrder = await db.protectedOrder.upsert({
     where: { shop_shopifyOrderId: { shop, shopifyOrderId: orderId } },
     update: {
       shopifyOrderName: String(order.name ?? ""),
       protectionPriceCents: priceCents,
+      coveredMerchandiseCents: merchandiseCents,
       currency,
       customerSelected,
     },
@@ -70,10 +83,44 @@ export async function recordProtectionSelection(
       shopifyOrderId: orderId,
       shopifyOrderName: String(order.name ?? ""),
       protectionPriceCents: priceCents,
+      coveredMerchandiseCents: merchandiseCents,
+      maxEligibleItemValueCents: maxEligible,
       currency,
       customerSelected,
     },
   });
+
+  // Upsert per line so a re-delivered or late webhook refreshes values without
+  // duplicating rows or orphaning a claim that already points at an item.
+  for (const line of coverageLines) {
+    await db.protectedOrderItem.upsert({
+      where: {
+        protectedOrderId_lineItemId: {
+          protectedOrderId: protectedOrder.id,
+          lineItemId: line.lineItemId,
+        },
+      },
+      update: {
+        title: line.title,
+        variantId: line.variantId,
+        sku: line.sku,
+        quantity: line.quantity,
+        unitPriceCents: line.unitPriceCents,
+        eligible: line.eligible,
+      },
+      create: {
+        shop,
+        protectedOrderId: protectedOrder.id,
+        lineItemId: line.lineItemId,
+        title: line.title,
+        variantId: line.variantId,
+        sku: line.sku,
+        quantity: line.quantity,
+        unitPriceCents: line.unitPriceCents,
+        eligible: line.eligible,
+      },
+    });
+  }
 
   await db.protectionOffer.updateMany({
     where: { shop, originalOrderId: orderId, status: "awaiting_payment" },

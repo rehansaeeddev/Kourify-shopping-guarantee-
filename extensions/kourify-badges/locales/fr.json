@@ -13,10 +13,14 @@
     "modal_terms": "La protection est facultative et gérée directement par Kourify, et non par la boutique.",
     "update_error": "Impossible de mettre à jour la protection. Veuillez réessayer.",
     "safe_checkout": "Paiement sécurisé garanti",
-    "coverage_up_to": "Disponible pour les commandes jusqu'à {{ amount }}."
+    "coverage_up_to": "Couvre les articles jusqu'à {{ amount }} chacun."
   },
   "ratings": {
-    "stars": { "label": "Évaluations" },
-    "home": { "recommendationText": "Produit recommandé !" }
+    "stars": {
+      "label": "Évaluations"
+    },
+    "home": {
+      "recommendationText": "Produit recommandé !"
+    }
   }
 }

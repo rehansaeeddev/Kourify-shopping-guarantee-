@@ -5,12 +5,15 @@
  */
 export function Sparkline({
   values,
-  width = 96,
-  height = 28,
+  width = 88,
+  height = 22,
+  label = "Trend over the last 14 days",
 }: {
   values: number[];
   width?: number;
   height?: number;
+  /** Describes what the line plots, for screen readers. */
+  label?: string;
 }) {
   if (values.length < 2) return null;
   const max = Math.max(...values, 1);
@@ -27,7 +30,7 @@ export function Sparkline({
       height={height}
       viewBox={`0 0 ${width} ${height}`}
       role="img"
-      aria-label="Claims filed over the last 14 days"
+      aria-label={label}
     >
       <polyline
         points={points.join(" ")}

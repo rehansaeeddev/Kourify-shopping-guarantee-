@@ -13,7 +13,7 @@
     "modal_terms": "Protection is optional and is managed directly by Kourify, not the store.",
     "update_error": "Couldn't update protection — please try again.",
     "safe_checkout": "Guaranteed Safe Checkout",
-    "coverage_up_to": "Available for orders up to {{ amount }}."
+    "coverage_up_to": "Covers items up to {{ amount }} each."
   },
   "ratings": {
     "stars": {

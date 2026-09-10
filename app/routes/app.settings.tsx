@@ -154,6 +154,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         Math.round(Number(formData.get("protectionMaxFeeCents")) || 0),
       )
     : current.protectionMaxFeeCents;
+  // Coverage eligibility ceiling. An empty field clears it back to "no ceiling"
+  // rather than falling back to some implied amount — there is no default
+  // monetary threshold anywhere in this app.
+  const rawMaxEligible = formData.get("maxEligibleItemValueCents");
+  const maxEligibleItemValueCents = hasActiveBilling
+    ? rawMaxEligible === null || String(rawMaxEligible).trim() === ""
+      ? null
+      : Math.max(0, Math.round(Number(rawMaxEligible) || 0)) || null
+    : current.maxEligibleItemValueCents;
   const protectionEnabled = hasActiveBilling
     ? formData.get("protectionEnabled") === "true"
     : current.protectionEnabled;
@@ -184,6 +193,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       protectionPercentBasisPoints,
       protectionMinFeeCents,
       protectionMaxFeeCents,
+      maxEligibleItemValueCents,
       protectionEnabled,
       plan,
     },
@@ -264,6 +274,8 @@ export default function Settings() {
     protectionPercentBasisPoints?: number;
     protectionMinFeeCents?: number;
     protectionMaxFeeCents?: number;
+    /** null clears the ceiling — no monetary default is substituted. */
+    maxEligibleItemValueCents?: number | null;
     protectionEnabled?: boolean;
     plan?: string;
   }) => {
@@ -294,6 +306,13 @@ export default function Settings() {
           overrides.protectionMaxFeeCents ??
             currentSettings.protectionMaxFeeCents,
         ),
+        maxEligibleItemValueCents: (() => {
+          const next =
+            overrides.maxEligibleItemValueCents !== undefined
+              ? overrides.maxEligibleItemValueCents
+              : currentSettings.maxEligibleItemValueCents;
+          return next == null ? "" : String(next);
+        })(),
         protectionEnabled: String(
           overrides.protectionEnabled ?? currentSettings.protectionEnabled,
         ),
@@ -510,7 +529,7 @@ export default function Settings() {
                           })
                         }
                       >
-                        <s-option value="flat">Flat fee</s-option>
+                        <s-option value="flat">Flat fee per order</s-option>
                         <s-option value="percentage">
                           Percentage of order
                         </s-option>
@@ -525,10 +544,15 @@ export default function Settings() {
                       alignItems="center"
                       justifyContent="space-between"
                     >
-                      <s-text>Flat fee</s-text>
+                      <s-stack direction="block" gap="small-100">
+                        <s-text>Flat fee per order</s-text>
+                        <s-text color="subdued">
+                          Charged once per order, whatever the item count.
+                        </s-text>
+                      </s-stack>
                       <div style={{ inlineSize: "140px", flex: "0 0 auto" }}>
                         <s-number-field
-                          label="Flat fee"
+                          label="Flat fee per order"
                           labelAccessibilityVisibility="exclusive"
                           prefix="$"
                           min={0}
@@ -637,6 +661,62 @@ export default function Settings() {
                   )}
                 </>
               )}
+            </s-stack>
+          </Card>
+
+          <Card heading="Coverage eligibility">
+            <s-paragraph>
+              The most a single item can be worth and still be covered. Items
+              priced above this are not protected and cannot be claimed. This is
+              separate from what you charge for protection — the protection
+              price is not the coverage amount.
+            </s-paragraph>
+            <s-stack direction="block" gap="base" paddingBlockStart="base">
+              <s-stack
+                direction="inline"
+                gap="base"
+                alignItems="center"
+                justifyContent="space-between"
+              >
+                <s-stack direction="block" gap="small-100">
+                  <s-text>Maximum eligible item value</s-text>
+                  <s-text color="subdued">
+                    Per item, before shipping and tax. Leave empty for no limit.
+                  </s-text>
+                </s-stack>
+                <div style={{ inlineSize: "160px", flex: "0 0 auto" }}>
+                  <s-number-field
+                    label="Maximum eligible item value"
+                    labelAccessibilityVisibility="exclusive"
+                    prefix="$"
+                    min={0}
+                    step={0.01}
+                    placeholder="No limit"
+                    value={
+                      currentSettings.maxEligibleItemValueCents == null
+                        ? ""
+                        : (
+                            currentSettings.maxEligibleItemValueCents / 100
+                          ).toFixed(2)
+                    }
+                    onChange={(e) => {
+                      const raw = e.currentTarget.value;
+                      saveSettings({
+                        maxEligibleItemValueCents:
+                          raw === "" || raw == null
+                            ? null
+                            : Math.round(Number(raw) * 100) || null,
+                      });
+                    }}
+                  />
+                </div>
+              </s-stack>
+
+              <s-banner tone="info">
+                {currentSettings.maxEligibleItemValueCents == null
+                  ? "No limit set — every item on a protected order is eligible, whatever it costs."
+                  : `An item costing exactly $${(currentSettings.maxEligibleItemValueCents / 100).toFixed(2)} is eligible; anything above it is not. Eligibility is recorded when the order is paid, so changing this later won't alter orders already protected.`}
+              </s-banner>
             </s-stack>
           </Card>
 

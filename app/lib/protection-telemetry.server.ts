@@ -83,18 +83,46 @@ export async function getClaimsTrend(shop: string): Promise<ClaimsTrend> {
     select: { createdAt: true },
   });
 
-  const dailyCounts = Array.from({ length: 14 }, () => 0);
-  const now = Date.now();
-  for (const claim of claims) {
-    const daysAgo = Math.floor(
-      (now - claim.createdAt.getTime()) / (1000 * 60 * 60 * 24),
-    );
-    const index = 13 - daysAgo;
-    if (index >= 0 && index < 14) dailyCounts[index]!++;
-  }
+  const dailyCounts = bucketByDay(claims.map((claim) => claim.createdAt));
 
   const last7Count = dailyCounts.slice(7).reduce((a, b) => a + b, 0);
   const previous7Count = dailyCounts.slice(0, 7).reduce((a, b) => a + b, 0);
 
   return { dailyCounts, last7Count, previous7Count };
+}
+
+/** Buckets timestamps into one count per day, oldest first, over `days`. */
+function bucketByDay(dates: Date[], days = 14): number[] {
+  const counts = Array.from({ length: days }, () => 0);
+  const now = Date.now();
+  for (const date of dates) {
+    const daysAgo = Math.floor(
+      (now - date.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    const index = days - 1 - daysAgo;
+    if (index >= 0 && index < days) counts[index]!++;
+  }
+  return counts;
+}
+
+/**
+ * Claims *resolved* per day over the last 14 days — bucketed on resolvedAt,
+ * not createdAt, so the line tracks review throughput rather than inbound
+ * volume.
+ */
+export async function getResolvedClaimsTrend(shop: string): Promise<number[]> {
+  const since = new Date();
+  since.setDate(since.getDate() - 14);
+  since.setHours(0, 0, 0, 0);
+
+  const claims = await db.protectionClaim.findMany({
+    where: { shop, resolvedAt: { gte: since } },
+    select: { resolvedAt: true },
+  });
+
+  return bucketByDay(
+    claims
+      .map((claim) => claim.resolvedAt)
+      .filter((date): date is Date => date !== null),
+  );
 }
