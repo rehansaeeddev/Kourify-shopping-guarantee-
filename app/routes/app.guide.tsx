@@ -1,38 +1,95 @@
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { Link, useRouteError } from "react-router";
+import { Link, useLoaderData, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 
 import { authenticate } from "../shopify.server";
+import db from "../db.server";
 import { PageHeader } from "../components/PageHeader";
 import { Card } from "../components/Card";
 import { AppButton } from "../components/AppButton";
+import { getBillingState } from "../lib/billing-state.server";
+import { getProtectionQuota } from "../lib/plan-limits.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  // Guide is informational, but still behind app auth like every other page.
-  await authenticate.admin(request);
-  return null;
+  const { session, billing } = await authenticate.admin(request);
+
+  // Help is state-aware, so it reads the same signals the rest of the app
+  // does rather than describing a generic setup that may not apply.
+  const settings = await db.merchantSettings.findUnique({
+    where: { shop: session.shop },
+  });
+  const { hasActiveBilling, activePlan } = await getBillingState(billing);
+  const quota = await getProtectionQuota(session.shop, activePlan);
+  const openClaims = await db.protectionClaim.count({
+    where: { shop: session.shop, status: { in: ["submitted", "reviewing"] } },
+  });
+
+  return {
+    protectionEnabled: Boolean(settings?.protectionEnabled),
+    badgesEnabled: Boolean(settings?.badgesEnabled),
+    hasActiveBilling,
+    quota,
+    openClaims,
+  };
 };
 
-const SECTIONS = [
-  { id: "overview", label: "What Kourify does" },
-  { id: "getting-started", label: "Getting started" },
-  { id: "plans", label: "Plans & billing" },
-  { id: "protection", label: "Settings" },
-  { id: "badges", label: "Trust badges & widgets" },
-  { id: "customer-claim", label: "How customers file a claim" },
-  { id: "managing-claims", label: "Managing claims" },
-  { id: "orders", label: "Orders & offers" },
-  { id: "languages", label: "Languages" },
-  { id: "order-sync", label: "Order sync" },
-  { id: "faq", label: "Notes & FAQ" },
-] as const;
+const FLOW = [
+  "Customer selects protection",
+  "Eligible item becomes protected",
+  "Something goes wrong",
+  "Customer submits a claim with evidence",
+  "You review the claim",
+  "You approve or deny it",
+  "Customer is notified",
+];
+
+const FAQ: Array<[string, string]> = [
+  [
+    "Is this insurance?",
+    "No. Shopping Guarantee is a self-funded, manually reviewed guarantee you offer and fund yourself. It is not underwritten insurance.",
+  ],
+  [
+    "Who pays for protection?",
+    "You choose. With Customer pays, the customer pays the protection fee at checkout. With Merchant pays, protection is free for the customer and you cover the cost.",
+  ],
+  [
+    "What is the protection price?",
+    "It's what's charged for protection — a flat price per order, or a percentage of order value. It is not the amount an item is covered for; those are separate settings.",
+  ],
+  [
+    "What determines item eligibility?",
+    "Your coverage settings. You set the maximum eligible item value, and items priced above it aren't protected. Shipping and tax are excluded from covered merchandise value.",
+  ],
+  [
+    "How does a customer submit a claim?",
+    "From the guarantee tab on your storefront. They confirm the order, pick the affected item, choose a reason, and attach a photo where one is required.",
+  ],
+  [
+    "Who decides a claim?",
+    "You do. Kourify checks the eligibility rules you configured and presents the claim with its evidence, but never approves or denies on your behalf.",
+  ],
+  [
+    "When can a customer submit a claim?",
+    "Within the filing window you set for each reason, measured from when the order actually shipped. Claims outside that window are rejected automatically.",
+  ],
+];
 
 export default function Guide() {
+  const { protectionEnabled, badgesEnabled, hasActiveBilling, quota, openClaims } =
+    useLoaderData<typeof loader>();
+
+  // Three real states, derived from what actually stops protection running.
+  const state = quota.exhausted
+    ? "limit"
+    : protectionEnabled
+      ? "active"
+      : "setup";
+
   return (
     <s-page>
       <PageHeader
-        title="User guide"
-        subtitle="Everything you need to set up and run Kourify Shopping Guarantee."
+        title="Help & getting started"
+        subtitle="Set up Shopping Guarantee, understand how protection works, and manage claims and orders."
         actions={
           <AppButton href="/app" variant="secondary">
             Back to home
@@ -40,302 +97,136 @@ export default function Guide() {
         }
       />
 
-      <div className="app-guide">
-        <Card heading="On this page">
+      {state === "limit" && (
+        <Card heading="Upgrade to keep protecting orders">
           <s-paragraph>
-            A quick walkthrough of everything Kourify does. Jump to any section.
+            {`You've used all ${quota.limit} protected orders on your current plan, so protection is switched off. Orders already protected keep their coverage.`}
           </s-paragraph>
-          <div className="app-guide-nav">
-            {SECTIONS.map((section, index) => (
-              <a
-                key={section.id}
-                className="app-guide-nav__item"
-                href={`#${section.id}`}
-              >
-                <span className="app-guide-nav__num">{index + 1}</span>
-                <span>{section.label}</span>
-              </a>
-            ))}
+          <div className="app-actions">
+            <AppButton href="/app/billing">View billing</AppButton>
           </div>
         </Card>
+      )}
 
-        <Card heading="Getting started">
-          <div id="overview" className="app-guide__block">
-            <p className="app-guide__block-title">What Kourify does</p>
-            <s-paragraph>
-              Kourify adds an optional package-protection guarantee to your
-              store. Shoppers can cover their order against loss, damage, and
-              theft, and file a claim from your storefront if something goes
-              wrong. You review and resolve those claims from the admin.
-            </s-paragraph>
-            <p className="app-guide__sub">An order becomes protected two ways:</p>
-            <ul className="app-guide__list">
-              <li>
-                <strong>Customer pays</strong> — the shopper adds protection at
-                checkout and is charged your fee.
-              </li>
-              <li>
-                <strong>You pay</strong> — you cover protection for every order,
-                free to the customer.
-              </li>
-            </ul>
-            <s-banner tone="info">
-              Protection today is an honest, self-funded guarantee — not
-              underwritten insurance. Claims are reviewed manually, not paid out
-              automatically.
-            </s-banner>
-          </div>
-
-          <div id="getting-started" className="app-guide__block">
-            <p className="app-guide__block-title">Getting started</p>
-            <ol className="app-guide__steps">
-              <li>
-                <strong>Choose a plan.</strong> Open{" "}
-                <Link to="/app/billing">Billing</Link> and pick Usage or
-                Unlimited. Protection can&apos;t be enabled without an active
-                plan.
-              </li>
-              <li>
-                <strong>Enable protection.</strong> Turn on the switch, then set
-                who pays and your pricing.
-              </li>
-              <li>
-                <strong>Add the storefront blocks.</strong> In your theme
-                editor, add the Kourify trust badge and the &quot;Protect your
-                order&quot; widget to your product and cart pages.
-              </li>
-              <li>
-                <strong>Review your first claim.</strong> When a customer files
-                one, it appears under <Link to="/app/claims">Claims</Link>.
-              </li>
-            </ol>
-          </div>
-
-          <div id="plans" className="app-guide__block">
-            <p className="app-guide__block-title">Plans & billing</p>
-            <ul className="app-guide__list">
-              <li>
-                <strong>Usage — $10/mo + $0.60 per protected order.</strong> Best
-                when volume is low or seasonal.
-              </li>
-              <li>
-                <strong>Unlimited — $20/mo.</strong> No per-order fee; best at
-                higher volume.
-              </li>
-            </ul>
-            <s-paragraph>
-              Billing runs through Shopify — you approve the charge in Shopify&apos;s
-              own screen, and you can switch or cancel anytime from the{" "}
-              <Link to="/app/billing">Billing</Link> page. Kourify reads your
-              live subscription from Shopify; it never trusts the browser for
-              billing state.
-            </s-paragraph>
+      {state === "setup" && (
+        <Card heading="Finish setup">
+          <s-paragraph>
+            Three things to do before protection goes live.
+          </s-paragraph>
+          <div className="app-help-steps">
+            <div className="app-help-step">
+              <span className="app-help-step__num">1</span>
+              <div>
+                <p className="app-help-step__title">Configure protection</p>
+                <p className="app-help-step__body">
+                  Choose who pays, set pricing, and define what&apos;s eligible.
+                </p>
+                <AppButton href="/app/settings" variant="secondary">
+                  Open settings
+                </AppButton>
+              </div>
+            </div>
+            <div className="app-help-step">
+              <span className="app-help-step__num">2</span>
+              <div>
+                <p className="app-help-step__title">Add storefront blocks</p>
+                <p className="app-help-step__body">
+                  Add the protection widget and trust badge in your Shopify
+                  theme editor.
+                </p>
+                <AppButton href="/app" variant="secondary">
+                  Badge settings
+                </AppButton>
+              </div>
+            </div>
+            <div className="app-help-step">
+              <span className="app-help-step__num">3</span>
+              <div>
+                <p className="app-help-step__title">Turn on protection</p>
+                <p className="app-help-step__body">
+                  Switch on protection at checkout from Settings → General.
+                </p>
+                <AppButton href="/app/settings" variant="secondary">
+                  Turn it on
+                </AppButton>
+              </div>
+            </div>
           </div>
         </Card>
+      )}
 
-        <div id="protection">
-          <Card heading="Settings">
-            <p className="app-guide__sub">Enable protection</p>
-            <s-paragraph>
-              The master switch. Everything below only applies while protection
-              is on and a plan is active.
-            </s-paragraph>
+      {state === "active" && (
+        <Card heading="Your protection is active">
+          <s-paragraph>
+            Shopping Guarantee is currently available for eligible orders.
+            {quota.limit !== null
+              ? ` You've protected ${quota.used} of ${quota.limit} orders on your plan.`
+              : ""}
+          </s-paragraph>
+          <div className="app-actions">
+            <AppButton href="/app/settings" variant="secondary">
+              Manage settings
+            </AppButton>
+            <AppButton href="/app/claims" variant="secondary">
+              {openClaims > 0 ? `View claims (${openClaims})` : "View claims"}
+            </AppButton>
+            <AppButton href="/app/orders" variant="secondary">
+              View orders
+            </AppButton>
+          </div>
+        </Card>
+      )}
 
-            <p className="app-guide__sub">Who pays</p>
-            <s-paragraph>
-              Choose <strong>You pay</strong> (free to the customer, you still
-              cover the Kourify usage fee) or, on{" "}
-              <strong>Shopify Plus</strong>, <strong>Customer pays</strong> —
-              the fee is folded into checkout pricing with no separate line.
-            </s-paragraph>
-            <s-banner tone="info" heading="Charging customers on a non-Plus plan">
-              <s-stack gap="small-200">
-                <s-text>
-                  Clean customer-pays pricing needs Shopify Plus, so on other
-                  plans protection is set to <strong>You pay</strong> to keep
-                  checkout tidy (no extra line item).
-                </s-text>
-                <s-text>
-                  Want shoppers to effectively cover it anyway? Build the small
-                  protection cost into your <strong>product prices</strong> (a
-                  minor increase), then keep <strong>You pay</strong>. Customers
-                  see “protected, free”, checkout stays clean, and the cost is
-                  already recovered in the price.
-                </s-text>
-              </s-stack>
-            </s-banner>
+      <Card heading="How protection works">
+        <ol className="app-steps">
+          {FLOW.map((step) => (
+            <li key={step}>
+              <span>{step}</span>
+            </li>
+          ))}
+        </ol>
+        <s-banner tone="info">
+          Shopping Guarantee is currently a self-funded, manually reviewed
+          guarantee. It is not underwritten insurance, and claims are not
+          automatically approved.
+        </s-banner>
+      </Card>
 
-            <p className="app-guide__sub">Pricing</p>
-            <ul className="app-guide__list">
-              <li>
-                <strong>Flat fee</strong> — a fixed amount per order.
-              </li>
-              <li>
-                <strong>Percentage of order</strong> — scales with order value,
-                with a minimum (floor) and maximum (ceiling).
-              </li>
-            </ul>
-            <s-banner tone="info">
-              Percentage pricing only takes effect at checkout on Shopify Plus.
-              On other plans, customers are charged the flat fee — so use a flat
-              fee, or cover it yourself, to keep what they pay matching what&apos;s
-              shown.
-            </s-banner>
-
-            <p className="app-guide__sub">Claim reasons</p>
-            <s-paragraph>
-              Pick which reasons appear in the storefront claim form (lost,
-              damaged, stolen, shortage, concealed damage, wrong item). If none
-              are selected, all six show by default.
-            </s-paragraph>
-
-            <p className="app-guide__sub">Filing windows</p>
-            <s-paragraph>
-              Set how many days after an order ships each claim type can be
-              filed. Kourify checks this against the order&apos;s real
-              fulfillment date and rejects out-of-window claims automatically.
-            </s-paragraph>
-          </Card>
+      <Card heading="Common tasks">
+        <div className="app-help-links">
+          <Link to="/app/settings">
+            Change who pays, pricing or eligibility
+          </Link>
+          <Link to="/app/claims">Review and decide open claims</Link>
+          <Link to="/app/orders">
+            See which orders are protected, or offer protection after purchase
+          </Link>
+          <Link to="/app/translations">
+            Translate the storefront claim form
+          </Link>
+          <Link to="/app/billing">
+            {hasActiveBilling ? "Change your plan" : "Choose a plan"}
+          </Link>
         </div>
+      </Card>
 
-        <Card heading="Storefront & customer experience">
-          <div id="badges" className="app-guide__block">
-            <p className="app-guide__block-title">
-              Trust badges & storefront widgets
-            </p>
-            <s-paragraph>
-              Manage badges from <Link to="/app">Home</Link>: turn them on,
-              choose a style, and decide whether they show on product pages and
-              the cart.
-            </s-paragraph>
-            <s-paragraph>
-              To make them appear, open your Shopify theme editor and add the
-              Kourify blocks (trust badge, the &quot;Protect your order&quot;
-              widget, and the guarantee tab) to your product and cart templates.
-              They read your settings automatically — no code.
-            </s-paragraph>
-          </div>
+      <Card heading="Questions">
+        <div className="app-faq">
+          {FAQ.map(([question, answer]) => (
+            <details key={question}>
+              <summary>{question}</summary>
+              <p>{answer}</p>
+            </details>
+          ))}
+        </div>
+      </Card>
 
-          <div id="customer-claim" className="app-guide__block">
-            <p className="app-guide__block-title">
-              How customers file a claim
-            </p>
-            <s-paragraph>
-              Customers open your storefront claim page and complete four short
-              steps: order details, contact, the issue, and a review.
-            </s-paragraph>
-            <ul className="app-guide__list">
-              <li>
-                The email they enter <strong>must match</strong> the order&apos;s
-                email — this is how Kourify verifies the claim.
-              </li>
-              <li>The order must have <strong>shipped</strong> before a claim can be filed.</li>
-              <li>
-                A <strong>photo is required</strong> for damaged and
-                concealed-damage claims.
-              </li>
-              <li>Claims outside your filing window are rejected automatically.</li>
-            </ul>
-          </div>
-        </Card>
-
-        <Card heading="Managing your business">
-          <div id="managing-claims" className="app-guide__block">
-            <p className="app-guide__block-title">Managing claims</p>
-            <s-paragraph>
-              The <Link to="/app/claims">Claims</Link> page lists everything filed
-              from your storefront. Filter with the tabs (All, Requires
-              evidence, High risk, Resolved today), or search by order number,
-              name, or email. Long lists are paginated.
-            </s-paragraph>
-            <p className="app-guide__sub">Statuses</p>
-            <ul className="app-guide__list">
-              <li><strong>Submitted</strong> → just received.</li>
-              <li><strong>Reviewing</strong> → you&apos;re looking into it.</li>
-              <li><strong>Resolved</strong> → approved / handled.</li>
-              <li><strong>Denied</strong> → not approved.</li>
-            </ul>
-            <s-banner tone="warning">
-              Setting a claim to Resolved or Denied emails the customer straight
-              away, so Kourify asks you to confirm first.
-            </s-banner>
-            <s-paragraph>
-              Each row flags a high-risk order and a repeat claim from the same
-              email, shows the evidence photo, and links to the Shopify order.
-              Use <strong>Export CSV</strong> to download the list.
-            </s-paragraph>
-          </div>
-
-          <div id="orders" className="app-guide__block">
-            <p className="app-guide__block-title">Orders & offers</p>
-            <s-paragraph>
-              The <Link to="/app/orders">Orders</Link> page shows which orders are
-              protected. For an unprotected, unfulfilled order you can:
-            </s-paragraph>
-            <ul className="app-guide__list">
-              <li>
-                <strong>Send offer</strong> — email the customer a post-purchase
-                protection offer (valid 48 hours). Protection applies only after
-                they pay.
-              </li>
-              <li>
-                <strong>Fulfill</strong> — add tracking and fulfill a protected
-                order.
-              </li>
-              <li>
-                <strong>Mark delivered</strong> — record actual delivery, which
-                the claim windows are measured from.
-              </li>
-            </ul>
-          </div>
-
-          <div id="order-sync" className="app-guide__block">
-            <p className="app-guide__block-title">Order sync</p>
-            <s-paragraph>
-              Kourify caches your orders so it can verify claims quickly. New
-              orders sync automatically via webhooks; use{" "}
-              <Link to="/app/order-sync">Order sync</Link> to import existing orders.
-              A full sync requires Shopify&apos;s protected customer-data approval
-              to be in place.
-            </s-paragraph>
-          </div>
-        </Card>
-
-        <Card heading="Languages & FAQ">
-          <div id="languages" className="app-guide__block">
-            <p className="app-guide__block-title">Languages</p>
-            <s-paragraph>
-              Translate the storefront claim page from{" "}
-              <Link to="/app/translations">Languages</Link>. Add locales (for example
-              Arabic or Hindi, with right-to-left support), set a default, and
-              edit any label. Blank fields fall back to English, and shoppers can
-              switch language on the claim page without a reload.
-            </s-paragraph>
-          </div>
-
-          <div id="faq" className="app-guide__block">
-            <p className="app-guide__block-title">Notes & FAQ</p>
-            <p className="app-guide__sub">Is this real insurance?</p>
-            <s-paragraph>
-              No. It&apos;s a self-funded guarantee you stand behind, and claims
-              are reviewed manually. Connect a real insurance partner before
-              promising automatic payouts.
-            </s-paragraph>
-            <p className="app-guide__sub">What&apos;s the $0.60 fee?</p>
-            <s-paragraph>
-              On the Usage plan, Kourify bills $0.60 per completed protected
-              order. It&apos;s waived on Unlimited. You&apos;re never charged for
-              unprotected orders.
-            </s-paragraph>
-            <p className="app-guide__sub">Privacy</p>
-            <s-paragraph>
-              Claims store only what&apos;s needed to verify them, and Kourify
-              handles Shopify&apos;s data-request and redaction webhooks. Customer
-              data is never shared across stores.
-            </s-paragraph>
-          </div>
-        </Card>
-      </div>
+      {!badgesEnabled && state !== "setup" && (
+        <s-banner tone="info">
+          Trust badges are switched off, so shoppers don&apos;t see them on your
+          storefront. <Link to="/app">Turn them on from Home.</Link>
+        </s-banner>
+      )}
     </s-page>
   );
 }
