@@ -10,7 +10,6 @@ import db from "../db.server";
 import { DEFAULT_CLAIM_WINDOWS } from "../lib/claim-window";
 import { useFetcherToast } from "../hooks/useFetcherToast";
 import { Card, StatTile } from "../components/Card";
-import { DashboardHeader } from "../components/DashboardHeader";
 import { GettingStarted } from "../components/GettingStarted";
 import { StatusBadge } from "../components/StatusBadge";
 import { issueTypeLabel } from "../lib/claim-issue-type";
@@ -177,28 +176,29 @@ export default function Index() {
       : { tone: "success" as const, value: "Live", sub: feeSummary };
 
   return (
-    <s-page>
-      <DashboardHeader
-        greeting={greeting}
-        subtitle="Build shopper confidence from cart to delivery."
-        actions={
-          <>
-            <InfoTip id="tip-why-this-matters" label="Why this matters">
-              Trust badges and buyer guarantees increase checkout confidence and
-              reduce chargebacks. We roll out each capability only once
-              it&apos;s backed by a real, honest guarantee — package protection
-              today is a self-funded policy, not underwritten insurance, and
-              claims are reviewed manually rather than paid out automatically.
-            </InfoTip>
-            <AppButton href="/app/guide" variant="secondary">
-              Help
-            </AppButton>
-            <AppButton href="/app/order-sync" variant="secondary">
-              Order sync
-            </AppButton>
-          </>
-        }
-      />
+    <s-page heading={greeting}>
+      <s-button slot="secondary-actions" href="/app/guide" variant="secondary">
+        Help
+      </s-button>
+      <s-button
+        slot="secondary-actions"
+        href="/app/order-sync"
+        variant="secondary"
+      >
+        Order sync
+      </s-button>
+      <s-paragraph color="subdued">
+        Build shopper confidence from cart to delivery.
+      </s-paragraph>
+      <s-stack direction="inline">
+        <InfoTip id="tip-why-this-matters" label="Why this matters">
+          Trust badges and buyer guarantees increase checkout confidence and
+          reduce chargebacks. We roll out each capability only once it&apos;s
+          backed by a real, honest guarantee — package protection today is a
+          self-funded policy, not underwritten insurance, and claims are
+          reviewed manually rather than paid out automatically.
+        </InfoTip>
+      </s-stack>
 
       <GettingStarted
         title="Get started with Kourify"
@@ -232,7 +232,10 @@ export default function Index() {
         ]}
       />
 
-      <div className="app-card-row">
+      <s-grid
+        gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
+        gap="base"
+      >
         <StatTile
           icon="shield-check-mark"
           label="Trust badges"
@@ -268,12 +271,15 @@ export default function Index() {
           sub="Of fulfilled orders"
           href="/app/claims"
         />
-      </div>
+      </s-grid>
 
       {/* Performance. These moved off Settings, which is configuration only.
           "Protection sales" is the same figure the old "Protection revenue"
           tile showed, so that duplicate is gone rather than shown twice. */}
-      <div className="app-card-row" style={{ marginTop: "1.25rem" }}>
+      <s-grid
+        gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
+        gap="base"
+      >
         <StatTile
           icon="shield-check-mark"
           label="Protected orders"
@@ -300,165 +306,142 @@ export default function Index() {
           value={`$${(analytics.usageFeesCents / 100).toFixed(2)}`}
           sub="Billed this period"
         />
-      </div>
+      </s-grid>
 
-      <div style={{ marginTop: "1.25rem" }}>
-        <Card>
-          <div className="app-feature__head">
-            <h3 className="app-card__heading">Safe Shopping Trustmarks</h3>
-            <s-text color="subdued">
-              Build confidence with a trust badge across your store.
-            </s-text>
-          </div>
+      <Card heading="Safe Shopping Trustmarks">
+        <s-paragraph color="subdued">
+          Build confidence with a trust badge across your store.
+        </s-paragraph>
 
-          <s-stack
-            direction="inline"
-            gap="large-100"
-            alignItems="start"
-            justifyContent="space-between"
-          >
-            <s-stack direction="block" gap="base">
-              <div className="app-setting app-setting--switch">
-                <s-switch
-                  label="Show trust badge on storefront"
-                  checked={current.badgesEnabled}
-                  onChange={(e) =>
-                    saveBadges({ badgesEnabled: e.currentTarget.checked })
-                  }
-                />
-                <span className="app-setting__desc">
-                  Display on your store&apos;s theme
-                </span>
-              </div>
-              <div className="app-setting app-setting--check">
-                <s-checkbox
-                  label="Show on product pages"
-                  checked={current.showOnProduct}
-                  disabled={!current.badgesEnabled}
-                  onChange={(e) =>
-                    saveBadges({ showOnProduct: e.currentTarget.checked })
-                  }
-                />
-                <span className="app-setting__desc">
-                  Display badge on product pages
-                </span>
-              </div>
-              <div className="app-setting app-setting--check">
-                <s-checkbox
-                  label="Show in cart"
-                  checked={current.showOnCart}
-                  disabled={!current.badgesEnabled}
-                  onChange={(e) =>
-                    saveBadges({ showOnCart: e.currentTarget.checked })
-                  }
-                />
-                <span className="app-setting__desc">
-                  Display badge in cart and drawer
-                </span>
-              </div>
+        <s-stack
+          direction="inline"
+          gap="large-100"
+          alignItems="start"
+          justifyContent="space-between"
+        >
+          <s-stack direction="block" gap="base">
+            <s-switch
+              label="Show trust badge on storefront"
+              details="Display on your store's theme"
+              checked={current.badgesEnabled}
+              onChange={(e) =>
+                saveBadges({ badgesEnabled: e.currentTarget.checked })
+              }
+            />
+            <s-checkbox
+              label="Show on product pages"
+              details="Display badge on product pages"
+              checked={current.showOnProduct}
+              disabled={!current.badgesEnabled}
+              onChange={(e) =>
+                saveBadges({ showOnProduct: e.currentTarget.checked })
+              }
+            />
+            <s-checkbox
+              label="Show in cart"
+              details="Display badge in cart and drawer"
+              checked={current.showOnCart}
+              disabled={!current.badgesEnabled}
+              onChange={(e) =>
+                saveBadges({ showOnCart: e.currentTarget.checked })
+              }
+            />
+          </s-stack>
+
+          <s-stack direction="block" gap="base">
+            <s-select
+              label="Badge style"
+              value={current.badgeStyle}
+              disabled={!current.badgesEnabled}
+              onChange={(e) =>
+                saveBadges({ badgeStyle: e.currentTarget.value })
+              }
+            >
+              {BADGE_STYLES.map((style) => (
+                <s-option key={style} value={style}>
+                  {style.charAt(0).toUpperCase() + style.slice(1)}
+                </s-option>
+              ))}
+            </s-select>
+
+            <s-stack direction="block" gap="small-200">
+              <s-text color="subdued">Preview — what shoppers see</s-text>
+              <s-box padding="base" border="base" borderRadius="base">
+                <TrustBadgePreview badgeStyle={current.badgeStyle} />
+              </s-box>
+              <s-text color="subdued">
+                This is how your trust badge will appear on your store.
+              </s-text>
             </s-stack>
-
-            <div className="app-badge-settings">
-              <s-select
-                label="Badge style"
-                value={current.badgeStyle}
-                disabled={!current.badgesEnabled}
-                onChange={(e) =>
-                  saveBadges({ badgeStyle: e.currentTarget.value })
-                }
-              >
-                {BADGE_STYLES.map((style) => (
-                  <s-option key={style} value={style}>
-                    {style.charAt(0).toUpperCase() + style.slice(1)}
-                  </s-option>
-                ))}
-              </s-select>
-
-              <div className="app-badge-preview">
-                <s-text color="subdued">Preview — what shoppers see</s-text>
-                <div className="app-badge-preview__frame">
-                  <TrustBadgePreview badgeStyle={current.badgeStyle} />
-                </div>
-                <span className="app-setting__desc">
-                  This is how your trust badge will appear on your store.
-                </span>
-              </div>
-            </div>
           </s-stack>
-        </Card>
-      </div>
+        </s-stack>
+      </Card>
 
-      <div style={{ marginTop: "1.25rem" }}>
-        <Card heading="Guarantee tab">
-          <s-stack
-            direction="inline"
-            gap="large-100"
-            alignItems="center"
-            justifyContent="space-between"
-          >
-            <s-paragraph>
-              The floating Kourify Guarantee tab shoppers use to learn about
-              protection and file claims.
-            </s-paragraph>
-            <div style={{ inlineSize: "200px", flex: "0 0 auto" }}>
-              <s-select
-                label="Tab position"
-                value={current.guaranteeTabPosition}
-                onChange={(e) =>
-                  saveBadges({ guaranteeTabPosition: e.currentTarget.value })
-                }
-              >
-                {TAB_POSITIONS.map((pos) => (
-                  <s-option key={pos.value} value={pos.value}>
-                    {pos.label}
-                  </s-option>
+      <Card heading="Guarantee tab">
+        <s-stack
+          direction="inline"
+          gap="large-100"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <s-paragraph>
+            The floating Kourify Guarantee tab shoppers use to learn about
+            protection and file claims.
+          </s-paragraph>
+          <s-box minInlineSize="200px">
+            <s-select
+              label="Tab position"
+              value={current.guaranteeTabPosition}
+              onChange={(e) =>
+                saveBadges({ guaranteeTabPosition: e.currentTarget.value })
+              }
+            >
+              {TAB_POSITIONS.map((pos) => (
+                <s-option key={pos.value} value={pos.value}>
+                  {pos.label}
+                </s-option>
+              ))}
+            </s-select>
+          </s-box>
+        </s-stack>
+      </Card>
+
+      <Card heading="Recent claims">
+        {recentClaims.length === 0 ? (
+          <s-banner tone="info">
+            No claims yet — they'll show up here once a customer files one from
+            your storefront.
+          </s-banner>
+        ) : (
+          <>
+            <s-table variant="auto">
+              <s-table-header-row>
+                <s-table-header>Order</s-table-header>
+                <s-table-header>Customer</s-table-header>
+                <s-table-header>Issue</s-table-header>
+                <s-table-header>Status</s-table-header>
+              </s-table-header-row>
+              <s-table-body>
+                {recentClaims.map((claim) => (
+                  <s-table-row key={claim.id}>
+                    <s-table-cell>{claim.orderNumber}</s-table-cell>
+                    <s-table-cell>{claim.fullName}</s-table-cell>
+                    <s-table-cell>
+                      {issueTypeLabel(claim.issueType)}
+                    </s-table-cell>
+                    <s-table-cell>
+                      <StatusBadge status={claim.status} />
+                    </s-table-cell>
+                  </s-table-row>
                 ))}
-              </s-select>
-            </div>
-          </s-stack>
-        </Card>
-      </div>
-
-      <div style={{ marginTop: "1.25rem" }}>
-        <Card heading="Recent claims">
-          {recentClaims.length === 0 ? (
-            <s-banner tone="info">
-              No claims yet — they'll show up here once a customer files one
-              from your storefront.
-            </s-banner>
-          ) : (
-            <>
-              <s-table variant="auto">
-                <s-table-header-row>
-                  <s-table-header>Order</s-table-header>
-                  <s-table-header>Customer</s-table-header>
-                  <s-table-header>Issue</s-table-header>
-                  <s-table-header>Status</s-table-header>
-                </s-table-header-row>
-                <s-table-body>
-                  {recentClaims.map((claim) => (
-                    <s-table-row key={claim.id}>
-                      <s-table-cell>{claim.orderNumber}</s-table-cell>
-                      <s-table-cell>{claim.fullName}</s-table-cell>
-                      <s-table-cell>
-                        {issueTypeLabel(claim.issueType)}
-                      </s-table-cell>
-                      <s-table-cell>
-                        <StatusBadge status={claim.status} />
-                      </s-table-cell>
-                    </s-table-row>
-                  ))}
-                </s-table-body>
-              </s-table>
-              <div className="app-actions">
-                <AppButton href="/app/claims" variant="secondary">
-                  View all claims
-                </AppButton>
-              </div>
-            </>
-          )}
-        </Card>
-      </div>
+              </s-table-body>
+            </s-table>
+            <s-button href="/app/claims" variant="secondary">
+              View all claims
+            </s-button>
+          </>
+        )}
+      </Card>
     </s-page>
   );
 }
