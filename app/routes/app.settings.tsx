@@ -1,9 +1,10 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
+import { useState } from "react";
 import { redirect, useFetcher, useLoaderData } from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { PageHeader } from "../components/PageHeader";
-import { Card, StatTile } from "../components/Card";
+import { Card } from "../components/Card";
 import { AppButton } from "../components/AppButton";
 import { InfoTip } from "../components/InfoTip";
 import { useFetcherToast } from "../hooks/useFetcherToast";
@@ -15,7 +16,6 @@ import {
   type ClaimWindows,
 } from "../lib/claim-window";
 import { syncProtectionProduct } from "../lib/protection-product.server";
-import { getProtectionAnalytics } from "../lib/protection-orders.server";
 import { getBillingState } from "../lib/billing-state.server";
 import { detectPlanTier } from "../lib/plan-tier.server";
 import { syncDynamicFee } from "../lib/cart-transform.server";
@@ -25,6 +25,26 @@ import { syncDynamicFee } from "../lib/cart-transform.server";
 // value from the known set. Anything else falls back to the current setting.
 const PROTECTION_PAYERS = ["customer", "merchant"] as const;
 const PROTECTION_FEE_TYPES = ["flat", "percentage"] as const;
+
+// Settings is configuration only — one tab per question a merchant asks:
+// is it on, what does it cost and who pays, what's eligible, what can be
+// claimed and when. Performance numbers live on the Dashboard.
+const SETTINGS_TABS = [
+  { id: "general", label: "General" },
+  { id: "pricing", label: "Pricing" },
+  { id: "coverage", label: "Coverage" },
+  { id: "claims", label: "Claims" },
+] as const;
+
+type SettingsTab = (typeof SETTINGS_TABS)[number]["id"];
+
+const PROTECTION_STEPS = [
+  "Customer selects protection",
+  "Order is placed",
+  "Customer submits a claim",
+  "You review the claim",
+  "You approve or deny the claim",
+];
 
 function pickEnum<T extends readonly string[]>(
   allowed: T,
@@ -63,9 +83,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     throw redirect("/app/billing");
   }
 
-  const analytics = await getProtectionAnalytics(session.shop);
   const planTier = await detectPlanTier(admin, session.shop);
-  return { settings: currentSettings, analytics, hasActiveBilling, planTier };
+  return { settings: currentSettings, hasActiveBilling, planTier };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -238,7 +257,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function Settings() {
-  const { settings, analytics, planTier } = useLoaderData<typeof loader>();
+  const { settings, planTier } = useLoaderData<typeof loader>();
   // Percentage pricing at checkout runs via a Cart Transform price override,
   // which only takes effect on Shopify Plus. Warn whenever we positively know
   // the store isn't Plus (skip "unknown" to avoid a false alarm).
@@ -258,7 +277,28 @@ export default function Settings() {
     (data) => data.error ?? "Settings saved.",
   );
 
+  const [activeTab, setActiveTab] = useState<SettingsTab>("general");
   const currentSettings = settingsFetcher.data?.settings ?? settings;
+
+  // Worked example for the configured ceiling: one clearly under it, one
+  // exactly on it (which passes), and one a dollar over (which doesn't).
+  // Derived from the merchant's own number so no amount is ever implied.
+  const eligibilityExample = (() => {
+    const max = currentSettings.maxEligibleItemValueCents;
+    if (max == null || max <= 0) return null;
+    const under = Math.max(1, Math.round(max * 0.85));
+    const over = max + 100;
+    const label = (cents: number) =>
+      `$${(cents / 100).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
+    return [
+      { label: label(under), eligible: true },
+      { label: label(max), eligible: true },
+      { label: label(over), eligible: false },
+    ];
+  })();
   const enabledTypes = new Set(
     (currentSettings.enabledClaimTypes ?? "").split(",").filter(Boolean),
   );
@@ -380,61 +420,68 @@ export default function Settings() {
         </s-banner>
       )}
 
-          <div className="app-card-row" style={{ marginBlockEnd: "1.25rem" }}>
-            <StatTile
-              icon="shield-check-mark"
-              label="Protected orders"
-              tone={analytics.protectedOrders > 0 ? "success" : "default"}
-              value={String(analytics.protectedOrders)}
-              sub="Orders with protection"
-            />
-            <StatTile
-              icon="chart-line"
-              label="Selection rate"
-              value={`${analytics.conversionRate.toFixed(1)}%`}
-              sub="Of eligible orders"
-            />
-            <StatTile
-              icon="cash-dollar"
-              label="Protection sales"
-              tone={analytics.protectionRevenueCents > 0 ? "success" : "default"}
-              value={`$${(analytics.protectionRevenueCents / 100).toFixed(2)}`}
-              sub="All time"
-            />
-            <StatTile
-              icon="receipt-dollar"
-              label="Kourify usage fees"
-              value={`$${(analytics.usageFeesCents / 100).toFixed(2)}`}
-              sub="Billed this period"
-            />
-          </div>
-
-          <Card heading="Shopping Guarantee">
-            <s-stack
-              direction="inline"
-              gap="base"
-              alignItems="center"
-              justifyContent="space-between"
-            >
-              <s-stack direction="block" gap="small-200">
-                <s-text>Protection at checkout</s-text>
-                <s-text color="subdued">
-                  {currentSettings.protectionEnabled
-                    ? "Live — customers can add package protection at checkout. This is a manually-reviewed guarantee, not underwritten insurance."
-                    : "Turn on to offer package protection at checkout."}
-                </s-text>
-              </s-stack>
-              <s-switch
-                label="Enable protection at checkout"
-                checked={currentSettings.protectionEnabled}
-                disabled={settingsFetcher.state !== "idle"}
-                onChange={(e) =>
-                  saveSettings({ protectionEnabled: e.currentTarget.checked })
+          <nav className="app-tabs" aria-label="Settings sections">
+            {SETTINGS_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                className={
+                  "app-tab" + (tab.id === activeTab ? " app-tab--active" : "")
                 }
-              />
-            </s-stack>
-          </Card>
+                aria-current={tab.id === activeTab ? "page" : undefined}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
 
+          {activeTab === "general" && (
+            <>
+              <Card heading="Shopping Guarantee">
+                <s-stack
+                  direction="inline"
+                  gap="base"
+                  alignItems="center"
+                  justifyContent="space-between"
+                >
+                  <s-stack direction="block" gap="small-200">
+                    <s-text>Protection at checkout</s-text>
+                    <s-text color="subdued">
+                      {currentSettings.protectionEnabled
+                        ? "Customers can add protection to eligible orders at checkout."
+                        : "Turn on to offer package protection at checkout."}
+                    </s-text>
+                  </s-stack>
+                  <s-switch
+                    label="Enable protection at checkout"
+                    checked={currentSettings.protectionEnabled}
+                    disabled={settingsFetcher.state !== "idle"}
+                    onChange={(e) =>
+                      saveSettings({
+                        protectionEnabled: e.currentTarget.checked,
+                      })
+                    }
+                  />
+                </s-stack>
+              </Card>
+
+              <Card heading="How protection works">
+                <ol className="app-steps">
+                  {PROTECTION_STEPS.map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ol>
+                <s-banner tone="info">
+                  Claims are manually reviewed. Kourify doesn&apos;t
+                  automatically approve claims — you make the final decision and
+                  fund any settlement you approve.
+                </s-banner>
+              </Card>
+            </>
+          )}
+
+          {activeTab === "pricing" && (
           <Card heading="Pricing">
             <s-paragraph>
               Who pays for protection, and how the fee is calculated.
@@ -450,10 +497,11 @@ export default function Settings() {
                     <span className="app-payer-card__icon">
                       <s-icon type="shield-check-mark" />
                     </span>
-                    <span className="app-payer-card__title">You pay</span>
+                    <span className="app-payer-card__title">Merchant pays</span>
                   </span>
                   <span className="app-payer-card__desc">
-                    Free for shoppers — every order is protected automatically.
+                    Protection is free for the customer. You cover the
+                    protection cost.
                   </span>
                   <span className="app-payer-card__check">
                     <s-icon type="check" />
@@ -472,7 +520,7 @@ export default function Settings() {
                     <span className="app-payer-card__title">Customer pays</span>
                   </span>
                   <span className="app-payer-card__desc">
-                    Shoppers add protection at checkout for a fee you set below.
+                    The customer pays the protection fee at checkout.
                   </span>
                   {!customerPaysAllowed && (
                     <span className="app-payer-card__lock">
@@ -485,23 +533,7 @@ export default function Settings() {
                 </button>
               </div>
 
-              {merchantPays ? (
-                <div className="app-covered-note">
-                  <span className="app-covered-note__icon">
-                    <s-icon type="shield-check-mark" />
-                  </span>
-                  <div>
-                    <span className="app-covered-note__title">
-                      Covered by you
-                    </span>
-                    <p className="app-covered-note__body">
-                      Customers aren&apos;t charged — every eligible order is
-                      protected at no cost to them, and the fee settings
-                      don&apos;t apply.
-                    </p>
-                  </div>
-                </div>
-              ) : (
+              {merchantPays ? null : (
                 <>
                   {percentageUnsupported && (
                     <s-banner tone="warning">
@@ -663,7 +695,9 @@ export default function Settings() {
               )}
             </s-stack>
           </Card>
+          )}
 
+          {activeTab === "coverage" && (
           <Card heading="Coverage eligibility">
             <s-paragraph>
               The most a single item can be worth and still be covered. Items
@@ -712,14 +746,35 @@ export default function Settings() {
                 </div>
               </s-stack>
 
+              {eligibilityExample && (
+                <div>
+                  <h4 className="app-card__heading">Eligibility example</h4>
+                  <ul className="app-eligibility-example">
+                    {eligibilityExample.map((row) => (
+                      <li
+                        key={row.label}
+                        className={row.eligible ? "is-eligible" : "is-excluded"}
+                      >
+                        <span>{row.label} item</span>
+                        <strong>
+                          {row.eligible ? "✓ Eligible" : "× Not eligible"}
+                        </strong>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               <s-banner tone="info">
                 {currentSettings.maxEligibleItemValueCents == null
                   ? "No limit set — every item on a protected order is eligible, whatever it costs."
-                  : `An item costing exactly $${(currentSettings.maxEligibleItemValueCents / 100).toFixed(2)} is eligible; anything above it is not. Eligibility is recorded when the order is paid, so changing this later won't alter orders already protected.`}
+                  : "This setting applies to new protected orders. Existing orders keep the eligibility recorded when they were paid."}
               </s-banner>
             </s-stack>
           </Card>
+          )}
 
+          {activeTab === "claims" && (
           <Card heading="Claim reasons & filing windows">
             <s-paragraph>
               Which reasons customers can choose in the storefront claim form,
@@ -800,6 +855,7 @@ export default function Settings() {
               })}
             </s-stack>
           </Card>
+          )}
 
     </s-page>
   );

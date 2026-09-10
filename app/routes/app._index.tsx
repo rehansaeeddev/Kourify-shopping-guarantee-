@@ -230,7 +230,7 @@ export default function Index() {
         />
         <StatTile
           icon="check-circle"
-          label="Package protection"
+          label="Protection status"
           tone={protectionStatus.tone}
           value={protectionStatus.value}
           sub={protectionStatus.sub}
@@ -244,13 +244,37 @@ export default function Index() {
           sub="Of fulfilled orders"
           href="/app/claims"
         />
+      </div>
+
+      {/* Performance. These moved off Settings, which is configuration only.
+          "Protection sales" is the same figure the old "Protection revenue"
+          tile showed, so that duplicate is gone rather than shown twice. */}
+      <div className="app-card-row" style={{ marginTop: "1.25rem" }}>
+        <StatTile
+          icon="shield-check-mark"
+          label="Protected orders"
+          tone={analytics.protectedOrders > 0 ? "success" : "default"}
+          value={String(analytics.protectedOrders)}
+          sub="Orders with protection"
+        />
+        <StatTile
+          icon="chart-line"
+          label="Selection rate"
+          value={`${analytics.conversionRate.toFixed(1)}%`}
+          sub="Of eligible orders"
+        />
         <StatTile
           icon="cash-dollar"
-          label="Protection revenue"
-          tone="success"
+          label="Protection sales"
+          tone={analytics.protectionRevenueCents > 0 ? "success" : "default"}
           value={`$${(analytics.protectionRevenueCents / 100).toFixed(2)}`}
           sub="All time"
-          href="/app/settings"
+        />
+        <StatTile
+          icon="receipt-dollar"
+          label="Usage fees"
+          value={`$${(analytics.usageFeesCents / 100).toFixed(2)}`}
+          sub="Billed this period"
         />
       </div>
 
