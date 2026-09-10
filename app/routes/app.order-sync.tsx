@@ -295,7 +295,8 @@ export default function OrderSync() {
                           ? "success"
                           : job.status === "failed"
                             ? "critical"
-                            : "warning"
+                            : // A running job is informational, not a warning.
+                              "info"
                       }
                     >
                       {SYNC_JOB_STATUS_LABEL[job.status] ?? job.status}

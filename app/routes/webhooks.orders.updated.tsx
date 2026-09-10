@@ -47,6 +47,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       status: orderStatus,
       riskLevel: null, // Will be fetched on-demand if needed
       shippedAt,
+      placedAt: (data.created_at as string | null) ?? null,
       totalPrice,
     });
     const usageEvent = await recordProtectionSelection(shop, data);
