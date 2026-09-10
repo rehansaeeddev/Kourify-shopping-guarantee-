@@ -187,15 +187,6 @@ export default function Index() {
       >
         Order sync
       </s-button>
-      <s-stack direction="inline">
-        <InfoTip id="tip-why-this-matters" label="Why this matters">
-          Trust badges and buyer guarantees increase checkout confidence and
-          reduce chargebacks. We roll out each capability only once it&apos;s
-          backed by a real, honest guarantee — package protection today is a
-          self-funded policy, not underwritten insurance, and claims are
-          reviewed manually rather than paid out automatically.
-        </InfoTip>
-      </s-stack>
 
       <GettingStarted
         title="Get started with Kourify"
@@ -229,81 +220,94 @@ export default function Index() {
         ]}
       />
 
-      <s-grid
-        gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
-        gap="base"
-      >
-        <StatTile
-          icon="shield-check-mark"
-          label="Trust badges"
-          tone={current.badgesEnabled ? "success" : "default"}
-          value={current.badgesEnabled ? "On" : "Off"}
-          sub={
-            current.badgesEnabled
-              ? `${current.badgeStyle.charAt(0).toUpperCase()}${current.badgeStyle.slice(1)} style`
-              : "Not shown to customers"
-          }
-        />
-        <StatTile
-          icon="check-circle"
-          label="Protection status"
-          tone={protectionStatus.tone}
-          value={protectionStatus.value}
-          sub={protectionStatus.sub}
-          href="/app/settings"
-        />
-        <StatTile
-          icon="chart-line"
-          label="Claim incident rate"
-          tone={
-            telemetry.incidentRate !== null && telemetry.incidentRate > 3
-              ? "critical"
-              : "default"
-          }
-          value={
-            telemetry.incidentRate !== null
-              ? `${telemetry.incidentRate.toFixed(1)}%`
-              : "No data yet"
-          }
-          sub="Of fulfilled orders"
-          href="/app/claims"
-        />
-      </s-grid>
+      <Card heading="Status">
+        <s-stack direction="inline">
+          <InfoTip id="tip-why-this-matters" label="Why this matters">
+            Trust badges and buyer guarantees increase checkout confidence and
+            reduce chargebacks. We roll out each capability only once it&apos;s
+            backed by a real, honest guarantee — package protection today is a
+            self-funded policy, not underwritten insurance, and claims are
+            reviewed manually rather than paid out automatically.
+          </InfoTip>
+        </s-stack>
+        <s-grid
+          gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
+          gap="base"
+        >
+          <StatTile
+            icon="shield-check-mark"
+            label="Trust badges"
+            tone={current.badgesEnabled ? "success" : "default"}
+            value={current.badgesEnabled ? "On" : "Off"}
+            sub={
+              current.badgesEnabled
+                ? `${current.badgeStyle.charAt(0).toUpperCase()}${current.badgeStyle.slice(1)} style`
+                : "Not shown to customers"
+            }
+          />
+          <StatTile
+            icon="check-circle"
+            label="Protection status"
+            tone={protectionStatus.tone}
+            value={protectionStatus.value}
+            sub={protectionStatus.sub}
+            href="/app/settings"
+          />
+          <StatTile
+            icon="chart-line"
+            label="Claim incident rate"
+            tone={
+              telemetry.incidentRate !== null && telemetry.incidentRate > 3
+                ? "critical"
+                : "default"
+            }
+            value={
+              telemetry.incidentRate !== null
+                ? `${telemetry.incidentRate.toFixed(1)}%`
+                : "No data yet"
+            }
+            sub="Of fulfilled orders"
+            href="/app/claims"
+          />
+        </s-grid>
+      </Card>
 
       {/* Performance. These moved off Settings, which is configuration only.
           "Protection sales" is the same figure the old "Protection revenue"
           tile showed, so that duplicate is gone rather than shown twice. */}
-      <s-grid
-        gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
-        gap="base"
-      >
-        <StatTile
-          icon="shield-check-mark"
-          label="Protected orders"
-          tone={analytics.protectedOrders > 0 ? "success" : "default"}
-          value={String(analytics.protectedOrders)}
-          sub="Orders with protection"
-        />
-        <StatTile
-          icon="chart-line"
-          label="Selection rate"
-          value={`${analytics.conversionRate.toFixed(1)}%`}
-          sub="Of eligible orders"
-        />
-        <StatTile
-          icon="cash-dollar"
-          label="Protection sales"
-          tone={analytics.protectionRevenueCents > 0 ? "success" : "default"}
-          value={`$${(analytics.protectionRevenueCents / 100).toFixed(2)}`}
-          sub="All time"
-        />
-        <StatTile
-          icon="receipt-dollar"
-          label="Usage fees"
-          value={`$${(analytics.usageFeesCents / 100).toFixed(2)}`}
-          sub="Billed this period"
-        />
-      </s-grid>
+      <Card heading="Performance">
+        <s-grid
+          gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
+          gap="base"
+        >
+          <StatTile
+            icon="shield-check-mark"
+            label="Protected orders"
+            tone={analytics.protectedOrders > 0 ? "success" : "default"}
+            value={String(analytics.protectedOrders)}
+            sub="Orders with protection"
+          />
+          <StatTile
+            icon="chart-line"
+            label="Selection rate"
+            value={`${analytics.conversionRate.toFixed(1)}%`}
+            sub="Of eligible orders"
+          />
+          <StatTile
+            icon="cash-dollar"
+            label="Protection sales"
+            tone={analytics.protectionRevenueCents > 0 ? "success" : "default"}
+            value={`$${(analytics.protectionRevenueCents / 100).toFixed(2)}`}
+            sub="All time"
+          />
+          <StatTile
+            icon="receipt-dollar"
+            label="Usage fees"
+            value={`$${(analytics.usageFeesCents / 100).toFixed(2)}`}
+            sub="Billed this period"
+          />
+        </s-grid>
+      </Card>
 
       <Card heading="Safe Shopping Trustmarks">
         <s-paragraph color="subdued">
