@@ -13,7 +13,7 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 
 import { useEffect } from "react";
 import { AppButton } from "../components/AppButton";
-import { Card, StatTile } from "../components/Card";
+import { Card, MetricsCard } from "../components/Card";
 import { useFetcherToast } from "../hooks/useFetcherToast";
 import { useTablePagination } from "../hooks/useTablePagination";
 import db from "../db.server";
@@ -203,32 +203,20 @@ export default function OrderSync() {
         }}
       />
 
-      <Card heading="Sync status">
-        <s-paragraph color="subdued">
-          Keep the order cache used for claim verification up to date.
-        </s-paragraph>
-        <s-grid
-          gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
-          gap="base"
-        >
-          <StatTile
-            icon="check-circle"
-            label="Sync mode"
-            tone="warning"
-            value={orderSyncEnabled ? "Manual" : "Approval required"}
-          />
-          <StatTile
-            icon="order"
-            label="Cached orders"
-            value={String(orderCount)}
-          />
-          <StatTile
-            icon="clock"
-            label="Last cache update"
-            value={lastUpdated}
-          />
-        </s-grid>
-      </Card>
+      <MetricsCard
+        heading="Sync status"
+        description="Keep the order cache used for claim verification up to date."
+        metrics={[
+          {
+            icon: "check-circle",
+            label: "Sync mode",
+            tone: "warning",
+            value: orderSyncEnabled ? "Manual" : "Approval required",
+          },
+          { icon: "order", label: "Cached orders", value: String(orderCount) },
+          { icon: "clock", label: "Last cache update", value: lastUpdated },
+        ]}
+      />
 
       <Card heading="Manual synchronization">
         <s-stack gap="base">
