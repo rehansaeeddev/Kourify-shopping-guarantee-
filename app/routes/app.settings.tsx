@@ -6,6 +6,7 @@ import db from "../db.server";
 import { Card } from "../components/Card";
 import { AppButton } from "../components/AppButton";
 import { InfoTip } from "../components/InfoTip";
+import { TrustBadgePreview } from "../components/TrustBadgePreview";
 import { useFetcherToast } from "../hooks/useFetcherToast";
 import { ALL_ISSUE_TYPES } from "../lib/claim-issue-type";
 import {
@@ -39,6 +40,17 @@ const PLAN_LABELS: Record<PlanId, string> = {
 // value from the known set. Anything else falls back to the current setting.
 const PROTECTION_PAYERS = ["customer", "merchant"] as const;
 const PROTECTION_FEE_TYPES = ["flat", "percentage"] as const;
+
+// Storefront appearance, configured here in General so the merchant sets up
+// protection and how it looks in one place. These drive the storefront badge
+// and guarantee tab, not checkout, so they save on a separate cheap path.
+const BADGE_STYLES = ["classic", "minimal", "bold"] as const;
+const TAB_POSITIONS = [
+  { value: "right", label: "Right edge (vertical)" },
+  { value: "left", label: "Left edge (vertical)" },
+  { value: "bottom", label: "Bottom corner" },
+  { value: "top", label: "Top corner" },
+] as const;
 
 // Settings is configuration only — one tab per question a merchant asks:
 // is it on, what does it cost and who pays, what's eligible, what can be
@@ -99,6 +111,38 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { session, admin, billing } = await authenticate.admin(request);
   const formData = await request.formData();
+
+  // Storefront badge + guarantee-tab settings post here too, but they don't
+  // touch checkout, so they take a cheap branch that skips the protection
+  // product and Cart Transform sync the main save runs.
+  if (formData.get("intent") === "badges") {
+    const requestedBadgeStyle = String(formData.get("badgeStyle") ?? "classic");
+    const badgeStyle = BADGE_STYLES.includes(
+      requestedBadgeStyle as (typeof BADGE_STYLES)[number],
+    )
+      ? requestedBadgeStyle
+      : "classic";
+    const requestedTabPosition = String(
+      formData.get("guaranteeTabPosition") ?? "right",
+    );
+    const guaranteeTabPosition = TAB_POSITIONS.some(
+      (p) => p.value === requestedTabPosition,
+    )
+      ? requestedTabPosition
+      : "right";
+    const settings = await db.merchantSettings.update({
+      where: { shop: session.shop },
+      data: {
+        badgesEnabled: formData.get("badgesEnabled") === "true",
+        badgeStyle,
+        showOnProduct: formData.get("showOnProduct") === "true",
+        showOnCart: formData.get("showOnCart") === "true",
+        guaranteeTabPosition,
+      },
+    });
+    return { settings };
+  }
+
   const current = await db.merchantSettings.findUniqueOrThrow({
     where: { shop: session.shop },
   });
@@ -303,8 +347,39 @@ export default function Settings() {
 
   useFetcherToast(settingsFetcher, (data) => data.error ?? "Settings saved.");
 
+  // Trust badge + guarantee tab save on their own fetcher so a badge change
+  // never re-runs protection product sync or shows the protection toast.
+  const badgeFetcher = useFetcher<{ settings?: typeof settings }>();
+  useFetcherToast(badgeFetcher, () => "Badge settings saved.");
+
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
   const currentSettings = settingsFetcher.data?.settings ?? settings;
+  const badgeState = badgeFetcher.data?.settings ?? currentSettings;
+
+  const saveBadges = (overrides: {
+    badgesEnabled?: boolean;
+    badgeStyle?: string;
+    showOnProduct?: boolean;
+    showOnCart?: boolean;
+    guaranteeTabPosition?: string;
+  }) => {
+    badgeFetcher.submit(
+      {
+        intent: "badges",
+        badgesEnabled: String(
+          overrides.badgesEnabled ?? badgeState.badgesEnabled,
+        ),
+        badgeStyle: overrides.badgeStyle ?? badgeState.badgeStyle,
+        showOnProduct: String(
+          overrides.showOnProduct ?? badgeState.showOnProduct,
+        ),
+        showOnCart: String(overrides.showOnCart ?? badgeState.showOnCart),
+        guaranteeTabPosition:
+          overrides.guaranteeTabPosition ?? badgeState.guaranteeTabPosition,
+      },
+      { method: "POST" },
+    );
+  };
 
   // Worked example for the configured ceiling: one clearly under it, one
   // exactly on it (which passes), and one a dollar over (which doesn't).
@@ -494,6 +569,101 @@ export default function Settings() {
                 </s-box>
               </s-box>
             )}
+          </Card>
+
+          <Card heading="Trust badges">
+            <s-paragraph color="subdued">
+              Build confidence with a trust badge across your store.
+            </s-paragraph>
+            <s-grid
+              gridTemplateColumns="@container (inline-size <= 720px) 1fr, 1fr 1fr"
+              gap="large-100"
+              alignItems="start"
+            >
+              <s-stack direction="block" gap="base">
+                <s-switch
+                  label="Show trust badge on storefront"
+                  details="Display on your store's theme"
+                  checked={badgeState.badgesEnabled}
+                  onChange={(e) =>
+                    saveBadges({ badgesEnabled: e.currentTarget.checked })
+                  }
+                />
+                <s-checkbox
+                  label="Show on product pages"
+                  details="Display badge on product pages"
+                  checked={badgeState.showOnProduct}
+                  disabled={!badgeState.badgesEnabled}
+                  onChange={(e) =>
+                    saveBadges({ showOnProduct: e.currentTarget.checked })
+                  }
+                />
+                <s-checkbox
+                  label="Show in cart"
+                  details="Display badge in cart and drawer"
+                  checked={badgeState.showOnCart}
+                  disabled={!badgeState.badgesEnabled}
+                  onChange={(e) =>
+                    saveBadges({ showOnCart: e.currentTarget.checked })
+                  }
+                />
+              </s-stack>
+
+              <s-stack direction="block" gap="base">
+                <s-select
+                  label="Badge style"
+                  value={badgeState.badgeStyle}
+                  disabled={!badgeState.badgesEnabled}
+                  onChange={(e) =>
+                    saveBadges({ badgeStyle: e.currentTarget.value })
+                  }
+                >
+                  {BADGE_STYLES.map((style) => (
+                    <s-option key={style} value={style}>
+                      {style.charAt(0).toUpperCase() + style.slice(1)}
+                    </s-option>
+                  ))}
+                </s-select>
+
+                <s-stack direction="block" gap="small-200">
+                  <s-text color="subdued">Preview — what shoppers see</s-text>
+                  <s-box padding="base" border="base" borderRadius="base">
+                    <TrustBadgePreview badgeStyle={badgeState.badgeStyle} />
+                  </s-box>
+                  <s-text color="subdued">
+                    This is how your trust badge will appear on your store.
+                  </s-text>
+                </s-stack>
+              </s-stack>
+            </s-grid>
+          </Card>
+
+          <Card heading="Guarantee tab">
+            <s-grid
+              gridTemplateColumns="1fr auto"
+              gap="base"
+              alignItems="center"
+            >
+              <s-paragraph>
+                The floating Kourify Guarantee tab shoppers use to learn about
+                protection and file claims.
+              </s-paragraph>
+              <s-box minInlineSize="200px">
+                <s-select
+                  label="Tab position"
+                  value={badgeState.guaranteeTabPosition}
+                  onChange={(e) =>
+                    saveBadges({ guaranteeTabPosition: e.currentTarget.value })
+                  }
+                >
+                  {TAB_POSITIONS.map((pos) => (
+                    <s-option key={pos.value} value={pos.value}>
+                      {pos.label}
+                    </s-option>
+                  ))}
+                </s-select>
+              </s-box>
+            </s-grid>
           </Card>
 
           <Card heading="How protection works">
