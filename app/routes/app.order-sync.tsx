@@ -11,7 +11,7 @@ import {
 } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, MetricsCard } from "../components/Card";
 import { EmptyState } from "../components/EmptyState";
 import { useFetcherToast } from "../hooks/useFetcherToast";
@@ -183,6 +183,37 @@ export default function OrderSync() {
     return () => clearInterval(interval);
   }, [hasActiveJob, revalidator]);
 
+  // When a job that was running flips to done, surface the outcome in a banner
+  // at the top of the page so the merchant sees the sync finished without
+  // reading the jobs table.
+  const wasActive = useRef(false);
+  const [syncBanner, setSyncBanner] = useState<{
+    ok: boolean;
+    text: string;
+  } | null>(null);
+  useEffect(() => {
+    if (hasActiveJob) {
+      wasActive.current = true;
+      return;
+    }
+    if (wasActive.current) {
+      const latest = jobs[0];
+      if (latest?.status === "failed") {
+        setSyncBanner({
+          ok: false,
+          text: latest.errorMessage ?? "Order sync failed.",
+        });
+      } else {
+        const count = latest?.objectCount ?? 0;
+        setSyncBanner({
+          ok: true,
+          text: `Order sync complete — ${count} order${count === 1 ? "" : "s"} synced.`,
+        });
+      }
+      wasActive.current = false;
+    }
+  }, [hasActiveJob, jobs]);
+
   const lastUpdated = lastUpdatedAt
     ? new Intl.DateTimeFormat(undefined, {
         dateStyle: "medium",
@@ -191,10 +222,22 @@ export default function OrderSync() {
     : "Never";
 
   return (
-    <s-page heading="Order sync" inlineSize="large">
+    <s-page heading="Order sync">
       <s-button slot="secondary-actions" href="/app" variant="secondary">
         Back to home
       </s-button>
+
+      {syncBanner ? (
+        <s-banner
+          tone={syncBanner.ok ? "success" : "critical"}
+          heading={syncBanner.ok ? "Order sync complete" : "Order sync failed"}
+          dismissible
+          onDismiss={() => setSyncBanner(null)}
+        >
+          {syncBanner.text}
+        </s-banner>
+      ) : null}
+
       <WorkspaceTabs
         active="order-sync"
         counts={{
