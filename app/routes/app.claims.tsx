@@ -850,13 +850,9 @@ export default function Claims() {
                               ? money(claim.eligibleLossCents)
                               : "—"}
                           </s-text>
-                          {claim.protectedItem ? (
+                          {claim.protectedItem && (
                             <s-text color="subdued">
                               {`${claim.protectedItem.title} · ${claim.claimedQuantity ?? 1} × ${money(claim.itemValueCents ?? 0)}`}
-                            </s-text>
-                          ) : (
-                            <s-text color="subdued">
-                              Filed before item-level coverage
                             </s-text>
                           )}
                           {claim.settlementCents != null && (
@@ -868,30 +864,39 @@ export default function Claims() {
                       </s-table-cell>
 
                       <s-table-cell>
-                        <s-stack direction="block" gap="small-200">
-                          {/* Stacked, not side by side: sharing the column
-                              left the select about four characters wide. */}
-                          <s-stack direction="inline">
-                            <StatusBadge status={claim.status} />
-                          </s-stack>
-                          <s-select
-                            label="Status"
-                            labelAccessibilityVisibility="exclusive"
-                            value={claim.status}
-                            onChange={(e) =>
-                              updateStatus(
-                                claim.id,
-                                e.currentTarget.value ?? claim.status,
-                              )
-                            }
+                        <s-stack direction="block" gap="small-100">
+                          {/* The badge shows the status at a glance; the menu
+                              changes it — so the column no longer stacks a badge
+                              above a full-width select that said the same thing. */}
+                          <s-stack
+                            direction="inline"
+                            gap="small-100"
+                            alignItems="center"
                           >
-                            {STATUSES.map((status) => (
-                              <s-option key={status} value={status}>
-                                {status.charAt(0).toUpperCase() +
-                                  status.slice(1)}
-                              </s-option>
-                            ))}
-                          </s-select>
+                            <StatusBadge status={claim.status} />
+                            <s-button
+                              variant="tertiary"
+                              icon="menu-horizontal"
+                              accessibilityLabel={`Change status for ${claim.orderNumber}`}
+                              commandFor={`status-menu-${claim.id}`}
+                              command="--show"
+                            ></s-button>
+                            <s-menu
+                              id={`status-menu-${claim.id}`}
+                              accessibilityLabel="Change status"
+                            >
+                              {STATUSES.map((status) => (
+                                <s-button
+                                  key={status}
+                                  variant="tertiary"
+                                  onClick={() => updateStatus(claim.id, status)}
+                                >
+                                  {status.charAt(0).toUpperCase() +
+                                    status.slice(1)}
+                                </s-button>
+                              ))}
+                            </s-menu>
+                          </s-stack>
                           {claim.status === "resolved" &&
                             claim.shopifyOrderId && (
                               <s-link
