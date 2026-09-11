@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Card } from "./Card";
 
 type Step = {
   label: string;
@@ -9,12 +8,13 @@ type Step = {
 };
 
 /**
- * App Home's setup-guide composition: the steps as a list you can click
- * through, with the selected one showing its detail and its call to action.
- *
- * A step's state is carried by its icon *and* its wording, never by colour
- * alone — the check icon reads the same to someone who can't tell the tones
- * apart.
+ * App Home's native Setup guide composition: a section with a progress line and
+ * a bordered checklist. Each step is an s-checkbox — the checkbox itself is the
+ * completion control, so it ticks automatically as the underlying step is done
+ * (badges on, protection live, first claim reviewed). A chevron expands each
+ * step's detail and its call to action, and the whole guide collapses from the
+ * header. No custom badges or icons carry state — the checkbox does, which is
+ * what makes it read as a Shopify built-in rather than a hand-rolled list.
  */
 export function GettingStarted({
   title,
@@ -27,66 +27,99 @@ export function GettingStarted({
   estimatedMinutes?: number;
   help?: { label: string; href: string };
 }) {
-  const firstIncompleteIndex = steps.findIndex((s) => !s.done);
-  const [activeIndex, setActiveIndex] = useState(
-    firstIncompleteIndex === -1 ? steps.length - 1 : firstIncompleteIndex,
+  const doneCount = steps.filter((s) => s.done).length;
+  const firstIncomplete = steps.findIndex((s) => !s.done);
+
+  const [collapsed, setCollapsed] = useState(false);
+  // Open the first unfinished step so the next action is visible at a glance.
+  const [expanded, setExpanded] = useState<Record<number, boolean>>(
+    firstIncomplete === -1 ? {} : { [firstIncomplete]: true },
   );
 
-  const doneCount = steps.filter((s) => s.done).length;
-
-  // No manual dismiss: hiding this before setup is actually complete would
-  // bury guidance the merchant still needs, with no way to bring it back
-  // short of a full page reload. It auto-hides once every step is done.
+  // No manual dismiss: hiding this before setup is complete would bury guidance
+  // the merchant still needs. It auto-hides once every step is done.
   if (doneCount === steps.length) return null;
 
-  const activeStep = steps[activeIndex];
-
   return (
-    <Card heading={title}>
-      <s-paragraph color="subdued">
-        {`${doneCount} of ${steps.length} steps complete · about ${estimatedMinutes} minutes to finish`}
-      </s-paragraph>
-
-      <s-stack direction="block" gap="small-200">
-        {steps.map((step, index) => (
-          <s-clickable
-            key={step.label}
-            padding="small-200"
-            borderRadius="base"
-            background={index === activeIndex ? "subdued" : undefined}
-            accessibilityLabel={`${step.label}${step.done ? ", done" : ""}`}
-            onClick={() => setActiveIndex(index)}
-          >
-            <s-stack direction="inline" gap="small-200" alignItems="center">
-              <s-icon
-                type={step.done ? "check-circle" : "circle"}
-                tone={step.done ? "success" : "neutral"}
-                size="base"
-              />
-              <s-text type={index === activeIndex ? "strong" : undefined}>
-                {step.label}
-              </s-text>
-              {step.done && <s-badge tone="success">Done</s-badge>}
-            </s-stack>
-          </s-clickable>
-        ))}
-      </s-stack>
-
+    <s-section>
       <s-stack direction="block" gap="base">
-        <s-paragraph>{activeStep.detail}</s-paragraph>
-        {activeStep.action && (
-          <s-stack direction="inline">
-            <s-button variant="primary" href={activeStep.action.href}>
-              {activeStep.action.label}
-            </s-button>
+        <s-grid
+          gridTemplateColumns="1fr auto"
+          gap="small-300"
+          alignItems="center"
+        >
+          <s-stack direction="block" gap="small-300">
+            <s-heading>{title}</s-heading>
+            <s-text color="subdued">
+              {`${doneCount} of ${steps.length} steps completed · about ${estimatedMinutes} minutes to finish`}
+            </s-text>
           </s-stack>
-        )}
+          <s-button
+            variant="tertiary"
+            accessibilityLabel={
+              collapsed ? "Expand setup guide" : "Collapse setup guide"
+            }
+            icon={collapsed ? "chevron-down" : "chevron-up"}
+            onClick={() => setCollapsed((value) => !value)}
+          ></s-button>
+        </s-grid>
+
+        <s-box
+          borderWidth="base"
+          borderColor="base"
+          borderRadius="base"
+          display={collapsed ? "none" : "auto"}
+        >
+          {steps.map((step, index) => (
+            <s-box key={step.label}>
+              {index > 0 ? <s-divider /> : null}
+              <s-box padding="small-200">
+                <s-grid
+                  gridTemplateColumns="1fr auto"
+                  gap="small-200"
+                  alignItems="center"
+                >
+                  <s-checkbox label={step.label} checked={step.done} />
+                  <s-button
+                    variant="tertiary"
+                    accessibilityLabel={`Toggle ${step.label} details`}
+                    icon={expanded[index] ? "chevron-up" : "chevron-down"}
+                    onClick={() =>
+                      setExpanded((value) => ({
+                        ...value,
+                        [index]: !value[index],
+                      }))
+                    }
+                  ></s-button>
+                </s-grid>
+                <s-box
+                  display={expanded[index] ? "auto" : "none"}
+                  paddingBlockStart="small-200"
+                >
+                  <s-box padding="base" background="subdued" borderRadius="base">
+                    <s-stack direction="block" gap="small-200">
+                      <s-paragraph>{step.detail}</s-paragraph>
+                      {step.action && (
+                        <s-stack direction="inline">
+                          <s-button variant="primary" href={step.action.href}>
+                            {step.action.label}
+                          </s-button>
+                        </s-stack>
+                      )}
+                    </s-stack>
+                  </s-box>
+                </s-box>
+              </s-box>
+            </s-box>
+          ))}
+        </s-box>
+
         {help && (
           <s-paragraph color="subdued">
             <s-link href={help.href}>{help.label}</s-link>
           </s-paragraph>
         )}
       </s-stack>
-    </Card>
+    </s-section>
   );
 }
