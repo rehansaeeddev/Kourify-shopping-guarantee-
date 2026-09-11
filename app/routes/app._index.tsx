@@ -299,16 +299,17 @@ export default function Index() {
         </Card>
       )}
 
-      <Card heading="Trust badges">
-        <s-paragraph color="subdued">
-          Build confidence with a trust badge across your store.
-        </s-paragraph>
-
-        <s-grid
-          gridTemplateColumns="1fr 1fr"
-          gap="large-100"
-          alignItems="start"
-        >
+      {/* Two side-by-side cards: the where-to-show controls on the left, the
+          style and its live preview on the right. Stacks on a narrow container. */}
+      <s-grid
+        gridTemplateColumns="@container (inline-size <= 720px) 1fr, 1fr 1fr"
+        gap="base"
+        alignItems="start"
+      >
+        <Card heading="Trust badges">
+          <s-paragraph color="subdued">
+            Build confidence with a trust badge across your store.
+          </s-paragraph>
           <s-stack direction="block" gap="base">
             <s-switch
               label="Show trust badge on storefront"
@@ -337,35 +338,33 @@ export default function Index() {
               }
             />
           </s-stack>
+        </Card>
 
-          <s-stack direction="block" gap="base">
-            <s-select
-              label="Badge style"
-              value={current.badgeStyle}
-              disabled={!current.badgesEnabled}
-              onChange={(e) =>
-                saveBadges({ badgeStyle: e.currentTarget.value })
-              }
-            >
-              {BADGE_STYLES.map((style) => (
-                <s-option key={style} value={style}>
-                  {style.charAt(0).toUpperCase() + style.slice(1)}
-                </s-option>
-              ))}
-            </s-select>
+        <Card heading="Appearance">
+          <s-select
+            label="Badge style"
+            value={current.badgeStyle}
+            disabled={!current.badgesEnabled}
+            onChange={(e) => saveBadges({ badgeStyle: e.currentTarget.value })}
+          >
+            {BADGE_STYLES.map((style) => (
+              <s-option key={style} value={style}>
+                {style.charAt(0).toUpperCase() + style.slice(1)}
+              </s-option>
+            ))}
+          </s-select>
 
-            <s-stack direction="block" gap="small-200">
-              <s-text color="subdued">Preview — what shoppers see</s-text>
-              <s-box padding="base" border="base" borderRadius="base">
-                <TrustBadgePreview badgeStyle={current.badgeStyle} />
-              </s-box>
-              <s-text color="subdued">
-                This is how your trust badge will appear on your store.
-              </s-text>
-            </s-stack>
+          <s-stack direction="block" gap="small-200">
+            <s-text color="subdued">Preview — what shoppers see</s-text>
+            <s-box padding="base" border="base" borderRadius="base">
+              <TrustBadgePreview badgeStyle={current.badgeStyle} />
+            </s-box>
+            <s-text color="subdued">
+              This is how your trust badge will appear on your store.
+            </s-text>
           </s-stack>
-        </s-grid>
-      </Card>
+        </Card>
+      </s-grid>
 
       <Card heading="Guarantee tab">
         <s-grid gridTemplateColumns="1fr auto" gap="base" alignItems="end">
