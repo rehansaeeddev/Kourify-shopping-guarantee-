@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { useFetcher, useLoaderData, useSearchParams } from "react-router";
 
@@ -226,6 +226,33 @@ export default function Translations() {
   const fetcher = useFetcher<ActionResult>();
   useFetcherToast(fetcher, (data) => data.message ?? data.error ?? "Updated.");
 
+  // Removing a language drops its saved translations, so it's confirmed in a
+  // native modal rather than a browser confirm() popup.
+  const removeModalRef = useRef<{
+    showOverlay: () => void;
+    hideOverlay: () => void;
+  } | null>(null);
+  const [pendingRemove, setPendingRemove] = useState<{
+    locale: string;
+    label: string;
+  } | null>(null);
+
+  const confirmRemove = () => {
+    if (pendingRemove) {
+      fetcher.submit(
+        { intent: "remove", locale: pendingRemove.locale },
+        { method: "POST" },
+      );
+    }
+    setPendingRemove(null);
+    removeModalRef.current?.hideOverlay();
+  };
+
+  const cancelRemove = () => {
+    setPendingRemove(null);
+    removeModalRef.current?.hideOverlay();
+  };
+
   const renamingLang =
     languages.find((lang) => lang.locale === renaming) ?? null;
 
@@ -407,16 +434,11 @@ export default function Translations() {
                             loading={fetcher.state !== "idle"}
                             disabled={fetcher.state !== "idle"}
                             onClick={() => {
-                              if (
-                                window.confirm(
-                                  `Remove ${lang.label} from the claim page?`,
-                                )
-                              ) {
-                                fetcher.submit(
-                                  { intent: "remove", locale: lang.locale },
-                                  { method: "POST" },
-                                );
-                              }
+                              setPendingRemove({
+                                locale: lang.locale,
+                                label: lang.label,
+                              });
+                              removeModalRef.current?.showOverlay();
                             }}
                           >
                             Remove
@@ -433,6 +455,31 @@ export default function Translations() {
       )}
 
       <AddLanguage fetcher={fetcher} />
+
+      <s-modal
+        ref={removeModalRef as never}
+        id="kourify-remove-language-modal"
+        heading="Remove language"
+      >
+        <s-paragraph>
+          {pendingRemove
+            ? `Remove ${pendingRemove.label} from the claim page? Its saved translations are deleted, and shoppers will no longer see this language.`
+            : ""}
+        </s-paragraph>
+        <s-button
+          slot="primary-action"
+          variant="primary"
+          tone="critical"
+          loading={fetcher.state !== "idle"}
+          disabled={fetcher.state !== "idle"}
+          onClick={confirmRemove}
+        >
+          Remove
+        </s-button>
+        <s-button slot="secondary-actions" onClick={cancelRemove}>
+          Cancel
+        </s-button>
+      </s-modal>
     </s-page>
   );
 }

@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Form, useFetcher, useLoaderData, useNavigate } from "react-router";
 
 import { AppButton } from "../components/AppButton";
@@ -590,6 +590,34 @@ export default function Orders() {
     (data) => data.message ?? data.error ?? "Offer updated.",
   );
 
+  // Marking an order delivered is irreversible (it stamps the delivery date and
+  // opens post-delivery claim windows), so it's confirmed in a native modal
+  // rather than a browser confirm() popup that ignores the admin theme.
+  const deliverModalRef = useRef<{
+    showOverlay: () => void;
+    hideOverlay: () => void;
+  } | null>(null);
+  const [pendingDeliver, setPendingDeliver] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+
+  const confirmDeliver = () => {
+    if (pendingDeliver) {
+      offerFetcher.submit(
+        { intent: "deliver", orderId: pendingDeliver.id, confirmed: "true" },
+        { method: "POST" },
+      );
+    }
+    setPendingDeliver(null);
+    deliverModalRef.current?.hideOverlay();
+  };
+
+  const cancelDeliver = () => {
+    setPendingDeliver(null);
+    deliverModalRef.current?.hideOverlay();
+  };
+
   // Bulk selection is scoped to the orders visible on this page; navigating to
   // another page or filter clears it so a hidden row can never be acted on.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -947,20 +975,11 @@ export default function Orders() {
                             <s-button
                               variant="tertiary"
                               onClick={() => {
-                                if (
-                                  window.confirm(
-                                    `Confirm that ${order.name} was actually delivered?`,
-                                  )
-                                ) {
-                                  offerFetcher.submit(
-                                    {
-                                      intent: "deliver",
-                                      orderId: order.id,
-                                      confirmed: "true",
-                                    },
-                                    { method: "POST" },
-                                  );
-                                }
+                                setPendingDeliver({
+                                  id: order.id,
+                                  name: order.name,
+                                });
+                                deliverModalRef.current?.showOverlay();
                               }}
                             >
                               Mark as delivered
@@ -1074,6 +1093,30 @@ export default function Orders() {
           </offerFetcher.Form>
         </Card>
       ) : null}
+
+      <s-modal
+        ref={deliverModalRef as never}
+        id="kourify-deliver-confirm-modal"
+        heading="Mark as delivered"
+      >
+        <s-paragraph>
+          {pendingDeliver
+            ? `Confirm that ${pendingDeliver.name} was actually delivered. This records the delivery date and starts any post-delivery claim windows, and can't be undone.`
+            : ""}
+        </s-paragraph>
+        <s-button
+          slot="primary-action"
+          variant="primary"
+          loading={offerFetcher.state !== "idle"}
+          disabled={offerFetcher.state !== "idle"}
+          onClick={confirmDeliver}
+        >
+          Mark as delivered
+        </s-button>
+        <s-button slot="secondary-actions" onClick={cancelDeliver}>
+          Cancel
+        </s-button>
+      </s-modal>
     </s-page>
   );
 }
