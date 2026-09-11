@@ -638,7 +638,28 @@ export default function Settings() {
               justifyContent="space-between"
             >
               <s-stack direction="block" gap="small-200">
-                <s-text>Protection at checkout</s-text>
+                <s-stack
+                  direction="inline"
+                  gap="small-200"
+                  alignItems="center"
+                >
+                  <s-text>Protection at checkout</s-text>
+                  <s-badge
+                    tone={
+                      quotaExhausted
+                        ? "warning"
+                        : currentSettings.protectionEnabled
+                          ? "success"
+                          : "neutral"
+                    }
+                  >
+                    {quotaExhausted
+                      ? "Limit reached"
+                      : currentSettings.protectionEnabled
+                        ? "On"
+                        : "Off"}
+                  </s-badge>
+                </s-stack>
                 <s-text color="subdued">
                   {quotaExhausted
                     ? "Switched off automatically — your plan's protected-order limit has been reached."
