@@ -9,7 +9,7 @@ import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { DEFAULT_CLAIM_WINDOWS } from "../lib/claim-window";
 import { useFetcherToast } from "../hooks/useFetcherToast";
-import { Card, MetricsCard } from "../components/Card";
+import { Card, StatTile } from "../components/Card";
 import { GettingStarted } from "../components/GettingStarted";
 import { StatusBadge } from "../components/StatusBadge";
 import { issueTypeLabel } from "../lib/claim-issue-type";
@@ -219,77 +219,78 @@ export default function Index() {
         ]}
       />
 
-      <MetricsCard
-        heading="Status"
-        metrics={[
-          {
-            icon: "shield-check-mark",
-            label: "Trust badges",
-            tone: current.badgesEnabled ? "success" : "default",
-            value: current.badgesEnabled ? "On" : "Off",
-            sub: current.badgesEnabled
-              ? `${current.badgeStyle.charAt(0).toUpperCase()}${current.badgeStyle.slice(1)} style`
-              : "Not shown to customers",
-          },
-          {
-            icon: "check-circle",
-            label: "Protection status",
-            tone: protectionStatus.tone,
-            value: protectionStatus.value,
-            sub: protectionStatus.sub,
-            href: "/app/settings",
-          },
-          {
-            icon: "chart-line",
-            label: "Claim incident rate",
-            tone:
-              telemetry.incidentRate !== null && telemetry.incidentRate > 3
-                ? "critical"
-                : "default",
-            value:
-              telemetry.incidentRate !== null
-                ? `${telemetry.incidentRate.toFixed(1)}%`
-                : "No data yet",
-            sub: "Of fulfilled orders",
-            href: "/app/claims",
-          },
-        ]}
-      />
-
-      {/* Performance. These moved off Settings, which is configuration only.
+      {/* One Overview card holds every KPI in a packed grid, rather than two
+          half-empty Status/Performance cards spread thin across the width.
           "Protection sales" is the same figure the old "Protection revenue"
           tile showed, so that duplicate is gone rather than shown twice. */}
-      <MetricsCard
-        heading="Performance"
-        metrics={[
-          {
-            icon: "shield-check-mark",
-            label: "Protected orders",
-            tone: analytics.protectedOrders > 0 ? "success" : "default",
-            value: String(analytics.protectedOrders),
-            sub: "Orders with protection",
-          },
-          {
-            icon: "chart-line",
-            label: "Selection rate",
-            value: `${analytics.conversionRate.toFixed(1)}%`,
-            sub: "Of eligible orders",
-          },
-          {
-            icon: "cash-dollar",
-            label: "Protection sales",
-            tone: analytics.protectionRevenueCents > 0 ? "success" : "default",
-            value: `$${(analytics.protectionRevenueCents / 100).toFixed(2)}`,
-            sub: "All time",
-          },
-          {
-            icon: "receipt-dollar",
-            label: "Usage fees",
-            value: `$${(analytics.usageFeesCents / 100).toFixed(2)}`,
-            sub: "Billed this period",
-          },
-        ]}
-      />
+      <Card heading="Overview">
+        <s-grid
+          gridTemplateColumns="repeat(auto-fit, minmax(180px, 1fr))"
+          gap="large"
+        >
+          <StatTile
+            icon="shield-check-mark"
+            label="Trust badges"
+            tone={current.badgesEnabled ? "success" : "default"}
+            value={current.badgesEnabled ? "On" : "Off"}
+            sub={
+              current.badgesEnabled
+                ? `${current.badgeStyle.charAt(0).toUpperCase()}${current.badgeStyle.slice(1)} style`
+                : "Not shown to customers"
+            }
+          />
+          <StatTile
+            icon="check-circle"
+            label="Protection status"
+            tone={protectionStatus.tone}
+            value={protectionStatus.value}
+            sub={protectionStatus.sub}
+            href="/app/settings"
+          />
+          <StatTile
+            icon="chart-line"
+            label="Claim incident rate"
+            tone={
+              telemetry.incidentRate !== null && telemetry.incidentRate > 3
+                ? "critical"
+                : "default"
+            }
+            value={
+              telemetry.incidentRate !== null
+                ? `${telemetry.incidentRate.toFixed(1)}%`
+                : "No data yet"
+            }
+            sub="Of fulfilled orders"
+            href="/app/claims"
+          />
+          <StatTile
+            icon="shield-check-mark"
+            label="Protected orders"
+            tone={analytics.protectedOrders > 0 ? "success" : "default"}
+            value={String(analytics.protectedOrders)}
+            sub="Orders with protection"
+          />
+          <StatTile
+            icon="chart-line"
+            label="Selection rate"
+            value={`${analytics.conversionRate.toFixed(1)}%`}
+            sub="Of eligible orders"
+          />
+          <StatTile
+            icon="cash-dollar"
+            label="Protection sales"
+            tone={analytics.protectionRevenueCents > 0 ? "success" : "default"}
+            value={`$${(analytics.protectionRevenueCents / 100).toFixed(2)}`}
+            sub="All time"
+          />
+          <StatTile
+            icon="receipt-dollar"
+            label="Usage fees"
+            value={`$${(analytics.usageFeesCents / 100).toFixed(2)}`}
+            sub="Billed this period"
+          />
+        </s-grid>
+      </Card>
 
       <Card heading="Trust badges">
         <s-paragraph color="subdued">
