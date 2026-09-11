@@ -1,6 +1,12 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { useEffect, useRef, useState } from "react";
-import { Form, useFetcher, useLoaderData, useSearchParams } from "react-router";
+import {
+  Form,
+  useFetcher,
+  useLoaderData,
+  useNavigate,
+  useSearchParams,
+} from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { Card } from "../components/Card";
@@ -322,6 +328,7 @@ export default function Claims() {
   } = useLoaderData<typeof loader>();
   const claimFetcher = useFetcher();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   // Bulk status changes ride their own fetcher. A confirmation modal (not a raw
@@ -526,7 +533,7 @@ export default function Claims() {
   const exportParams = new URLSearchParams(searchParams);
 
   return (
-    <s-page heading="Claims" inlineSize="large">
+    <s-page heading="Claims">
       <s-button
         slot="secondary-actions"
         href="/app/settings"
@@ -599,31 +606,45 @@ export default function Claims() {
           </s-badge>
           <s-badge tone="neutral">{`${resolvedClaims} resolved`}</s-badge>
         </s-stack>
-        <s-stack
-          direction="inline"
+        {/* Search submits on Enter; the Status dropdown navigates on change,
+            keeping the current search. */}
+        <s-grid
+          gridTemplateColumns="@container (inline-size <= 640px) 1fr, 1fr auto auto"
           gap="base"
-          alignItems="center"
-          justifyContent="space-between"
+          alignItems="end"
         >
-          <s-stack
-            direction="inline"
-            gap="small-200"
-            accessibilityLabel="Filter claims"
-          >
-            {TABS.map((t) => (
-              <s-button
-                key={t.value}
-                variant={tab === t.value ? "secondary" : "tertiary"}
-                href={
-                  t.value === "all"
-                    ? "/app/claims"
-                    : `/app/claims?tab=${t.value}`
-                }
-              >
-                {t.label}
-              </s-button>
-            ))}
-          </s-stack>
+          <Form method="get">
+            {tab !== "all" ? (
+              <input type="hidden" name="tab" value={tab} />
+            ) : null}
+            <s-search-field
+              label="Search claims"
+              labelAccessibilityVisibility="exclusive"
+              name="q"
+              value={q}
+              placeholder="Search order, name, or email"
+            />
+          </Form>
+          <s-box minInlineSize="180px">
+            <s-select
+              label="Status"
+              value={tab}
+              onChange={(e) => {
+                const value = e.currentTarget.value ?? "all";
+                const params = new URLSearchParams();
+                if (value !== "all") params.set("tab", value);
+                if (q) params.set("q", q);
+                const search = params.toString();
+                navigate(search ? `/app/claims?${search}` : "/app/claims");
+              }}
+            >
+              {TABS.map((t) => (
+                <s-option key={t.value} value={t.value}>
+                  {t.label}
+                </s-option>
+              ))}
+            </s-select>
+          </s-box>
           <s-button
             href={`/app/claims/export?${exportParams.toString()}`}
             variant="secondary"
@@ -632,36 +653,11 @@ export default function Claims() {
           >
             Export CSV
           </s-button>
+        </s-grid>
         </s-stack>
+      </Card>
 
-        <Form method="get">
-          <input type="hidden" name="tab" value={tab} />
-          <s-grid
-            gridTemplateColumns="1fr auto auto"
-            gap="base"
-            alignItems="end"
-          >
-            <s-search-field
-              label="Search claims"
-              labelAccessibilityVisibility="exclusive"
-              name="q"
-              value={q}
-              placeholder="Search order, name, or email"
-            />
-            <s-button type="submit" variant="secondary">
-              Search
-            </s-button>
-            {q ? (
-              <s-button
-                href={tab === "all" ? "/app/claims" : `/app/claims?tab=${tab}`}
-                variant="tertiary"
-              >
-                Clear
-              </s-button>
-            ) : null}
-          </s-grid>
-        </Form>
-
+      <Card>
         {claims.length === 0 ? (
           <EmptyState
             icon="clipboard-checklist"
@@ -674,12 +670,70 @@ export default function Claims() {
           />
         ) : (
           <>
-            <s-box paddingBlock="small-200">
-              <s-text color="subdued">
-                {`Showing ${(page - 1) * PAGE_SIZE + 1}–${
-                  (page - 1) * PAGE_SIZE + claims.length
-                } of ${filteredCount} claim${filteredCount === 1 ? "" : "s"}`}
-              </s-text>
+            {/* Fixed-height header bar so selecting never shifts the table:
+                the select-all checkbox and count sit on the left, and the bulk
+                actions appear on the right only once claims are selected — no
+                disabled button lingers on top while nothing is selected. */}
+            <s-box minBlockSize="44px">
+              <s-stack
+                direction="inline"
+                gap="base"
+                alignItems="center"
+                justifyContent="space-between"
+              >
+                <s-stack
+                  direction="inline"
+                  gap="small-200"
+                  alignItems="center"
+                >
+                  <s-checkbox
+                    checked={allClaimsSelected}
+                    accessibilityLabel="Select all claims on this page"
+                    onChange={toggleAllClaims}
+                  />
+                  {selectedClaimIds.size > 0 ? (
+                    <s-text type="strong">
+                      {`${selectedClaimIds.size} selected`}
+                    </s-text>
+                  ) : (
+                    <s-text color="subdued">
+                      {`Showing ${(page - 1) * PAGE_SIZE + 1}–${
+                        (page - 1) * PAGE_SIZE + claims.length
+                      } of ${filteredCount} claim${filteredCount === 1 ? "" : "s"}`}
+                    </s-text>
+                  )}
+                </s-stack>
+                {selectedClaimIds.size > 0 ? (
+                  <s-stack
+                    direction="inline"
+                    gap="small-200"
+                    alignItems="center"
+                  >
+                    <s-button
+                      variant="secondary"
+                      onClick={() => setSelectedClaimIds(new Set())}
+                    >
+                      Clear
+                    </s-button>
+                    <s-button
+                      variant="secondary"
+                      loading={bulkFetcher.state !== "idle"}
+                      disabled={bulkFetcher.state !== "idle"}
+                      onClick={() => openBulkConfirm("reviewing")}
+                    >
+                      Mark reviewing
+                    </s-button>
+                    <s-button
+                      variant="primary"
+                      loading={bulkFetcher.state !== "idle"}
+                      disabled={bulkFetcher.state !== "idle"}
+                      onClick={() => openBulkConfirm("resolved")}
+                    >
+                      Approve
+                    </s-button>
+                  </s-stack>
+                ) : null}
+              </s-stack>
             </s-box>
             <s-table
               ref={pagination.ref as never}
@@ -688,63 +742,8 @@ export default function Claims() {
               hasPreviousPage={pagination.hasPreviousPage}
               hasNextPage={pagination.hasNextPage}
             >
-              {selectedClaimIds.size > 0 ? (
-                <s-box slot="filters" padding="small-200">
-                  <s-stack
-                    direction="inline"
-                    gap="base"
-                    alignItems="center"
-                    justifyContent="space-between"
-                  >
-                    <s-text type="strong">
-                      {`${selectedClaimIds.size} selected`}
-                    </s-text>
-                    <s-stack
-                      direction="inline"
-                      gap="small-200"
-                      alignItems="center"
-                    >
-                      <s-button
-                        variant="secondary"
-                        onClick={() => setSelectedClaimIds(new Set())}
-                      >
-                        Clear
-                      </s-button>
-                      <s-button
-                        variant="secondary"
-                        loading={bulkFetcher.state !== "idle"}
-                        disabled={bulkFetcher.state !== "idle"}
-                        onClick={() => openBulkConfirm("reviewing")}
-                      >
-                        Mark reviewing
-                      </s-button>
-                      <s-button
-                        variant="primary"
-                        loading={bulkFetcher.state !== "idle"}
-                        disabled={bulkFetcher.state !== "idle"}
-                        onClick={() => openBulkConfirm("resolved")}
-                      >
-                        Approve
-                      </s-button>
-                    </s-stack>
-                  </s-stack>
-                </s-box>
-              ) : null}
               <s-table-header-row>
-                <s-table-header listSlot="primary">
-                  <s-stack
-                    direction="inline"
-                    gap="small-200"
-                    alignItems="center"
-                  >
-                    <s-checkbox
-                      checked={allClaimsSelected}
-                      accessibilityLabel="Select all claims on this page"
-                      onChange={toggleAllClaims}
-                    />
-                    Order
-                  </s-stack>
-                </s-table-header>
+                <s-table-header listSlot="primary">Order</s-table-header>
                 <s-table-header listSlot="secondary">Customer</s-table-header>
                 <s-table-header listSlot="labeled">Issue</s-table-header>
                 <s-table-header listSlot="labeled">Loss</s-table-header>
@@ -903,7 +902,6 @@ export default function Claims() {
             </s-table>
           </>
         )}
-        </s-stack>
       </Card>
 
       <s-modal
