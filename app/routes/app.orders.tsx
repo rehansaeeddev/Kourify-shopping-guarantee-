@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useFetcher, useLoaderData, useNavigate } from "react-router";
 
 import { AppButton } from "../components/AppButton";
-import { Card, StatTile } from "../components/Card";
+import { Card, MetricsCard } from "../components/Card";
 import { EmptyState } from "../components/EmptyState";
 import db from "../db.server";
 import { sendProtectionOffer } from "../lib/notify.server";
@@ -494,24 +494,23 @@ export default function Orders() {
         }}
       />
 
-      <s-grid
-        gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
-        gap="base"
-      >
-        <StatTile icon="order" label="Orders" value={String(counts.all)} />
-        <StatTile
-          icon="shield-check-mark"
-          label="Protected"
-          tone="success"
-          value={String(counts.protected)}
-        />
-        <StatTile
-          icon="alert-circle"
-          label="Unprotected"
-          tone={counts.unprotected ? "warning" : "default"}
-          value={String(counts.unprotected)}
-        />
-      </s-grid>
+      <MetricsCard
+        metrics={[
+          { icon: "order", label: "Orders", value: String(counts.all) },
+          {
+            icon: "shield-check-mark",
+            label: "Protected",
+            tone: "success",
+            value: String(counts.protected),
+          },
+          {
+            icon: "alert-circle",
+            label: "Unprotected",
+            tone: counts.unprotected ? "warning" : "default",
+            value: String(counts.unprotected),
+          },
+        ]}
+      />
 
       <Card heading="Shopify orders">
         <s-stack
@@ -522,7 +521,7 @@ export default function Orders() {
           {FILTERS.map((value) => (
             <s-button
               key={value}
-              variant={filter === value ? "primary" : "tertiary"}
+              variant={filter === value ? "secondary" : "tertiary"}
               href={
                 value === "all" ? "/app/orders" : `/app/orders?filter=${value}`
               }

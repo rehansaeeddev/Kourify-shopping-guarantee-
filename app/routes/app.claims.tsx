@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Form, useFetcher, useLoaderData, useSearchParams } from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
-import { Card, StatTile } from "../components/Card";
+import { Card, MetricsCard } from "../components/Card";
 import { getResolvedClaimsTrend } from "../lib/protection-telemetry.server";
 import { AppButton } from "../components/AppButton";
 import { EmptyState } from "../components/EmptyState";
@@ -460,25 +460,24 @@ export default function Claims() {
         }}
       />
 
-      <s-grid
-        gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
-        gap="base"
-      >
-        <StatTile
-          icon="clock"
-          label="Open claims"
-          tone={openClaims > 0 ? "warning" : "default"}
-          value={String(openClaims)}
-          sub="Awaiting your review"
-        />
-        <StatTile
-          icon="check-circle"
-          label="Resolved"
-          tone="success"
-          value={String(resolvedClaims)}
-          sub="Last 14 days"
-        />
-      </s-grid>
+      <MetricsCard
+        metrics={[
+          {
+            icon: "clock",
+            label: "Open claims",
+            tone: openClaims > 0 ? "warning" : "default",
+            value: String(openClaims),
+            sub: "Awaiting your review",
+          },
+          {
+            icon: "check-circle",
+            label: "Resolved",
+            tone: "success",
+            value: String(resolvedClaims),
+            sub: "Last 14 days",
+          },
+        ]}
+      />
 
       <Card heading={`Claims (${totalClaims})`}>
         <s-stack
@@ -495,7 +494,7 @@ export default function Claims() {
             {TABS.map((t) => (
               <s-button
                 key={t.value}
-                variant={tab === t.value ? "primary" : "tertiary"}
+                variant={tab === t.value ? "secondary" : "tertiary"}
                 href={
                   t.value === "all"
                     ? "/app/claims"
