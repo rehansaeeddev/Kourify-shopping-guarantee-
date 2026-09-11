@@ -311,7 +311,6 @@ export default function Claims() {
     claims,
     openClaims,
     resolvedClaims,
-    resolvedTrend,
     totalClaims,
     tab,
     q,
@@ -410,15 +409,9 @@ export default function Claims() {
     bulkConfirmRef.current?.hideOverlay();
   };
 
-  // Which row is mid-save, straight off the in-flight form data, and which
-  // one just finished — the latter drives a one-shot confirmation flash so a
-  // status change is visibly acknowledged in place.
-  const savingClaimId =
-    claimFetcher.state !== "idle"
-      ? String(claimFetcher.formData?.get("claimId") ?? "")
-      : null;
+  // Remembers which row was just submitted so the decision banner can name it
+  // before the loader revalidates and the row's status flips.
   const submittedClaimId = useRef<string | null>(null);
-  const [flashedClaimId, setFlashedClaimId] = useState<string | null>(null);
   const [pendingStatus, setPendingStatus] = useState<{
     claimId: string;
     status: string;
@@ -442,18 +435,13 @@ export default function Claims() {
     if (claimFetcher.state !== "idle" || !claimFetcher.data) return;
     if (!submittedClaimId.current) return;
 
-    setFlashedClaimId(submittedClaimId.current);
     submittedClaimId.current = null;
 
-    // Resolve/deny emails the customer, so it gets a persistent banner rather
-    // than only the in-row flash, which is easy to miss.
+    // Resolve/deny emails the customer, so it gets a persistent banner.
     if (submittedOutcome.current) {
       setStatusBanner(submittedOutcome.current);
       submittedOutcome.current = null;
     }
-
-    const timer = setTimeout(() => setFlashedClaimId(null), 1200);
-    return () => clearTimeout(timer);
   }, [claimFetcher.state, claimFetcher.data]);
 
   const submitStatus = (
