@@ -1,5 +1,5 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFetcher, useLoaderData } from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
@@ -356,6 +356,40 @@ export default function Settings() {
   const currentSettings = settingsFetcher.data?.settings ?? settings;
   const badgeState = badgeFetcher.data?.settings ?? currentSettings;
 
+  // A dismissible success banner on top, alongside the toast, so a save is
+  // confirmed both transiently and persistently. It's driven off the same
+  // submitting→idle transition the toast watches (see useFetcherToast), so it
+  // fires once per save, never on first load, and re-shows on the next save.
+  const [savedNotice, setSavedNotice] = useState<string | null>(null);
+  const settingsWasSaving = useRef(false);
+  const badgeWasSaving = useRef(false);
+
+  useEffect(() => {
+    if (settingsFetcher.state !== "idle") {
+      settingsWasSaving.current = true;
+      return;
+    }
+    if (
+      settingsWasSaving.current &&
+      settingsFetcher.data &&
+      !settingsFetcher.data.error
+    ) {
+      setSavedNotice("Settings saved.");
+    }
+    settingsWasSaving.current = false;
+  }, [settingsFetcher.state, settingsFetcher.data]);
+
+  useEffect(() => {
+    if (badgeFetcher.state !== "idle") {
+      badgeWasSaving.current = true;
+      return;
+    }
+    if (badgeWasSaving.current && badgeFetcher.data) {
+      setSavedNotice("Badge settings saved.");
+    }
+    badgeWasSaving.current = false;
+  }, [badgeFetcher.state, badgeFetcher.data]);
+
   const saveBadges = (overrides: {
     badgesEnabled?: boolean;
     badgeStyle?: string;
@@ -502,6 +536,16 @@ export default function Settings() {
       {settingsFetcher.data?.error && (
         <s-banner tone="critical" heading="Protection could not be enabled">
           {settingsFetcher.data.error}
+        </s-banner>
+      )}
+
+      {savedNotice && !settingsFetcher.data?.error && (
+        <s-banner
+          tone="success"
+          dismissible
+          onDismiss={() => setSavedNotice(null)}
+        >
+          {savedNotice}
         </s-banner>
       )}
 
