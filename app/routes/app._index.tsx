@@ -124,6 +124,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   return { settings };
 };
 
+// The dashboard Overview metrics are hidden for now — flip this to true to
+// bring the card back. The data is still loaded and the card stays fully wired.
+const SHOW_DASHBOARD_METRICS = false;
+
 export default function Index() {
   const {
     greeting,
@@ -222,8 +226,10 @@ export default function Index() {
       {/* One Overview card holds every KPI in a packed grid, rather than two
           half-empty Status/Performance cards spread thin across the width.
           "Protection sales" is the same figure the old "Protection revenue"
-          tile showed, so that duplicate is gone rather than shown twice. */}
-      <Card heading="Overview">
+          tile showed, so that duplicate is gone rather than shown twice.
+          Hidden for now behind SHOW_DASHBOARD_METRICS. */}
+      {SHOW_DASHBOARD_METRICS && (
+        <Card heading="Overview">
         <s-grid
           gridTemplateColumns="repeat(auto-fit, minmax(180px, 1fr))"
           gap="large"
@@ -290,7 +296,8 @@ export default function Index() {
             sub="Billed this period"
           />
         </s-grid>
-      </Card>
+        </Card>
+      )}
 
       <Card heading="Trust badges">
         <s-paragraph color="subdued">
