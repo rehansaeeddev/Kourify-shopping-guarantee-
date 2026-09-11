@@ -646,48 +646,51 @@ export default function Orders() {
           />
         ) : (
           <>
-            <s-box paddingBlock="small-200">
-              <s-text color="subdued">
-                {`Showing ${(page - 1) * pageSize + 1}–${
-                  (page - 1) * pageSize + rows.length
-                } of ${filteredCount} order${filteredCount === 1 ? "" : "s"}`}
-              </s-text>
-            </s-box>
-            <s-table variant="auto">
-              {selectedIds.size > 0 ? (
-                <s-box slot="filters" padding="small-200">
+            {/* Fixed-height toolbar ABOVE the table (not inside its filter
+                slot): it shows the row count while nothing is selected and
+                swaps to the bulk actions in place when rows are selected. Its
+                min height is reserved, so the table below it never moves. */}
+            <s-box paddingBlock="small-200" minBlockSize="40px">
+              <s-stack
+                direction="inline"
+                gap="base"
+                alignItems="center"
+                justifyContent="space-between"
+              >
+                {selectedIds.size > 0 ? (
+                  <s-text type="strong">{`${selectedIds.size} selected`}</s-text>
+                ) : (
+                  <s-text color="subdued">
+                    {`Showing ${(page - 1) * pageSize + 1}–${
+                      (page - 1) * pageSize + rows.length
+                    } of ${filteredCount} order${filteredCount === 1 ? "" : "s"}`}
+                  </s-text>
+                )}
+                {selectedIds.size > 0 ? (
                   <s-stack
                     direction="inline"
-                    gap="base"
+                    gap="small-200"
                     alignItems="center"
-                    justifyContent="space-between"
                   >
-                    <s-text type="strong">
-                      {`${selectedIds.size} selected`}
-                    </s-text>
-                    <s-stack
-                      direction="inline"
-                      gap="small-200"
-                      alignItems="center"
+                    <AppButton
+                      variant="secondary"
+                      onClick={() => setSelectedIds(new Set())}
                     >
-                      <AppButton
-                        variant="secondary"
-                        onClick={() => setSelectedIds(new Set())}
-                      >
-                        Clear
-                      </AppButton>
-                      <AppButton
-                        variant="primary"
-                        loading={offerFetcher.state !== "idle"}
-                        disabled={offerFetcher.state !== "idle"}
-                        onClick={submitBulkOffer}
-                      >
-                        Send protection offer
-                      </AppButton>
-                    </s-stack>
+                      Clear
+                    </AppButton>
+                    <AppButton
+                      variant="primary"
+                      loading={offerFetcher.state !== "idle"}
+                      disabled={offerFetcher.state !== "idle"}
+                      onClick={submitBulkOffer}
+                    >
+                      Send protection offer
+                    </AppButton>
                   </s-stack>
-                </s-box>
-              ) : null}
+                ) : null}
+              </s-stack>
+            </s-box>
+            <s-table variant="auto">
               <s-table-header-row>
                 <s-table-header listSlot="primary">
                   <s-stack
@@ -795,23 +798,31 @@ export default function Orders() {
                         )}
                       </s-table-cell>
                       <s-table-cell>
-                        <s-stack direction="inline" gap="small-200">
-                          <AppButton
+                        <s-button
+                          variant="tertiary"
+                          icon="menu-horizontal"
+                          accessibilityLabel={`Actions for ${order.name}`}
+                          commandFor={`order-actions-${orderId}`}
+                          command="--show"
+                        ></s-button>
+                        <s-menu
+                          id={`order-actions-${orderId}`}
+                          accessibilityLabel={`Actions for ${order.name}`}
+                        >
+                          <s-button
+                            variant="tertiary"
                             href={`shopify://admin/orders/${orderId}`}
-                            variant="secondary"
                           >
-                            View
-                          </AppButton>
+                            View order
+                          </s-button>
                           {!order.protected &&
                           !isFulfilled &&
                           order.email &&
                           !["offer_sent", "awaiting_payment"].includes(
                             order.offerStatus ?? "",
                           ) ? (
-                            <AppButton
-                              variant="primary"
-                              loading={offerFetcher.state !== "idle"}
-                              disabled={offerFetcher.state !== "idle"}
+                            <s-button
+                              variant="tertiary"
                               onClick={() =>
                                 offerFetcher.submit(
                                   { intent: "send_offer", orderId: order.id },
@@ -820,23 +831,21 @@ export default function Orders() {
                               }
                             >
                               Send offer
-                            </AppButton>
+                            </s-button>
                           ) : null}
                           {order.protected && !isFulfilled ? (
-                            <AppButton
-                              variant="primary"
+                            <s-button
+                              variant="tertiary"
                               onClick={() => setFulfillmentOrder(order)}
                             >
                               Fulfill order
-                            </AppButton>
+                            </s-button>
                           ) : null}
                           {order.protected &&
                           isFulfilled &&
                           !order.deliveredAt ? (
-                            <AppButton
-                              variant="secondary"
-                              loading={offerFetcher.state !== "idle"}
-                              disabled={offerFetcher.state !== "idle"}
+                            <s-button
+                              variant="tertiary"
                               onClick={() => {
                                 if (
                                   window.confirm(
@@ -855,9 +864,9 @@ export default function Orders() {
                               }}
                             >
                               Mark as delivered
-                            </AppButton>
+                            </s-button>
                           ) : null}
-                        </s-stack>
+                        </s-menu>
                       </s-table-cell>
                     </s-table-row>
                   );
