@@ -603,37 +603,58 @@ function LanguageEditor({
           <s-paragraph color="subdued">
             {`Blank fields fall back to English automatically.`}
           </s-paragraph>
-          <s-stack direction="inline" gap="small-200" alignItems="center">
-            <s-text color="subdued">Translated</s-text>
-            <s-text type="strong" fontVariantNumeric="tabular-nums">
-              {`${doneCount} of ${keys.length}`}
-            </s-text>
-            {doneCount === keys.length && (
-              <s-badge tone="success">Complete</s-badge>
-            )}
-          </s-stack>
-
           <s-stack
             direction="inline"
-            gap="small-200"
-            accessibilityLabel="String groups"
+            gap="base"
+            alignItems="center"
+            justifyContent="space-between"
           >
-            {groups.map((group) => {
-              const groupKeys = buckets.get(group.id) ?? [];
-              const remaining = groupKeys.filter((key) => !filled[key]).length;
-              return (
-                <s-button
-                  key={group.id}
-                  variant={tab === group.id ? "primary" : "tertiary"}
-                  onClick={() => setTab(group.id)}
-                >
-                  {remaining === 0
-                    ? group.title
-                    : `${group.title} (${remaining} left)`}
-                </s-button>
-              );
-            })}
+            <s-stack
+              direction="inline"
+              gap="small-200"
+              accessibilityLabel="String groups"
+            >
+              {groups.map((group) => {
+                const groupKeys = buckets.get(group.id) ?? [];
+                const remaining = groupKeys.filter(
+                  (key) => !filled[key],
+                ).length;
+                return (
+                  <s-button
+                    key={group.id}
+                    variant={tab === group.id ? "primary" : "secondary"}
+                    onClick={() => setTab(group.id)}
+                  >
+                    {remaining === 0
+                      ? group.title
+                      : `${group.title} (${remaining} left)`}
+                  </s-button>
+                );
+              })}
+            </s-stack>
+
+            {/* Progress rides at the end of the tab row rather than above it,
+                so the toolbar reads as one line: tabs on the left, how far
+                along on the right. */}
+            <s-stack direction="inline" gap="small-200" alignItems="center">
+              <s-text color="subdued">Translated</s-text>
+              <s-text type="strong" fontVariantNumeric="tabular-nums">
+                {`${doneCount} of ${keys.length}`}
+              </s-text>
+              {doneCount === keys.length ? (
+                <s-badge tone="success" icon="check">
+                  Complete
+                </s-badge>
+              ) : (
+                <s-badge tone="neutral">{`${pct}%`}</s-badge>
+              )}
+            </s-stack>
           </s-stack>
+
+          {/* A hairline under the tab row frames it as a tab bar and puts clear
+              air between the tabs and the first field, so the two never read as
+              one cramped block. */}
+          <s-divider direction="inline" />
 
           {/* A bare <div hidden> rather than an s-box: the panels must stay in
               the DOM whichever tab is open, because the save action rebuilds
@@ -651,27 +672,53 @@ function LanguageEditor({
                       gap="small-200"
                       alignItems="center"
                     >
-                      <s-badge tone={filled[key] ? "success" : "neutral"}>
-                        {key}
-                      </s-badge>
-                      <s-text color="subdued">{referenceEn[key]}</s-text>
+                      {/* Key is identity, not status: a quiet label. The green
+                          check is the only thing that carries "translated", so a
+                          page of done strings reads as calm ticks rather than a
+                          wall of colour. */}
+                      <s-text type="strong">{key}</s-text>
+                      {filled[key] ? (
+                        <s-icon
+                          type="check-circle"
+                          tone="success"
+                          size="base"
+                        />
+                      ) : null}
                     </s-stack>
-                    <s-text-field
-                      label={key}
-                      labelAccessibilityVisibility="exclusive"
-                      name={`s:${key}`}
-                      value={editing.strings[key] ?? ""}
-                      placeholder={referenceEn[key]}
-                      onInput={(event) => {
-                        const value = (event.currentTarget as HTMLInputElement)
-                          .value;
-                        setFilled((prev) =>
-                          prev[key] === Boolean(value.trim())
-                            ? prev
-                            : { ...prev, [key]: Boolean(value.trim()) },
-                        );
-                      }}
-                    />
+                    {/* Source on the left as read-only reference, the field to
+                        translate on the right — the two-column shape of
+                        Shopify's own translation editor. Stacks on a narrow
+                        container. */}
+                    <s-grid
+                      gridTemplateColumns="@container (inline-size <= 640px) 1fr, 1fr 1fr"
+                      gap="base"
+                      alignItems="start"
+                    >
+                      <s-box
+                        padding="base"
+                        background="subdued"
+                        borderRadius="base"
+                      >
+                        <s-text color="subdued">{referenceEn[key]}</s-text>
+                      </s-box>
+                      <s-text-field
+                        label={key}
+                        labelAccessibilityVisibility="exclusive"
+                        name={`s:${key}`}
+                        value={editing.strings[key] ?? ""}
+                        placeholder={referenceEn[key]}
+                        onInput={(event) => {
+                          const value = (
+                            event.currentTarget as HTMLInputElement
+                          ).value;
+                          setFilled((prev) =>
+                            prev[key] === Boolean(value.trim())
+                              ? prev
+                              : { ...prev, [key]: Boolean(value.trim()) },
+                          );
+                        }}
+                      />
+                    </s-grid>
                   </s-stack>
                 ))}
               </s-stack>
