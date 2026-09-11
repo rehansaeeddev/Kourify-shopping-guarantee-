@@ -430,21 +430,23 @@ export default function Settings() {
         </s-banner>
       )}
 
-      <s-stack
-        direction="inline"
-        gap="small-200"
-        accessibilityLabel="Settings sections"
-      >
-        {SETTINGS_TABS.map((tab) => (
-          <s-button
-            key={tab.id}
-            variant={tab.id === activeTab ? "primary" : "tertiary"}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.label}
-          </s-button>
-        ))}
-      </s-stack>
+      <s-box paddingBlockEnd="large">
+        <s-stack
+          direction="inline"
+          gap="small-200"
+          accessibilityLabel="Settings sections"
+        >
+          {SETTINGS_TABS.map((tab) => (
+            <s-button
+              key={tab.id}
+              variant={tab.id === activeTab ? "primary" : "secondary"}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </s-button>
+          ))}
+        </s-stack>
+      </s-box>
 
       {activeTab === "general" && (
         <>
