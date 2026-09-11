@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useFetcher, useLoaderData, useNavigate } from "react-router";
 
 import { AppButton } from "../components/AppButton";
-import { Card, MetricsCard } from "../components/Card";
+import { Card } from "../components/Card";
 import { EmptyState } from "../components/EmptyState";
 import db from "../db.server";
 import { sendProtectionOffer } from "../lib/notify.server";
@@ -615,24 +615,6 @@ export default function Orders() {
         }}
       />
 
-      <MetricsCard
-        metrics={[
-          { icon: "order", label: "Orders", value: String(counts.all) },
-          {
-            icon: "shield-check-mark",
-            label: "Protected",
-            tone: "success",
-            value: String(counts.protected),
-          },
-          {
-            icon: "alert-circle",
-            label: "Unprotected",
-            tone: counts.unprotected ? "warning" : "default",
-            value: String(counts.unprotected),
-          },
-        ]}
-      />
-
       <Card heading="Shopify orders">
         <s-stack
           direction="inline"
@@ -648,10 +630,10 @@ export default function Orders() {
               }
             >
               {value === "all"
-                ? "All"
+                ? `All (${counts.all})`
                 : value === "protected"
-                  ? "Protected"
-                  : "Unprotected"}
+                  ? `Protected (${counts.protected})`
+                  : `Unprotected (${counts.unprotected})`}
             </s-button>
           ))}
         </s-stack>
