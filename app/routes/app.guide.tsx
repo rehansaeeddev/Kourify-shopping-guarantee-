@@ -124,31 +124,6 @@ export default function Guide() {
           </s-banner>
         )}
 
-        {/* The whole product in one glance — three coloured concept cards. */}
-        <div className="app-guide-concepts">
-          <div className="app-concept app-concept--protect">
-            <p className="app-concept__title">Protect</p>
-            <p className="app-concept__body">
-              Customers add optional protection at checkout; eligible items are
-              covered against loss, damage, theft, shortage, or a wrong item.
-            </p>
-          </div>
-          <div className="app-concept app-concept--claim">
-            <p className="app-concept__title">Claim</p>
-            <p className="app-concept__body">
-              If something goes wrong, the customer files a claim with a photo
-              from the guarantee tab on your storefront.
-            </p>
-          </div>
-          <div className="app-concept app-concept--decide">
-            <p className="app-concept__title">Decide</p>
-            <p className="app-concept__body">
-              You review each claim against your rules and approve or deny it —
-              the customer is notified automatically.
-            </p>
-          </div>
-        </div>
-
         {state === "setup" && (
           <Card heading="Finish setup">
             <s-paragraph>
@@ -237,52 +212,23 @@ export default function Guide() {
           </s-banner>
         </Card>
 
-        <s-grid
-          gridTemplateColumns="@container (inline-size <= 720px) 1fr, 1fr 1fr"
-          gap="base"
-          alignItems="start"
-        >
-          <Card heading="Common tasks">
-            <s-stack direction="block" gap="small-200">
-              <s-link href="/app/settings">
-                Change who pays, pricing or eligibility
-              </s-link>
-              <s-link href="/app/claims">Review and decide open claims</s-link>
-              <s-link href="/app/orders">
-                See which orders are protected, or offer protection after
-                purchase
-              </s-link>
-              <s-link href="/app/translations">
-                Translate the storefront claim form
-              </s-link>
-              <s-link href="/app/billing">
-                {hasActiveBilling ? "Change your plan" : "Choose a plan"}
-              </s-link>
-            </s-stack>
-          </Card>
-
-          <Card heading="Where protection shows up">
-            <s-stack direction="block" gap="small-300">
-              <s-text type="strong">Storefront</s-text>
-              <s-text color="subdued">
-                The protection widget and trust badge on product pages and cart,
-                plus the guarantee tab customers use to file claims.
-              </s-text>
-              <s-divider />
-              <s-text type="strong">Orders</s-text>
-              <s-text color="subdued">
-                Each order shows whether it&apos;s protected, and you can offer
-                protection after purchase.
-              </s-text>
-              <s-divider />
-              <s-text type="strong">Claims</s-text>
-              <s-text color="subdued">
-                Filed claims land here with their evidence for you to review and
-                decide.
-              </s-text>
-            </s-stack>
-          </Card>
-        </s-grid>
+        <Card heading="Common tasks">
+          <s-stack direction="block" gap="small-200">
+            <s-link href="/app/settings">
+              Change who pays, pricing or eligibility
+            </s-link>
+            <s-link href="/app/claims">Review and decide open claims</s-link>
+            <s-link href="/app/orders">
+              See which orders are protected, or offer protection after purchase
+            </s-link>
+            <s-link href="/app/translations">
+              Translate the storefront claim form
+            </s-link>
+            <s-link href="/app/billing">
+              {hasActiveBilling ? "Change your plan" : "Choose a plan"}
+            </s-link>
+          </s-stack>
+        </Card>
 
         <Card heading="Questions">
           {/* A rule between entries, so a run of question/answer pairs reads as
