@@ -308,7 +308,7 @@ export default function Index() {
       {/* Two side-by-side cards: the where-to-show controls on the left, the
           style and its live preview on the right. Stacks on a narrow container. */}
       <s-grid
-        gridTemplateColumns="@container (inline-size <= 720px) 1fr, 1fr 1fr"
+        gridTemplateColumns="@container (inline-size <= 720px) 1fr, minmax(300px, 0.65fr) 1fr"
         gap="base"
         alignItems="stretch"
       >
