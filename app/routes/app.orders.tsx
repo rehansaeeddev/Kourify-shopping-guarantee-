@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { useEffect, useState } from "react";
-import { useFetcher, useLoaderData, useNavigate } from "react-router";
+import { Form, useFetcher, useLoaderData, useNavigate } from "react-router";
 
 import { AppButton } from "../components/AppButton";
 import { Card } from "../components/Card";
@@ -15,6 +15,7 @@ import { getWorkspaceCounts } from "../lib/workspace-counts.server";
 import { useFetcherToast } from "../hooks/useFetcherToast";
 
 const FILTERS = ["all", "protected", "unprotected"] as const;
+const FULFILLMENTS = ["all", "fulfilled", "unfulfilled"] as const;
 const PAGE_SIZES = [10, 20, 50] as const;
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -37,6 +38,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   )
     ? requestedPageSize
     : DEFAULT_PAGE_SIZE;
+
+  // Free-text search over the fields we cache. Capped and only ever used in
+  // parameterized `contains` filters (never string-interpolated), so it can't
+  // inject.
+  const q = (url.searchParams.get("q") ?? "").trim().slice(0, 100);
+  const requestedFulfillment = url.searchParams.get("fulfillment");
+  const fulfillment: (typeof FULFILLMENTS)[number] = FULFILLMENTS.includes(
+    requestedFulfillment as (typeof FULFILLMENTS)[number],
+  )
+    ? (requestedFulfillment as (typeof FULFILLMENTS)[number])
+    : "all";
 
   // ProtectedOrder has no FK/relation to Order (just a shared shopifyOrderId),
   // so "protected"/"unprotected" filtering goes through an id list rather
@@ -62,11 +74,37 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         ? { id: { notIn: protectedIds } }
         : {};
 
+  const searchWhere = q
+    ? {
+        OR: [
+          { name: { contains: q } },
+          { customerName: { contains: q } },
+          { email: { contains: q } },
+        ],
+      }
+    : {};
+  // status stores Shopify's displayFulfillmentStatus lowercased, so "fulfilled"
+  // is exact and everything else (unfulfilled, partially_fulfilled, pending) is
+  // "not fulfilled".
+  const fulfillmentWhere =
+    fulfillment === "fulfilled"
+      ? { status: "fulfilled" }
+      : fulfillment === "unfulfilled"
+        ? { status: { not: "fulfilled" } }
+        : {};
+
+  const listWhere = {
+    shop: session.shop,
+    ...filterWhere,
+    ...searchWhere,
+    ...fulfillmentWhere,
+  };
+
   const [filteredCount, orders, totalCount, protectedCount, offers, settings] =
     await Promise.all([
-      db.order.count({ where: { shop: session.shop, ...filterWhere } }),
+      db.order.count({ where: listWhere }),
       db.order.findMany({
-        where: { shop: session.shop, ...filterWhere },
+        where: listWhere,
         // Newest orders first by when the customer placed them. createdAt is
         // only the cache-write time — a backfill stamps every row "now" — so it
         // serves purely as a fallback for rows cached before placedAt existed.
@@ -109,6 +147,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   return {
     rows,
     filter,
+    q,
+    fulfillment,
     currency,
     workspaceCounts,
     page,
@@ -529,6 +569,8 @@ export default function Orders() {
   const {
     rows,
     filter,
+    q,
+    fulfillment,
     counts,
     currency,
     workspaceCounts,
@@ -553,7 +595,7 @@ export default function Orders() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [filter, page, pageSize]);
+  }, [filter, fulfillment, q, page, pageSize]);
 
   const pageOrderIds = rows.map((order) => order.id);
   const allSelected =
@@ -585,24 +627,34 @@ export default function Orders() {
     setSelectedIds(new Set());
   };
 
-  const pageHref = (targetPage: number) => {
+  // Build an /app/orders URL from the current filter/search state, overriding
+  // only what changed. Changing a filter, search or page keeps the rest intact.
+  const ordersHref = (next: {
+    filter?: string;
+    fulfillment?: string;
+    q?: string;
+    page?: number;
+    pageSize?: number;
+  }) => {
     const params = new URLSearchParams();
-    if (filter !== "all") params.set("filter", filter);
-    if (pageSize !== DEFAULT_PAGE_SIZE)
-      params.set("pageSize", String(pageSize));
+    const f = next.filter ?? filter;
+    const ff = next.fulfillment ?? fulfillment;
+    const query = next.q ?? q;
+    const size = next.pageSize ?? pageSize;
+    const targetPage = next.page ?? 1;
+    if (f !== "all") params.set("filter", f);
+    if (ff !== "all") params.set("fulfillment", ff);
+    if (query) params.set("q", query);
+    if (size !== DEFAULT_PAGE_SIZE) params.set("pageSize", String(size));
     if (targetPage > 1) params.set("page", String(targetPage));
-    const query = params.toString();
-    return query ? `/app/orders?${query}` : "/app/orders";
+    const search = params.toString();
+    return search ? `/app/orders?${search}` : "/app/orders";
   };
 
+  const pageHref = (targetPage: number) => ordersHref({ page: targetPage });
+
   const handlePageSizeChange = (nextPageSize: string) => {
-    const params = new URLSearchParams();
-    if (filter !== "all") params.set("filter", filter);
-    if (Number(nextPageSize) !== DEFAULT_PAGE_SIZE) {
-      params.set("pageSize", nextPageSize);
-    }
-    const query = params.toString();
-    navigate(query ? `/app/orders?${query}` : "/app/orders");
+    navigate(ordersHref({ pageSize: Number(nextPageSize) }));
   };
 
   return (
@@ -616,56 +668,117 @@ export default function Orders() {
       />
 
       <Card heading="Shopify orders">
-        <s-stack
-          direction="inline"
-          gap="small-200"
-          accessibilityLabel="Filter orders"
+        <s-grid
+          gridTemplateColumns="@container (inline-size <= 640px) 1fr, 1fr auto auto"
+          gap="base"
+          alignItems="end"
         >
-          {FILTERS.map((value) => (
-            <s-button
-              key={value}
-              variant={filter === value ? "secondary" : "tertiary"}
-              href={
-                value === "all" ? "/app/orders" : `/app/orders?filter=${value}`
+          {/* Search submits on Enter; the two dropdowns navigate on change.
+              filter + fulfillment ride along as hidden inputs so a search keeps
+              the active filters. */}
+          <Form method="get">
+            {filter !== "all" ? (
+              <input type="hidden" name="filter" value={filter} />
+            ) : null}
+            {fulfillment !== "all" ? (
+              <input type="hidden" name="fulfillment" value={fulfillment} />
+            ) : null}
+            <s-search-field
+              label="Search orders"
+              labelAccessibilityVisibility="exclusive"
+              name="q"
+              value={q}
+              placeholder="Search order #, customer, or email"
+            />
+          </Form>
+          <s-box minInlineSize="170px">
+            <s-select
+              label="Protection"
+              value={filter}
+              onChange={(e) =>
+                navigate(
+                  ordersHref({ filter: e.currentTarget.value ?? "all", page: 1 }),
+                )
               }
             >
-              {value === "all"
-                ? `All (${counts.all})`
-                : value === "protected"
-                  ? `Protected (${counts.protected})`
-                  : `Unprotected (${counts.unprotected})`}
-            </s-button>
-          ))}
-        </s-stack>
+              <s-option value="all">{`All (${counts.all})`}</s-option>
+              <s-option value="protected">
+                {`Protected (${counts.protected})`}
+              </s-option>
+              <s-option value="unprotected">
+                {`Unprotected (${counts.unprotected})`}
+              </s-option>
+            </s-select>
+          </s-box>
+          <s-box minInlineSize="170px">
+            <s-select
+              label="Fulfillment"
+              value={fulfillment}
+              onChange={(e) =>
+                navigate(
+                  ordersHref({
+                    fulfillment: e.currentTarget.value ?? "all",
+                    page: 1,
+                  }),
+                )
+              }
+            >
+              <s-option value="all">Any fulfillment</s-option>
+              <s-option value="fulfilled">Fulfilled</s-option>
+              <s-option value="unfulfilled">Unfulfilled</s-option>
+            </s-select>
+          </s-box>
+        </s-grid>
+      </Card>
 
+      <Card>
         {rows.length === 0 ? (
           <EmptyState
             icon="order"
-            heading="No orders here"
-            description="Synchronize orders or choose another protection filter."
+            heading={
+              q || filter !== "all" || fulfillment !== "all"
+                ? "No matching orders"
+                : "No orders here"
+            }
+            description={
+              q || filter !== "all" || fulfillment !== "all"
+                ? "Nothing matches your search and filters. Try clearing them."
+                : "Synchronize orders to see them here."
+            }
           />
         ) : (
           <>
-            {/* Fixed-height toolbar ABOVE the table (not inside its filter
-                slot): it shows the row count while nothing is selected and
-                swaps to the bulk actions in place when rows are selected. Its
-                min height is reserved, so the table below it never moves. */}
-            <s-box paddingBlock="small-200" minBlockSize="40px">
+            {/* Fixed-height header bar: the min height is reserved, so the
+                bulk actions can appear on the right only once rows are selected
+                without ever changing the bar's height — nothing shifts, and no
+                disabled button lingers on top while nothing is selected. */}
+            <s-box minBlockSize="44px">
               <s-stack
                 direction="inline"
                 gap="base"
                 alignItems="center"
                 justifyContent="space-between"
               >
-                {selectedIds.size > 0 ? (
-                  <s-text type="strong">{`${selectedIds.size} selected`}</s-text>
-                ) : (
-                  <s-text color="subdued">
-                    {`Showing ${(page - 1) * pageSize + 1}–${
-                      (page - 1) * pageSize + rows.length
-                    } of ${filteredCount} order${filteredCount === 1 ? "" : "s"}`}
-                  </s-text>
-                )}
+                <s-stack
+                  direction="inline"
+                  gap="small-200"
+                  alignItems="center"
+                >
+                  <s-checkbox
+                    checked={allSelected}
+                    accessibilityLabel="Select all orders on this page"
+                    onChange={toggleAll}
+                  />
+                  {selectedIds.size > 0 ? (
+                    <s-text type="strong">{`${selectedIds.size} selected`}</s-text>
+                  ) : (
+                    <s-text color="subdued">
+                      {`Showing ${(page - 1) * pageSize + 1}–${
+                        (page - 1) * pageSize + rows.length
+                      } of ${filteredCount} order${filteredCount === 1 ? "" : "s"}`}
+                    </s-text>
+                  )}
+                </s-stack>
                 {selectedIds.size > 0 ? (
                   <s-stack
                     direction="inline"
@@ -692,20 +805,7 @@ export default function Orders() {
             </s-box>
             <s-table variant="auto">
               <s-table-header-row>
-                <s-table-header listSlot="primary">
-                  <s-stack
-                    direction="inline"
-                    gap="small-200"
-                    alignItems="center"
-                  >
-                    <s-checkbox
-                      checked={allSelected}
-                      accessibilityLabel="Select all orders on this page"
-                      onChange={toggleAll}
-                    />
-                    Order
-                  </s-stack>
-                </s-table-header>
+                <s-table-header listSlot="primary">Order</s-table-header>
                 <s-table-header listSlot="secondary">Customer</s-table-header>
                 <s-table-header listSlot="labeled">Total</s-table-header>
                 <s-table-header listSlot="labeled">Fulfillment</s-table-header>
