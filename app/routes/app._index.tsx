@@ -208,8 +208,14 @@ export default function Index() {
           {
             label: "Package protection is live on your storefront",
             detail:
-              'The "Protect your order" widget is on your product page and cart. Customize copy and price from the theme editor blocks.',
-            done: true,
+              protectionStatus.value === "Live"
+                ? 'The "Protect your order" widget is on your product page and cart. Customize copy and price from the theme editor blocks.'
+                : "Turn on protection at checkout in Settings to make it live for shoppers.",
+            done: protectionStatus.value === "Live",
+            action:
+              protectionStatus.value === "Live"
+                ? undefined
+                : { label: "Open settings", href: "/app/settings" },
           },
           {
             label: "Review your first claim",
