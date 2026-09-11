@@ -246,7 +246,10 @@ export default function Index() {
               alignItems="center"
               justifyContent="space-between"
             >
-              <s-text type="strong">
+              <s-text
+                type="strong"
+                tone={analytics.protectedOrders > 0 ? "success" : "neutral"}
+              >
                 {`${
                   totalOrders > 0
                     ? Math.round(
@@ -288,9 +291,16 @@ export default function Index() {
               />
             )}
             <s-stack direction="inline" gap="base">
-              <s-text color="subdued">
-                {`Protected ${analytics.protectedOrders}`}
-              </s-text>
+              <s-stack direction="inline" gap="small-500" alignItems="center">
+                <s-icon
+                  type="shield-check-mark"
+                  tone="success"
+                  size="small"
+                />
+                <s-text color="subdued">
+                  {`Protected ${analytics.protectedOrders}`}
+                </s-text>
+              </s-stack>
               <s-text color="subdued">
                 {`Unprotected ${Math.max(
                   totalOrders - analytics.protectedOrders,
