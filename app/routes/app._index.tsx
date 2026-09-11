@@ -1,33 +1,18 @@
-import type {
-  ActionFunctionArgs,
-  HeadersFunction,
-  LoaderFunctionArgs,
-} from "react-router";
-import { useFetcher, useLoaderData } from "react-router";
+import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
+import { useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { DEFAULT_CLAIM_WINDOWS } from "../lib/claim-window";
-import { useFetcherToast } from "../hooks/useFetcherToast";
 import { Card, StatTile } from "../components/Card";
 import { GettingStarted } from "../components/GettingStarted";
 import { StatusBadge } from "../components/StatusBadge";
 import { issueTypeLabel } from "../lib/claim-issue-type";
 import { EmptyState } from "../components/EmptyState";
-import { TrustBadgePreview } from "../components/TrustBadgePreview";
 import { getProtectionTelemetry } from "../lib/protection-telemetry.server";
 import { getProtectionAnalytics } from "../lib/protection-orders.server";
 import { getBillingState } from "../lib/billing-state.server";
 import { getProtectionQuota } from "../lib/plan-limits.server";
-
-const BADGE_STYLES = ["classic", "minimal", "bold"] as const;
-
-const TAB_POSITIONS = [
-  { value: "right", label: "Right edge (vertical)" },
-  { value: "left", label: "Left edge (vertical)" },
-  { value: "bottom", label: "Bottom corner" },
-  { value: "top", label: "Top corner" },
-] as const;
 
 function greetingForHour(hour: number): string {
   if (hour < 12) return "Good morning";
@@ -91,43 +76,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   };
 };
 
-/** Badge + guarantee-tab settings are edited inline on this page. */
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
-  const formData = await request.formData();
-
-  const badgesEnabled = formData.get("badgesEnabled") === "true";
-  const requestedBadgeStyle = String(formData.get("badgeStyle") ?? "classic");
-  const badgeStyle = BADGE_STYLES.includes(
-    requestedBadgeStyle as (typeof BADGE_STYLES)[number],
-  )
-    ? requestedBadgeStyle
-    : "classic";
-  const showOnProduct = formData.get("showOnProduct") === "true";
-  const showOnCart = formData.get("showOnCart") === "true";
-  const requestedTabPosition = String(
-    formData.get("guaranteeTabPosition") ?? "right",
-  );
-  const guaranteeTabPosition = TAB_POSITIONS.some(
-    (p) => p.value === requestedTabPosition,
-  )
-    ? requestedTabPosition
-    : "right";
-
-  const settings = await db.merchantSettings.update({
-    where: { shop: session.shop },
-    data: {
-      badgesEnabled,
-      badgeStyle,
-      showOnProduct,
-      showOnCart,
-      guaranteeTabPosition,
-    },
-  });
-
-  return { settings };
-};
-
 // The dashboard Overview metrics are hidden for now — flip this to true to
 // bring the card back. The data is still loaded and the card stays fully wired.
 const SHOW_DASHBOARD_METRICS = false;
@@ -145,25 +93,6 @@ export default function Index() {
     analytics,
     quota,
   } = useLoaderData<typeof loader>();
-
-  const badgeFetcher = useFetcher<typeof action>();
-  const current = badgeFetcher.data?.settings ?? settings;
-
-  useFetcherToast(badgeFetcher, () => "Badge settings saved.");
-
-  const saveBadges = (overrides: Partial<typeof current> = {}) => {
-    const next = { ...current, ...overrides };
-    badgeFetcher.submit(
-      {
-        badgesEnabled: String(next.badgesEnabled),
-        badgeStyle: next.badgeStyle,
-        showOnProduct: String(next.showOnProduct),
-        showOnCart: String(next.showOnCart),
-        guaranteeTabPosition: next.guaranteeTabPosition,
-      },
-      { method: "POST" },
-    );
-  };
 
   const feeSummary =
     settings.protectionPayer === "merchant"
@@ -219,10 +148,13 @@ export default function Index() {
         steps={[
           {
             label: "Turn on trust badges",
-            detail: current.badgesEnabled
-              ? `On · ${current.badgeStyle} style`
-              : "Show a trust badge on your product page and cart — set it up below.",
-            done: current.badgesEnabled,
+            detail: settings.badgesEnabled
+              ? `On · ${settings.badgeStyle} style`
+              : "Show a trust badge on your product page and cart — turn it on in Settings.",
+            done: settings.badgesEnabled,
+            action: settings.badgesEnabled
+              ? undefined
+              : { label: "Set up trust badges", href: "/app/settings" },
           },
           {
             label: "Package protection is live on your storefront",
@@ -453,11 +385,11 @@ export default function Index() {
           <StatTile
             icon="shield-check-mark"
             label="Trust badges"
-            tone={current.badgesEnabled ? "success" : "default"}
-            value={current.badgesEnabled ? "On" : "Off"}
+            tone={settings.badgesEnabled ? "success" : "default"}
+            value={settings.badgesEnabled ? "On" : "Off"}
             sub={
-              current.badgesEnabled
-                ? `${current.badgeStyle.charAt(0).toUpperCase()}${current.badgeStyle.slice(1)} style`
+              settings.badgesEnabled
+                ? `${settings.badgeStyle.charAt(0).toUpperCase()}${settings.badgeStyle.slice(1)} style`
                 : "Not shown to customers"
             }
           />
@@ -514,95 +446,6 @@ export default function Index() {
         </s-grid>
         </Card>
       )}
-
-      <Card heading="Trust badges">
-        <s-paragraph color="subdued">
-          Build confidence with a trust badge across your store.
-        </s-paragraph>
-        <s-grid
-          gridTemplateColumns="@container (inline-size <= 720px) 1fr, 1fr 1fr"
-          gap="large-100"
-          alignItems="start"
-        >
-          <s-stack direction="block" gap="base">
-            <s-switch
-              label="Show trust badge on storefront"
-              details="Display on your store's theme"
-              checked={current.badgesEnabled}
-              onChange={(e) =>
-                saveBadges({ badgesEnabled: e.currentTarget.checked })
-              }
-            />
-            <s-checkbox
-              label="Show on product pages"
-              details="Display badge on product pages"
-              checked={current.showOnProduct}
-              disabled={!current.badgesEnabled}
-              onChange={(e) =>
-                saveBadges({ showOnProduct: e.currentTarget.checked })
-              }
-            />
-            <s-checkbox
-              label="Show in cart"
-              details="Display badge in cart and drawer"
-              checked={current.showOnCart}
-              disabled={!current.badgesEnabled}
-              onChange={(e) =>
-                saveBadges({ showOnCart: e.currentTarget.checked })
-              }
-            />
-          </s-stack>
-
-          <s-stack direction="block" gap="base">
-            <s-select
-              label="Badge style"
-              value={current.badgeStyle}
-              disabled={!current.badgesEnabled}
-              onChange={(e) => saveBadges({ badgeStyle: e.currentTarget.value })}
-            >
-              {BADGE_STYLES.map((style) => (
-                <s-option key={style} value={style}>
-                  {style.charAt(0).toUpperCase() + style.slice(1)}
-                </s-option>
-              ))}
-            </s-select>
-
-            <s-stack direction="block" gap="small-200">
-              <s-text color="subdued">Preview — what shoppers see</s-text>
-              <s-box padding="base" border="base" borderRadius="base">
-                <TrustBadgePreview badgeStyle={current.badgeStyle} />
-              </s-box>
-              <s-text color="subdued">
-                This is how your trust badge will appear on your store.
-              </s-text>
-            </s-stack>
-          </s-stack>
-        </s-grid>
-      </Card>
-
-      <Card heading="Guarantee tab">
-        <s-grid gridTemplateColumns="1fr auto" gap="base" alignItems="center">
-          <s-paragraph>
-            The floating Kourify Guarantee tab shoppers use to learn about
-            protection and file claims.
-          </s-paragraph>
-          <s-box minInlineSize="200px">
-            <s-select
-              label="Tab position"
-              value={current.guaranteeTabPosition}
-              onChange={(e) =>
-                saveBadges({ guaranteeTabPosition: e.currentTarget.value })
-              }
-            >
-              {TAB_POSITIONS.map((pos) => (
-                <s-option key={pos.value} value={pos.value}>
-                  {pos.label}
-                </s-option>
-              ))}
-            </s-select>
-          </s-box>
-        </s-grid>
-      </Card>
 
       <Card heading="Recent claims">
         {recentClaims.length === 0 ? (

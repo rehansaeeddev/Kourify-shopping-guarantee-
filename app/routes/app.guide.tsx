@@ -154,7 +154,7 @@ export default function Guide() {
                   theme editor.
                 </s-paragraph>
                 <s-stack direction="inline">
-                  <s-button href="/app" variant="secondary">
+                  <s-button href="/app/settings" variant="secondary">
                     Badge settings
                   </s-button>
                 </s-stack>
@@ -248,7 +248,7 @@ export default function Guide() {
           <s-banner tone="info">
             Trust badges are switched off, so shoppers don&apos;t see them on
             your storefront.{" "}
-            <s-link href="/app">Turn them on from Home.</s-link>
+            <s-link href="/app/settings">Turn them on in Settings.</s-link>
           </s-banner>
         )}
       </s-stack>
