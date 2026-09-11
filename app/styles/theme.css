@@ -34,3 +34,39 @@ body {
   border-radius: 999px;
   padding: 2px;
 }
+
+/* Dashboard header — the one deliberately custom-styled piece of admin chrome,
+ * added on request to give the home page a branded banner. Everything else in
+ * the admin stays Polaris web components. */
+.app-dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 24px 28px;
+  border-radius: 16px;
+  background: linear-gradient(120deg, #0a5c4d 0%, #0f7d67 100%);
+  color: #ffffff;
+}
+
+.app-dashboard-header__title {
+  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.app-dashboard-header__subtitle {
+  margin: 0;
+  max-width: 620px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.app-dashboard-header__actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}

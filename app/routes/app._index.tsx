@@ -50,6 +50,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const [
     openClaims,
     totalClaims,
+    totalOrders,
     recentClaims,
     telemetry,
     analytics,
@@ -59,6 +60,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       where: { shop: session.shop, status: { in: ["submitted", "reviewing"] } },
     }),
     db.protectionClaim.count({ where: { shop: session.shop } }),
+    db.order.count({ where: { shop: session.shop } }),
     db.protectionClaim.findMany({
       where: { shop: session.shop },
       orderBy: { createdAt: "desc" },
@@ -76,9 +78,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   return {
     greeting,
+    shop: session.shop,
     settings,
     openClaims,
     totalClaims,
+    totalOrders,
     recentClaims,
     telemetry,
     analytics,
@@ -131,9 +135,11 @@ const SHOW_DASHBOARD_METRICS = false;
 export default function Index() {
   const {
     greeting,
+    shop,
     settings,
     openClaims,
     totalClaims,
+    totalOrders,
     recentClaims,
     telemetry,
     analytics,
@@ -179,19 +185,32 @@ export default function Index() {
       : { tone: "success" as const, value: "Live", sub: feeSummary };
 
   return (
-    <s-page heading={greeting} inlineSize="large">
-      <s-button slot="secondary-actions" href="/app/guide" variant="secondary">
-        Help
-      </s-button>
-      <s-button
-        slot="secondary-actions"
-        href="/app/order-sync"
-        variant="secondary"
-      >
-        Order sync
-      </s-button>
+    <s-page heading={greeting}>
+      {/* One block stack owns the vertical rhythm so every card gets clear,
+          even space above and below it. */}
+      <s-stack direction="block" gap="large">
+        {/* The one deliberately custom-styled banner (see theme.css), added on
+            request. Its buttons stay real s-buttons so navigation still works
+            inside the embedded admin. */}
+        <div className="app-dashboard-header">
+          <div>
+            <h2 className="app-dashboard-header__title">Dashboard</h2>
+            <p className="app-dashboard-header__subtitle">
+              Order protection at a glance — offers, claims, and coverage across
+              your store.
+            </p>
+          </div>
+          <div className="app-dashboard-header__actions">
+            <s-button href="/app/guide" variant="secondary">
+              Help
+            </s-button>
+            <s-button href="/app/order-sync" variant="primary">
+              Order sync
+            </s-button>
+          </div>
+        </div>
 
-      <GettingStarted
+        <GettingStarted
         title="Get started with Kourify"
         help={{
           label: "New here? Open Help & getting started →",
@@ -228,6 +247,197 @@ export default function Index() {
           },
         ]}
       />
+
+      {/* Dashboard: a dense stat row, then a protection-mix and status pair,
+          then a help panel — every card is filled, no dead space. The setup
+          guide and config cards below are unchanged. */}
+      <s-grid
+        gridTemplateColumns="repeat(auto-fit, minmax(170px, 1fr))"
+        gap="base"
+      >
+        {(
+          [
+            {
+              icon: "order",
+              tone: "neutral",
+              label: "Orders",
+              value: String(totalOrders),
+            },
+            {
+              icon: "shield-check-mark",
+              tone: "success",
+              label: "Protected",
+              value: String(analytics.protectedOrders),
+            },
+            {
+              icon: "clock",
+              tone: openClaims > 0 ? "warning" : "neutral",
+              label: "Open claims",
+              value: String(openClaims),
+            },
+            {
+              icon: "cash-dollar",
+              tone: "success",
+              label: "Protection sales",
+              value: `$${(analytics.protectionRevenueCents / 100).toFixed(2)}`,
+            },
+          ] as const
+        ).map((stat) => (
+          <s-box
+            key={stat.label}
+            padding="base"
+            background="base"
+            borderWidth="base"
+            borderColor="base"
+            borderRadius="base"
+          >
+            <s-stack direction="inline" gap="base" alignItems="center">
+              <s-icon type={stat.icon as never} tone={stat.tone} size="base" />
+              <s-stack direction="block" gap="small-500">
+                <s-heading>{stat.value}</s-heading>
+                <s-text color="subdued">{stat.label}</s-text>
+              </s-stack>
+            </s-stack>
+          </s-box>
+        ))}
+      </s-grid>
+
+      <s-grid
+        gridTemplateColumns="@container (inline-size <= 720px) 1fr, 1fr 1fr"
+        gap="base"
+        alignItems="stretch"
+      >
+        <Card heading="Protection mix">
+          <s-stack direction="block" gap="base">
+            <s-stack
+              direction="inline"
+              alignItems="center"
+              justifyContent="space-between"
+            >
+              <s-text type="strong">
+                {`${
+                  totalOrders > 0
+                    ? Math.round(
+                        (analytics.protectedOrders / totalOrders) * 100,
+                      )
+                    : 0
+                }% protected`}
+              </s-text>
+              <s-badge
+                tone={analytics.protectedOrders > 0 ? "success" : "neutral"}
+              >
+                {`${analytics.protectedOrders} of ${totalOrders}`}
+              </s-badge>
+            </s-stack>
+            {totalOrders > 0 ? (
+              <s-grid
+                gridTemplateColumns={`${analytics.protectedOrders}fr ${Math.max(
+                  totalOrders - analytics.protectedOrders,
+                  0,
+                )}fr`}
+                gap="small-500"
+              >
+                <s-box
+                  background="strong"
+                  borderRadius="base"
+                  minBlockSize="10px"
+                />
+                <s-box
+                  background="subdued"
+                  borderRadius="base"
+                  minBlockSize="10px"
+                />
+              </s-grid>
+            ) : (
+              <s-box
+                background="subdued"
+                borderRadius="base"
+                minBlockSize="10px"
+              />
+            )}
+            <s-stack direction="inline" gap="base">
+              <s-text color="subdued">
+                {`Protected ${analytics.protectedOrders}`}
+              </s-text>
+              <s-text color="subdued">
+                {`Unprotected ${Math.max(
+                  totalOrders - analytics.protectedOrders,
+                  0,
+                )}`}
+              </s-text>
+            </s-stack>
+          </s-stack>
+        </Card>
+
+        <Card heading="Protection status">
+          <s-stack direction="block" gap="small-200">
+            <s-stack
+              direction="inline"
+              justifyContent="space-between"
+              alignItems="center"
+            >
+              <s-text color="subdued">Store</s-text>
+              <s-text>{shop}</s-text>
+            </s-stack>
+            <s-divider direction="inline" />
+            <s-stack
+              direction="inline"
+              justifyContent="space-between"
+              alignItems="center"
+            >
+              <s-text color="subdued">Checkout protection</s-text>
+              <s-badge
+                tone={
+                  protectionStatus.tone === "default"
+                    ? "neutral"
+                    : protectionStatus.tone
+                }
+              >
+                {protectionStatus.value}
+              </s-badge>
+            </s-stack>
+            <s-divider direction="inline" />
+            <s-stack
+              direction="inline"
+              justifyContent="space-between"
+              alignItems="center"
+            >
+              <s-text color="subdued">Coverage</s-text>
+              <s-text>{feeSummary}</s-text>
+            </s-stack>
+          </s-stack>
+        </Card>
+      </s-grid>
+
+      <Card heading="Help & resources">
+        <s-grid
+          gridTemplateColumns="@container (inline-size <= 720px) 1fr, 1fr 1fr"
+          gap="base"
+        >
+          <s-clickable
+            href="/app/guide"
+            padding="base"
+            background="subdued"
+            borderRadius="base"
+          >
+            <s-stack direction="block" gap="small-400">
+              <s-stack direction="inline" gap="small-200" alignItems="center">
+                <s-icon type="info" tone="neutral" size="base" />
+                <s-text type="strong">How it works</s-text>
+              </s-stack>
+              <s-text color="subdued">
+                Offers, claims, and coverage explained.
+              </s-text>
+            </s-stack>
+          </s-clickable>
+          <s-box padding="base" background="subdued" borderRadius="base">
+            <s-stack direction="block" gap="small-400">
+              <s-link href="mailto:support@kourify.com">Contact support</s-link>
+              <s-text color="subdued">support@kourify.com</s-text>
+            </s-stack>
+          </s-box>
+        </s-grid>
+      </Card>
 
       {/* One Overview card holds every KPI in a packed grid, rather than two
           half-empty Status/Performance cards spread thin across the width.
@@ -305,17 +515,15 @@ export default function Index() {
         </Card>
       )}
 
-      {/* Two side-by-side cards: the where-to-show controls on the left, the
-          style and its live preview on the right. Stacks on a narrow container. */}
-      <s-grid
-        gridTemplateColumns="@container (inline-size <= 720px) 1fr, minmax(300px, 0.65fr) 1fr"
-        gap="base"
-        alignItems="stretch"
-      >
-        <Card heading="Trust badges">
-          <s-paragraph color="subdued">
-            Build confidence with a trust badge across your store.
-          </s-paragraph>
+      <Card heading="Trust badges">
+        <s-paragraph color="subdued">
+          Build confidence with a trust badge across your store.
+        </s-paragraph>
+        <s-grid
+          gridTemplateColumns="@container (inline-size <= 720px) 1fr, 1fr 1fr"
+          gap="large-100"
+          alignItems="start"
+        >
           <s-stack direction="block" gap="base">
             <s-switch
               label="Show trust badge on storefront"
@@ -344,33 +552,33 @@ export default function Index() {
               }
             />
           </s-stack>
-        </Card>
 
-        <Card heading="Appearance">
-          <s-select
-            label="Badge style"
-            value={current.badgeStyle}
-            disabled={!current.badgesEnabled}
-            onChange={(e) => saveBadges({ badgeStyle: e.currentTarget.value })}
-          >
-            {BADGE_STYLES.map((style) => (
-              <s-option key={style} value={style}>
-                {style.charAt(0).toUpperCase() + style.slice(1)}
-              </s-option>
-            ))}
-          </s-select>
+          <s-stack direction="block" gap="base">
+            <s-select
+              label="Badge style"
+              value={current.badgeStyle}
+              disabled={!current.badgesEnabled}
+              onChange={(e) => saveBadges({ badgeStyle: e.currentTarget.value })}
+            >
+              {BADGE_STYLES.map((style) => (
+                <s-option key={style} value={style}>
+                  {style.charAt(0).toUpperCase() + style.slice(1)}
+                </s-option>
+              ))}
+            </s-select>
 
-          <s-stack direction="block" gap="small-200">
-            <s-text color="subdued">Preview — what shoppers see</s-text>
-            <s-box padding="base" border="base" borderRadius="base">
-              <TrustBadgePreview badgeStyle={current.badgeStyle} />
-            </s-box>
-            <s-text color="subdued">
-              This is how your trust badge will appear on your store.
-            </s-text>
+            <s-stack direction="block" gap="small-200">
+              <s-text color="subdued">Preview — what shoppers see</s-text>
+              <s-box padding="base" border="base" borderRadius="base">
+                <TrustBadgePreview badgeStyle={current.badgeStyle} />
+              </s-box>
+              <s-text color="subdued">
+                This is how your trust badge will appear on your store.
+              </s-text>
+            </s-stack>
           </s-stack>
-        </Card>
-      </s-grid>
+        </s-grid>
+      </Card>
 
       <Card heading="Guarantee tab">
         <s-grid gridTemplateColumns="1fr auto" gap="base" alignItems="center">
@@ -433,6 +641,7 @@ export default function Index() {
           </>
         )}
       </Card>
+      </s-stack>
     </s-page>
   );
 }
