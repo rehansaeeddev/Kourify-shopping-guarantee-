@@ -70,3 +70,64 @@ body {
   gap: 8px;
   flex-shrink: 0;
 }
+
+/* Guide "how it works" concept cards — the coloured trio that opens the guide,
+ * approved alongside the dashboard header as the app's branded chrome. */
+.app-guide-concepts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 720px) {
+  .app-guide-concepts {
+    grid-template-columns: 1fr;
+  }
+}
+
+.app-concept {
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+
+.app-concept__title {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.app-concept__body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.app-concept--protect {
+  background: #e3f5ec;
+}
+.app-concept--protect .app-concept__title {
+  color: #0a5c4d;
+}
+.app-concept--protect .app-concept__body {
+  color: #14503f;
+}
+
+.app-concept--claim {
+  background: #fdf3dd;
+}
+.app-concept--claim .app-concept__title {
+  color: #7a5a10;
+}
+.app-concept--claim .app-concept__body {
+  color: #6b4f12;
+}
+
+.app-concept--decide {
+  background: #eef1f5;
+}
+.app-concept--decide .app-concept__title {
+  color: #2a3547;
+}
+.app-concept--decide .app-concept__body {
+  color: #3a4453;
+}

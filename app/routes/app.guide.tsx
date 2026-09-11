@@ -91,152 +91,221 @@ export default function Guide() {
 
   return (
     <s-page heading="Help &amp; getting started">
-      <s-button slot="secondary-actions" href="/app" variant="secondary">
-        Back to home
-      </s-button>
+      <s-stack direction="block" gap="large">
+        {/* Branded header, matching the dashboard's (see theme.css). Back stays
+            a real s-button so embedded navigation works. */}
+        <div className="app-dashboard-header">
+          <div>
+            <h2 className="app-dashboard-header__title">
+              How Shopping Guarantee works
+            </h2>
+            <p className="app-dashboard-header__subtitle">
+              Offer optional order protection, let customers file claims when
+              something goes wrong, and decide each one yourself.
+            </p>
+          </div>
+          <div className="app-dashboard-header__actions">
+            <s-button href="/app" variant="secondary">
+              Back to home
+            </s-button>
+          </div>
+        </div>
 
-      {/* A banner, not a card: protection has stopped and there is one thing to
-          do about it. The other two states are steady-state content and stay
-          cards — a banner that is always on screen stops being read. */}
-      {state === "limit" && (
-        <s-banner tone="warning" heading="Protection is switched off">
-          {`You've used all ${quota.limit} protected orders on your current plan. Orders already protected keep their coverage and can still be claimed.`}
-          <AppButton
-            slot="secondary-actions"
-            variant="secondary"
-            href="/app/billing"
-          >
-            View billing
-          </AppButton>
-        </s-banner>
-      )}
+        {state === "limit" && (
+          <s-banner tone="warning" heading="Protection is switched off">
+            {`You've used all ${quota.limit} protected orders on your current plan. Orders already protected keep their coverage and can still be claimed.`}
+            <AppButton
+              slot="secondary-actions"
+              variant="secondary"
+              href="/app/billing"
+            >
+              View billing
+            </AppButton>
+          </s-banner>
+        )}
 
-      {state === "setup" && (
-        <Card heading="Finish setup">
-          <s-paragraph>
-            Three things to do before protection goes live.
-          </s-paragraph>
-          <s-stack direction="block" gap="large-100">
-            <s-stack direction="block" gap="small-200">
-              <s-stack direction="inline" gap="small-200" alignItems="center">
-                <s-badge>1</s-badge>
-                <s-text type="strong">Configure protection</s-text>
+        {/* The whole product in one glance — three coloured concept cards. */}
+        <div className="app-guide-concepts">
+          <div className="app-concept app-concept--protect">
+            <p className="app-concept__title">Protect</p>
+            <p className="app-concept__body">
+              Customers add optional protection at checkout; eligible items are
+              covered against loss, damage, theft, shortage, or a wrong item.
+            </p>
+          </div>
+          <div className="app-concept app-concept--claim">
+            <p className="app-concept__title">Claim</p>
+            <p className="app-concept__body">
+              If something goes wrong, the customer files a claim with a photo
+              from the guarantee tab on your storefront.
+            </p>
+          </div>
+          <div className="app-concept app-concept--decide">
+            <p className="app-concept__title">Decide</p>
+            <p className="app-concept__body">
+              You review each claim against your rules and approve or deny it —
+              the customer is notified automatically.
+            </p>
+          </div>
+        </div>
+
+        {state === "setup" && (
+          <Card heading="Finish setup">
+            <s-paragraph>
+              Three things to do before protection goes live.
+            </s-paragraph>
+            <s-stack direction="block" gap="large-100">
+              <s-stack direction="block" gap="small-200">
+                <s-stack direction="inline" gap="small-200" alignItems="center">
+                  <s-badge>1</s-badge>
+                  <s-text type="strong">Configure protection</s-text>
+                </s-stack>
+                <s-paragraph color="subdued">
+                  Choose who pays, set pricing, and define what&apos;s eligible.
+                </s-paragraph>
+                <s-stack direction="inline">
+                  <s-button href="/app/settings" variant="secondary">
+                    Open settings
+                  </s-button>
+                </s-stack>
               </s-stack>
-              <s-paragraph color="subdued">
-                Choose who pays, set pricing, and define what&apos;s eligible.
-              </s-paragraph>
-              <s-stack direction="inline">
-                <s-button href="/app/settings" variant="secondary">
-                  Open settings
-                </s-button>
+              <s-stack direction="block" gap="small-200">
+                <s-stack direction="inline" gap="small-200" alignItems="center">
+                  <s-badge>2</s-badge>
+                  <s-text type="strong">Add storefront blocks</s-text>
+                </s-stack>
+                <s-paragraph color="subdued">
+                  Add the protection widget and trust badge in your Shopify
+                  theme editor.
+                </s-paragraph>
+                <s-stack direction="inline">
+                  <s-button href="/app" variant="secondary">
+                    Badge settings
+                  </s-button>
+                </s-stack>
+              </s-stack>
+              <s-stack direction="block" gap="small-200">
+                <s-stack direction="inline" gap="small-200" alignItems="center">
+                  <s-badge>3</s-badge>
+                  <s-text type="strong">Turn on protection</s-text>
+                </s-stack>
+                <s-paragraph color="subdued">
+                  Switch on protection at checkout from Settings → General.
+                </s-paragraph>
+                <s-stack direction="inline">
+                  <s-button href="/app/settings" variant="secondary">
+                    Turn it on
+                  </s-button>
+                </s-stack>
               </s-stack>
             </s-stack>
-            <s-stack direction="block" gap="small-200">
-              <s-stack direction="inline" gap="small-200" alignItems="center">
-                <s-badge>2</s-badge>
-                <s-text type="strong">Add storefront blocks</s-text>
-              </s-stack>
-              <s-paragraph color="subdued">
-                Add the protection widget and trust badge in your Shopify theme
-                editor.
-              </s-paragraph>
-              <s-stack direction="inline">
-                <s-button href="/app" variant="secondary">
-                  Badge settings
-                </s-button>
-              </s-stack>
+          </Card>
+        )}
+
+        {state === "active" && (
+          <Card heading="Your protection is active">
+            <s-paragraph>
+              Shopping Guarantee is currently available for eligible orders.
+              {quota.limit !== null
+                ? ` You've protected ${quota.used} of ${quota.limit} orders on your plan.`
+                : ""}
+            </s-paragraph>
+            <s-stack direction="inline" gap="small-200">
+              <s-button href="/app/settings" variant="secondary">
+                Manage settings
+              </s-button>
+              <s-button href="/app/claims" variant="secondary">
+                {openClaims > 0 ? `View claims (${openClaims})` : "View claims"}
+              </s-button>
+              <s-button href="/app/orders" variant="secondary">
+                View orders
+              </s-button>
             </s-stack>
+          </Card>
+        )}
+
+        <Card heading="How protection works">
+          <s-ordered-list>
+            {FLOW.map((step) => (
+              <s-list-item key={step}>{step}</s-list-item>
+            ))}
+          </s-ordered-list>
+          <s-banner tone="info">
+            Shopping Guarantee is currently a self-funded, manually reviewed
+            guarantee. It is not underwritten insurance, and claims are not
+            automatically approved.
+          </s-banner>
+        </Card>
+
+        <s-grid
+          gridTemplateColumns="@container (inline-size <= 720px) 1fr, 1fr 1fr"
+          gap="base"
+          alignItems="start"
+        >
+          <Card heading="Common tasks">
             <s-stack direction="block" gap="small-200">
-              <s-stack direction="inline" gap="small-200" alignItems="center">
-                <s-badge>3</s-badge>
-                <s-text type="strong">Turn on protection</s-text>
-              </s-stack>
-              <s-paragraph color="subdued">
-                Switch on protection at checkout from Settings → General.
-              </s-paragraph>
-              <s-stack direction="inline">
-                <s-button href="/app/settings" variant="secondary">
-                  Turn it on
-                </s-button>
-              </s-stack>
+              <s-link href="/app/settings">
+                Change who pays, pricing or eligibility
+              </s-link>
+              <s-link href="/app/claims">Review and decide open claims</s-link>
+              <s-link href="/app/orders">
+                See which orders are protected, or offer protection after
+                purchase
+              </s-link>
+              <s-link href="/app/translations">
+                Translate the storefront claim form
+              </s-link>
+              <s-link href="/app/billing">
+                {hasActiveBilling ? "Change your plan" : "Choose a plan"}
+              </s-link>
             </s-stack>
+          </Card>
+
+          <Card heading="Where protection shows up">
+            <s-stack direction="block" gap="small-300">
+              <s-text type="strong">Storefront</s-text>
+              <s-text color="subdued">
+                The protection widget and trust badge on product pages and cart,
+                plus the guarantee tab customers use to file claims.
+              </s-text>
+              <s-divider />
+              <s-text type="strong">Orders</s-text>
+              <s-text color="subdued">
+                Each order shows whether it&apos;s protected, and you can offer
+                protection after purchase.
+              </s-text>
+              <s-divider />
+              <s-text type="strong">Claims</s-text>
+              <s-text color="subdued">
+                Filed claims land here with their evidence for you to review and
+                decide.
+              </s-text>
+            </s-stack>
+          </Card>
+        </s-grid>
+
+        <Card heading="Questions">
+          {/* A rule between entries, so a run of question/answer pairs reads as
+              separate items rather than one wall of text. */}
+          <s-stack direction="block" gap="base">
+            {FAQ.map(([question, answer], index) => (
+              <s-stack key={question} direction="block" gap="small-300">
+                {index > 0 && <s-divider />}
+                <s-heading>{question}</s-heading>
+                <s-paragraph color="subdued">{answer}</s-paragraph>
+              </s-stack>
+            ))}
           </s-stack>
         </Card>
-      )}
 
-      {state === "active" && (
-        <Card heading="Your protection is active">
-          <s-paragraph>
-            Shopping Guarantee is currently available for eligible orders.
-            {quota.limit !== null
-              ? ` You've protected ${quota.used} of ${quota.limit} orders on your plan.`
-              : ""}
-          </s-paragraph>
-          <s-stack direction="inline" gap="small-200">
-            <s-button href="/app/settings" variant="secondary">
-              Manage settings
-            </s-button>
-            <s-button href="/app/claims" variant="secondary">
-              {openClaims > 0 ? `View claims (${openClaims})` : "View claims"}
-            </s-button>
-            <s-button href="/app/orders" variant="secondary">
-              View orders
-            </s-button>
-          </s-stack>
-        </Card>
-      )}
-
-      <Card heading="How protection works">
-        <s-ordered-list>
-          {FLOW.map((step) => (
-            <s-list-item key={step}>{step}</s-list-item>
-          ))}
-        </s-ordered-list>
-        <s-banner tone="info">
-          Shopping Guarantee is currently a self-funded, manually reviewed
-          guarantee. It is not underwritten insurance, and claims are not
-          automatically approved.
-        </s-banner>
-      </Card>
-
-      <Card heading="Common tasks">
-        <s-stack direction="block" gap="small-200">
-          <s-link href="/app/settings">
-            Change who pays, pricing or eligibility
-          </s-link>
-          <s-link href="/app/claims">Review and decide open claims</s-link>
-          <s-link href="/app/orders">
-            See which orders are protected, or offer protection after purchase
-          </s-link>
-          <s-link href="/app/translations">
-            Translate the storefront claim form
-          </s-link>
-          <s-link href="/app/billing">
-            {hasActiveBilling ? "Change your plan" : "Choose a plan"}
-          </s-link>
-        </s-stack>
-      </Card>
-
-      <Card heading="Questions">
-        {/* A rule between entries, so a run of question/answer pairs reads as
-            separate items rather than one wall of text. */}
-        <s-stack direction="block" gap="base">
-          {FAQ.map(([question, answer], index) => (
-            <s-stack key={question} direction="block" gap="small-300">
-              {index > 0 && <s-divider />}
-              <s-heading>{question}</s-heading>
-              <s-paragraph color="subdued">{answer}</s-paragraph>
-            </s-stack>
-          ))}
-        </s-stack>
-      </Card>
-
-      {!badgesEnabled && state !== "setup" && (
-        <s-banner tone="info">
-          Trust badges are switched off, so shoppers don&apos;t see them on your
-          storefront. <s-link href="/app">Turn them on from Home.</s-link>
-        </s-banner>
-      )}
+        {!badgesEnabled && state !== "setup" && (
+          <s-banner tone="info">
+            Trust badges are switched off, so shoppers don&apos;t see them on
+            your storefront.{" "}
+            <s-link href="/app">Turn them on from Home.</s-link>
+          </s-banner>
+        )}
+      </s-stack>
     </s-page>
   );
 }
