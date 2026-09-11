@@ -304,7 +304,7 @@ export default function Index() {
       <s-grid
         gridTemplateColumns="@container (inline-size <= 720px) 1fr, 1fr 1fr"
         gap="base"
-        alignItems="start"
+        alignItems="stretch"
       >
         <Card heading="Trust badges">
           <s-paragraph color="subdued">
@@ -367,7 +367,7 @@ export default function Index() {
       </s-grid>
 
       <Card heading="Guarantee tab">
-        <s-grid gridTemplateColumns="1fr auto" gap="base" alignItems="end">
+        <s-grid gridTemplateColumns="1fr auto" gap="base" alignItems="center">
           <s-paragraph>
             The floating Kourify Guarantee tab shoppers use to learn about
             protection and file claims.
