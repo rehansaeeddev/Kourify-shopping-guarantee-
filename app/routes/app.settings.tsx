@@ -345,12 +345,22 @@ export default function Settings() {
     error?: string;
   }>();
 
-  useFetcherToast(settingsFetcher, (data) => data.error ?? "Settings saved.");
-
   // Trust badge + guarantee tab save on their own fetcher so a badge change
   // never re-runs protection product sync or shows the protection toast.
   const badgeFetcher = useFetcher<{ settings?: typeof settings }>();
-  useFetcherToast(badgeFetcher, () => "Badge settings saved.");
+
+  // Each save names exactly what changed ("Flat fee set to $5.00", "Trust
+  // badge turned on"), set just before the submit and read back by both the
+  // toast and the top banner, so the merchant sees which setting was saved
+  // rather than a generic "Settings saved."
+  const pendingSettingsMessage = useRef("Settings saved.");
+  const pendingBadgeMessage = useRef("Badge settings saved.");
+
+  useFetcherToast(
+    settingsFetcher,
+    (data) => data.error ?? pendingSettingsMessage.current,
+  );
+  useFetcherToast(badgeFetcher, () => pendingBadgeMessage.current);
 
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
   const currentSettings = settingsFetcher.data?.settings ?? settings;
@@ -374,7 +384,7 @@ export default function Settings() {
       settingsFetcher.data &&
       !settingsFetcher.data.error
     ) {
-      setSavedNotice("Settings saved.");
+      setSavedNotice(pendingSettingsMessage.current);
     }
     settingsWasSaving.current = false;
   }, [settingsFetcher.state, settingsFetcher.data]);
@@ -385,7 +395,7 @@ export default function Settings() {
       return;
     }
     if (badgeWasSaving.current && badgeFetcher.data) {
-      setSavedNotice("Badge settings saved.");
+      setSavedNotice(pendingBadgeMessage.current);
     }
     badgeWasSaving.current = false;
   }, [badgeFetcher.state, badgeFetcher.data]);
@@ -397,6 +407,22 @@ export default function Settings() {
     showOnCart?: boolean;
     guaranteeTabPosition?: string;
   }) => {
+    pendingBadgeMessage.current =
+      overrides.badgesEnabled !== undefined
+        ? `Trust badge turned ${overrides.badgesEnabled ? "on" : "off"}`
+        : overrides.showOnProduct !== undefined
+          ? `Product-page badge ${overrides.showOnProduct ? "shown" : "hidden"}`
+          : overrides.showOnCart !== undefined
+            ? `Cart badge ${overrides.showOnCart ? "shown" : "hidden"}`
+            : overrides.badgeStyle !== undefined
+              ? `Badge style set to ${overrides.badgeStyle.charAt(0).toUpperCase()}${overrides.badgeStyle.slice(1)}`
+              : overrides.guaranteeTabPosition !== undefined
+                ? `Guarantee tab set to ${
+                    TAB_POSITIONS.find(
+                      (p) => p.value === overrides.guaranteeTabPosition,
+                    )?.label ?? overrides.guaranteeTabPosition
+                  }`
+                : "Badge settings saved.";
     badgeFetcher.submit(
       {
         intent: "badges",
@@ -440,20 +466,48 @@ export default function Settings() {
   const claimWindows = parseClaimWindows(currentSettings.claimWindows ?? "");
   const merchantPays = currentSettings.protectionPayer === "merchant";
 
-  const saveSettings = (overrides: {
-    protectionPayer?: string;
-    enabledClaimTypes?: Set<string>;
-    claimWindows?: ClaimWindows;
-    protectionFeeType?: string;
-    protectionFlatFeeCents?: number;
-    protectionPercentBasisPoints?: number;
-    protectionMinFeeCents?: number;
-    protectionMaxFeeCents?: number;
-    /** null clears the ceiling — no monetary default is substituted. */
-    maxEligibleItemValueCents?: number | null;
-    protectionEnabled?: boolean;
-    plan?: string;
-  }) => {
+  const saveSettings = (
+    overrides: {
+      protectionPayer?: string;
+      enabledClaimTypes?: Set<string>;
+      claimWindows?: ClaimWindows;
+      protectionFeeType?: string;
+      protectionFlatFeeCents?: number;
+      protectionPercentBasisPoints?: number;
+      protectionMinFeeCents?: number;
+      protectionMaxFeeCents?: number;
+      /** null clears the ceiling — no monetary default is substituted. */
+      maxEligibleItemValueCents?: number | null;
+      protectionEnabled?: boolean;
+      plan?: string;
+    },
+    // Claim-reason and filing-window changes can't be described from the
+    // override alone (it's a whole set/map), so those callers pass the message
+    // in; everything else is a single field and describes itself.
+    message?: string,
+  ) => {
+    const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+    pendingSettingsMessage.current =
+      message ??
+      (overrides.protectionEnabled !== undefined
+        ? `Protection at checkout turned ${overrides.protectionEnabled ? "on" : "off"}`
+        : overrides.protectionPayer !== undefined
+          ? `Who pays set to ${overrides.protectionPayer === "merchant" ? "Merchant pays" : "Customer pays"}`
+          : overrides.protectionFeeType !== undefined
+            ? `Fee structure set to ${overrides.protectionFeeType === "flat" ? "Flat fee per order" : "Percentage of order"}`
+            : overrides.protectionFlatFeeCents !== undefined
+              ? `Flat fee set to ${money(overrides.protectionFlatFeeCents)}`
+              : overrides.protectionPercentBasisPoints !== undefined
+                ? `Percentage set to ${(overrides.protectionPercentBasisPoints / 100).toFixed(1)}%`
+                : overrides.protectionMinFeeCents !== undefined
+                  ? `Minimum fee set to ${money(overrides.protectionMinFeeCents)}`
+                  : overrides.protectionMaxFeeCents !== undefined
+                    ? `Maximum fee set to ${money(overrides.protectionMaxFeeCents)}`
+                    : overrides.maxEligibleItemValueCents !== undefined
+                      ? overrides.maxEligibleItemValueCents == null
+                        ? "Coverage limit removed"
+                        : `Coverage limit set to ${money(overrides.maxEligibleItemValueCents)}`
+                      : "Settings saved.");
     const nextPayer =
       overrides.protectionPayer ?? currentSettings.protectionPayer;
     const nextTypes = overrides.enabledClaimTypes ?? enabledTypes;
@@ -497,20 +551,24 @@ export default function Settings() {
     );
   };
 
-  const toggleClaimType = (value: string, checked: boolean) => {
+  const toggleClaimType = (value: string, checked: boolean, label: string) => {
     const next = new Set(enabledTypes);
     if (checked) {
       next.add(value);
     } else {
       next.delete(value);
     }
-    saveSettings({ enabledClaimTypes: next });
+    saveSettings(
+      { enabledClaimTypes: next },
+      `${label} claims ${checked ? "enabled" : "disabled"}`,
+    );
   };
 
   const updateWindow = (
     type: string,
     field: "minDays" | "maxDays",
     value: number,
+    label: string,
   ) => {
     const next: ClaimWindows = {
       ...claimWindows,
@@ -521,7 +579,10 @@ export default function Settings() {
           field === "maxDays" ? value : (claimWindows[type]?.maxDays ?? 30),
       },
     };
-    saveSettings({ claimWindows: next });
+    saveSettings(
+      { claimWindows: next },
+      `${label} filing window updated`,
+    );
   };
 
   return (
@@ -1068,6 +1129,7 @@ export default function Settings() {
                       toggleClaimType(
                         type.value,
                         e.currentTarget.checked ?? false,
+                        type.label,
                       )
                     }
                   />
@@ -1088,6 +1150,7 @@ export default function Settings() {
                             type.value,
                             "minDays",
                             Number(e.currentTarget.value) || 0,
+                            type.label,
                           )
                         }
                       />
@@ -1105,6 +1168,7 @@ export default function Settings() {
                             type.value,
                             "maxDays",
                             Number(e.currentTarget.value) || 0,
+                            type.label,
                           )
                         }
                       />
