@@ -596,7 +596,7 @@ export default function Claims() {
         {/* One block stack owns the card's vertical rhythm so the count line,
             filters, search and table each get even breathing room instead of
             butting up against one another. */}
-        <s-stack direction="block" gap="large">
+        <s-stack direction="block" gap="base">
         {/* A compact count line, not a whole metrics card — two numbers don't
             earn their own section, and the open count already rides on the
             workspace tab. */}
