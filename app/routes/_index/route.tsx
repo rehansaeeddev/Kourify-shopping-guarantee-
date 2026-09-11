@@ -1,10 +1,9 @@
 import type { LoaderFunctionArgs } from "react-router";
-import { redirect, Form, useLoaderData } from "react-router";
+import { redirect } from "react-router";
 
-import { login } from "../../shopify.server";
-
-import styles from "./styles.module.css";
-
+// The app has no public marketing splash. An embedded install always arrives
+// with a `shop` param, which goes straight to the app; anything else (a raw
+// visit to the root) goes to the login form, which owns shop-domain entry.
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
 
@@ -12,49 +11,5 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     throw redirect(`/app?${url.searchParams.toString()}`);
   }
 
-  return { showForm: Boolean(login) };
+  throw redirect("/auth/login");
 };
-
-export default function App() {
-  const { showForm } = useLoaderData<typeof loader>();
-
-  return (
-    <div className={styles.index}>
-      <div className={styles.content}>
-        <h1 className={styles.heading}>Kourify Shopping Guarantee</h1>
-        <p className={styles.text}>
-          Package protection and a buyer guarantee for your Shopify store —
-          build checkout confidence, cut chargebacks, and resolve loss, damage,
-          and theft claims in one place.
-        </p>
-        {showForm && (
-          <Form className={styles.form} method="post" action="/auth/login">
-            <label className={styles.label}>
-              <span>Shop domain</span>
-              <input className={styles.input} type="text" name="shop" />
-              <span>e.g: my-shop-domain.myshopify.com</span>
-            </label>
-            <button className={styles.button} type="submit">
-              Log in
-            </button>
-          </Form>
-        )}
-        <ul className={styles.list}>
-          <li>
-            <strong>Protection at checkout</strong>. Offer optional package
-            protection and let shoppers cover loss, damage, and theft as they
-            buy.
-          </li>
-          <li>
-            <strong>Claims, handled</strong>. Customers file claims from your
-            storefront; you review and resolve them from one dashboard.
-          </li>
-          <li>
-            <strong>Trust badges</strong>. Show buyer-guarantee badges on your
-            product and cart pages to reassure shoppers before they check out.
-          </li>
-        </ul>
-      </div>
-    </div>
-  );
-}
