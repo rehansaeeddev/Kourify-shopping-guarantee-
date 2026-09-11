@@ -12,8 +12,8 @@ import {
 import { boundary } from "@shopify/shopify-app-react-router/server";
 
 import { useEffect } from "react";
-import { AppButton } from "../components/AppButton";
 import { Card, MetricsCard } from "../components/Card";
+import { EmptyState } from "../components/EmptyState";
 import { useFetcherToast } from "../hooks/useFetcherToast";
 import { useTablePagination } from "../hooks/useTablePagination";
 import db from "../db.server";
@@ -191,7 +191,7 @@ export default function OrderSync() {
     : "Never";
 
   return (
-    <s-page heading="Order sync">
+    <s-page heading="Order sync" inlineSize="large">
       <s-button slot="secondary-actions" href="/app" variant="secondary">
         Back to home
       </s-button>
@@ -208,9 +208,9 @@ export default function OrderSync() {
         description="Keep the order cache used for claim verification up to date."
         metrics={[
           {
+            // A configured sync mode is a neutral fact, not a warning.
             icon: "check-circle",
             label: "Sync mode",
-            tone: "warning",
             value: orderSyncEnabled ? "Manual" : "Approval required",
           },
           { icon: "order", label: "Cached orders", value: String(orderCount) },
@@ -257,7 +257,11 @@ export default function OrderSync() {
 
       <Card heading={`Sync jobs (${jobCount})`}>
         {jobs.length === 0 ? (
-          <s-paragraph>No sync jobs yet.</s-paragraph>
+          <EmptyState
+            icon="clock"
+            heading="No sync jobs yet"
+            description="Run a manual sync and each job will appear here."
+          />
         ) : (
           <s-table
             ref={jobPagination.ref as never}
