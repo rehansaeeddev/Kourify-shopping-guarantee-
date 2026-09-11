@@ -14,7 +14,6 @@ import { isRateLimited } from "../lib/rate-limit.server";
 import { useTablePagination } from "../hooks/useTablePagination";
 import { WorkspaceTabs } from "../components/WorkspaceTabs";
 import { getWorkspaceCounts } from "../lib/workspace-counts.server";
-import { useFetcherToast } from "../hooks/useFetcherToast";
 
 const STATUS_CONFIRM_MODAL_ID = "kourify-status-confirm-modal";
 const STATUSES = ["submitted", "reviewing", "resolved", "denied"] as const;
@@ -326,14 +325,40 @@ export default function Claims() {
   const [searchParams] = useSearchParams();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  // Bulk status changes ride their own fetcher so they can toast a summary
-  // without disturbing the in-row single-claim flow. Selection is scoped to the
+  // Bulk status changes ride their own fetcher. A confirmation modal (not a raw
+  // browser confirm, which leaks the tunnel URL inside the embedded admin) gates
+  // the send, and the outcome lands in a dismissible banner at the top of the
+  // page, matching the single-claim decision flow. Selection is scoped to the
   // claims visible on this page and clears whenever the list changes.
   const bulkFetcher = useFetcher<typeof action>();
-  useFetcherToast(
-    bulkFetcher,
-    (data) => data.message ?? data.error ?? "Claims updated.",
-  );
+  const bulkConfirmRef = useRef<{
+    showOverlay: () => void;
+    hideOverlay: () => void;
+  } | null>(null);
+  const [pendingBulk, setPendingBulk] = useState<{
+    status: "reviewing" | "resolved";
+    count: number;
+  } | null>(null);
+  const [bulkBanner, setBulkBanner] = useState<{
+    text: string;
+    ok: boolean;
+  } | null>(null);
+  const bulkWasActive = useRef(false);
+  useEffect(() => {
+    if (bulkFetcher.state !== "idle") {
+      bulkWasActive.current = true;
+      return;
+    }
+    if (bulkWasActive.current && bulkFetcher.data) {
+      const data = bulkFetcher.data;
+      setBulkBanner({
+        text: data.message ?? data.error ?? "Claims updated.",
+        ok: Boolean(data.ok),
+      });
+    }
+    bulkWasActive.current = false;
+  }, [bulkFetcher.state, bulkFetcher.data]);
+
   const [selectedClaimIds, setSelectedClaimIds] = useState<Set<string>>(
     new Set(),
   );
@@ -361,22 +386,28 @@ export default function Claims() {
         : new Set(pageClaimIds),
     );
 
-  const submitBulkStatus = (status: "reviewing" | "resolved") => {
-    const count = selectedClaimIds.size;
-    const verb = status === "resolved" ? "approve" : "move to reviewing";
-    if (
-      !window.confirm(
-        `This will ${verb} ${count} claim${count === 1 ? "" : "s"} and email ${
-          count === 1 ? "the customer" : "those customers"
-        }. Continue?`,
-      )
-    )
-      return;
+  const openBulkConfirm = (status: "reviewing" | "resolved") => {
+    setPendingBulk({ status, count: selectedClaimIds.size });
+    bulkConfirmRef.current?.showOverlay();
+  };
+
+  const confirmBulkStatus = () => {
+    if (!pendingBulk) return;
     bulkFetcher.submit(
-      { claimIds: Array.from(selectedClaimIds).join(","), status },
+      {
+        claimIds: Array.from(selectedClaimIds).join(","),
+        status: pendingBulk.status,
+      },
       { method: "POST" },
     );
     setSelectedClaimIds(new Set());
+    setPendingBulk(null);
+    bulkConfirmRef.current?.hideOverlay();
+  };
+
+  const cancelBulkConfirm = () => {
+    setPendingBulk(null);
+    bulkConfirmRef.current?.hideOverlay();
   };
 
   // Which row is mid-save, straight off the in-flight form data, and which
@@ -518,6 +549,17 @@ export default function Claims() {
       <s-button slot="secondary-actions" href="/app" variant="secondary">
         Back
       </s-button>
+
+      {bulkBanner && (
+        <s-banner
+          tone={bulkBanner.ok ? "success" : "critical"}
+          heading={bulkBanner.ok ? "Claims updated" : "Couldn't update claims"}
+          dismissible
+          onDismiss={() => setBulkBanner(null)}
+        >
+          {bulkBanner.text}
+        </s-banner>
+      )}
 
       {statusBanner && (
         <s-banner
@@ -680,7 +722,7 @@ export default function Claims() {
                         variant="secondary"
                         loading={bulkFetcher.state !== "idle"}
                         disabled={bulkFetcher.state !== "idle"}
-                        onClick={() => submitBulkStatus("reviewing")}
+                        onClick={() => openBulkConfirm("reviewing")}
                       >
                         Mark reviewing
                       </s-button>
@@ -688,7 +730,7 @@ export default function Claims() {
                         variant="primary"
                         loading={bulkFetcher.state !== "idle"}
                         disabled={bulkFetcher.state !== "idle"}
-                        onClick={() => submitBulkStatus("resolved")}
+                        onClick={() => openBulkConfirm("resolved")}
                       >
                         Approve
                       </s-button>
@@ -907,6 +949,36 @@ export default function Claims() {
             : "Deny and notify"}
         </s-button>
         <s-button slot="secondary-actions" onClick={cancelStatusChange}>
+          Cancel
+        </s-button>
+      </s-modal>
+
+      <s-modal
+        ref={bulkConfirmRef as never}
+        id="kourify-bulk-status-modal"
+        heading={
+          pendingBulk?.status === "resolved"
+            ? `Approve ${pendingBulk.count} claim${pendingBulk.count === 1 ? "" : "s"}?`
+            : `Mark ${pendingBulk?.count ?? 0} claim${pendingBulk?.count === 1 ? "" : "s"} reviewing?`
+        }
+      >
+        <s-paragraph>
+          {pendingBulk?.status === "resolved"
+            ? "Each customer is emailed straight away to say their claim was approved. Claims already resolved are skipped, and this can't be undone."
+            : "Each customer is emailed to say their claim is now being reviewed. Claims already in review are skipped."}
+        </s-paragraph>
+        <s-button
+          slot="primary-action"
+          variant="primary"
+          loading={bulkFetcher.state !== "idle"}
+          disabled={bulkFetcher.state !== "idle"}
+          onClick={confirmBulkStatus}
+        >
+          {pendingBulk?.status === "resolved"
+            ? "Approve and notify"
+            : "Mark reviewing and notify"}
+        </s-button>
+        <s-button slot="secondary-actions" onClick={cancelBulkConfirm}>
           Cancel
         </s-button>
       </s-modal>
