@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Form, useFetcher, useLoaderData, useSearchParams } from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
-import { Card, MetricsCard } from "../components/Card";
+import { Card } from "../components/Card";
 import { getResolvedClaimsTrend } from "../lib/protection-telemetry.server";
 import { EmptyState } from "../components/EmptyState";
 import { StatusBadge } from "../components/StatusBadge";
@@ -14,6 +14,7 @@ import { isRateLimited } from "../lib/rate-limit.server";
 import { useTablePagination } from "../hooks/useTablePagination";
 import { WorkspaceTabs } from "../components/WorkspaceTabs";
 import { getWorkspaceCounts } from "../lib/workspace-counts.server";
+import { useFetcherToast } from "../hooks/useFetcherToast";
 
 const STATUS_CONFIRM_MODAL_ID = "kourify-status-confirm-modal";
 const STATUSES = ["submitted", "reviewing", "resolved", "denied"] as const;
@@ -160,6 +161,106 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   const formData = await request.formData();
+
+  // Apply one status change: persist it, record the audit trail, and email the
+  // customer. Shared by the single-row update and the bulk update so the
+  // money-and-email-sensitive path exists in exactly one place. `existing` is
+  // the claim as it was before the change (null if it no longer exists).
+  const applyStatusChange = async (
+    claimId: string,
+    existing: NonNullable<
+      Awaited<ReturnType<typeof db.protectionClaim.findFirst>>
+    > | null,
+    status: string,
+    settlementCents: number | null | undefined,
+    decisionNote: string | undefined,
+  ) => {
+    const isDecision = TERMINAL_STATUSES.includes(status);
+    const actor = session.onlineAccessInfo?.associated_user;
+    const decidedByUserId = actor?.id != null ? String(actor.id) : null;
+    const decidedByName =
+      [actor?.first_name, actor?.last_name].filter(Boolean).join(" ") ||
+      actor?.email ||
+      null;
+
+    await db.protectionClaim.updateMany({
+      where: { id: claimId, shop: session.shop },
+      data: {
+        status,
+        ...(settlementCents !== undefined ? { settlementCents } : {}),
+        ...(decisionNote !== undefined ? { decisionNote } : {}),
+        ...(isDecision ? { decidedByUserId, decidedByName } : {}),
+        resolvedAt:
+          isDecision && !existing?.resolvedAt ? new Date() : undefined,
+      },
+    });
+
+    if (existing && existing.status !== status) {
+      await db.auditLog.create({
+        data: {
+          shop: session.shop,
+          action: isDecision ? "claim_decision" : "claim_status_updated",
+          userId: decidedByUserId,
+          resource: `claim:${claimId}`,
+          oldValue: {
+            status: existing.status,
+            settlementCents: existing.settlementCents,
+          },
+          newValue: {
+            status,
+            settlementCents:
+              settlementCents !== undefined
+                ? settlementCents
+                : existing.settlementCents,
+            eligibleLossCents: existing.eligibleLossCents,
+            decidedByName,
+            ...(decisionNote !== undefined ? { decisionNote } : {}),
+          },
+        },
+      });
+      await notifyClaimStatusChanged({
+        email: existing.email,
+        fullName: existing.fullName,
+        orderNumber: existing.shopifyOrderName ?? existing.orderNumber,
+        status,
+      });
+    }
+  };
+
+  // Bulk status change: only the non-destructive transitions are allowed here
+  // (a denial always goes through the single-row flow), and each one still
+  // emails its customer, so the client confirms before submitting.
+  const bulkClaimIds = String(formData.get("claimIds") ?? "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+  if (bulkClaimIds.length) {
+    const status = String(formData.get("status"));
+    if (!["reviewing", "resolved"].includes(status)) {
+      return { ok: false, error: "That status can't be set in bulk." };
+    }
+    if (bulkClaimIds.length > 50) {
+      return { ok: false, error: "Update at most 50 claims at a time." };
+    }
+    const claims = await db.protectionClaim.findMany({
+      where: { id: { in: bulkClaimIds }, shop: session.shop },
+    });
+    let changed = 0;
+    let skipped = bulkClaimIds.length - claims.length; // ids that no longer exist
+    for (const existing of claims) {
+      // Already in the target status — nothing to change, nothing to email.
+      if (existing.status === status) {
+        skipped += 1;
+        continue;
+      }
+      await applyStatusChange(existing.id, existing, status, undefined, undefined);
+      changed += 1;
+    }
+    const parts = [`Updated ${changed} claim${changed === 1 ? "" : "s"}`];
+    if (skipped) parts.push(`skipped ${skipped}`);
+    return { ok: changed > 0, message: parts.join(" · ") };
+  }
+
   const claimId = String(formData.get("claimId"));
   const status = String(formData.get("status"));
   // Only accept known statuses — this value is persisted and emailed to the
@@ -201,65 +302,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       ? String(note).trim().slice(0, 2000)
       : undefined;
 
-  // Who decided. Identity is only present on online sessions, via
-  // onlineAccessInfo.associated_user; this app authenticates with offline
-  // tokens, so it is recorded when available and left null otherwise rather
-  // than attributed to the wrong person.
-  const isDecision = TERMINAL_STATUSES.includes(status);
-  const actor = session.onlineAccessInfo?.associated_user;
-  const decidedByUserId = actor?.id != null ? String(actor.id) : null;
-  const decidedByName =
-    [actor?.first_name, actor?.last_name].filter(Boolean).join(" ") ||
-    actor?.email ||
-    null;
-
-  await db.protectionClaim.updateMany({
-    where: { id: claimId, shop: session.shop },
-    data: {
-      status,
-      ...(settlementCents !== undefined ? { settlementCents } : {}),
-      ...(decisionNote !== undefined ? { decisionNote } : {}),
-      ...(isDecision ? { decidedByUserId, decidedByName } : {}),
-      resolvedAt: isDecision && !existing?.resolvedAt ? new Date() : undefined,
-    },
-  });
-
-  // Audit trail. Every status change is recorded — approvals and denials carry
-  // money and are emailed to the customer, so the decision needs to be
-  // reconstructable after the fact.
-  if (existing && existing.status !== status) {
-    await db.auditLog.create({
-      data: {
-        shop: session.shop,
-        action: isDecision ? "claim_decision" : "claim_status_updated",
-        userId: decidedByUserId,
-        resource: `claim:${claimId}`,
-        oldValue: {
-          status: existing.status,
-          settlementCents: existing.settlementCents,
-        },
-        newValue: {
-          status,
-          settlementCents:
-            settlementCents !== undefined
-              ? settlementCents
-              : existing.settlementCents,
-          eligibleLossCents: existing.eligibleLossCents,
-          decidedByName,
-          ...(decisionNote !== undefined ? { decisionNote } : {}),
-        },
-      },
-    });
-  }
-
-  if (existing && existing.status !== status) {
-    await notifyClaimStatusChanged({
-      email: existing.email,
-      fullName: existing.fullName,
-      orderNumber: existing.shopifyOrderName ?? existing.orderNumber,
-      status,
-    });
-  }
+  await applyStatusChange(claimId, existing, status, settlementCents, decisionNote);
 
   return { ok: true };
 };
@@ -282,6 +325,59 @@ export default function Claims() {
   const claimFetcher = useFetcher();
   const [searchParams] = useSearchParams();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // Bulk status changes ride their own fetcher so they can toast a summary
+  // without disturbing the in-row single-claim flow. Selection is scoped to the
+  // claims visible on this page and clears whenever the list changes.
+  const bulkFetcher = useFetcher<typeof action>();
+  useFetcherToast(
+    bulkFetcher,
+    (data) => data.message ?? data.error ?? "Claims updated.",
+  );
+  const [selectedClaimIds, setSelectedClaimIds] = useState<Set<string>>(
+    new Set(),
+  );
+  useEffect(() => {
+    setSelectedClaimIds(new Set());
+  }, [tab, q, page]);
+
+  const pageClaimIds = claims.map((claim) => claim.id);
+  const allClaimsSelected =
+    pageClaimIds.length > 0 &&
+    pageClaimIds.every((id) => selectedClaimIds.has(id));
+
+  const toggleClaim = (id: string) =>
+    setSelectedClaimIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const toggleAllClaims = () =>
+    setSelectedClaimIds((prev) =>
+      pageClaimIds.every((id) => prev.has(id))
+        ? new Set()
+        : new Set(pageClaimIds),
+    );
+
+  const submitBulkStatus = (status: "reviewing" | "resolved") => {
+    const count = selectedClaimIds.size;
+    const verb = status === "resolved" ? "approve" : "move to reviewing";
+    if (
+      !window.confirm(
+        `This will ${verb} ${count} claim${count === 1 ? "" : "s"} and email ${
+          count === 1 ? "the customer" : "those customers"
+        }. Continue?`,
+      )
+    )
+      return;
+    bulkFetcher.submit(
+      { claimIds: Array.from(selectedClaimIds).join(","), status },
+      { method: "POST" },
+    );
+    setSelectedClaimIds(new Set());
+  };
 
   // Which row is mid-save, straight off the in-flight form data, and which
   // one just finished — the latter drives a one-shot confirmation flash so a
@@ -459,26 +555,16 @@ export default function Claims() {
         }}
       />
 
-      <MetricsCard
-        metrics={[
-          {
-            icon: "clock",
-            label: "Open claims",
-            tone: openClaims > 0 ? "warning" : "default",
-            value: String(openClaims),
-            sub: "Awaiting your review",
-          },
-          {
-            icon: "check-circle",
-            label: "Resolved",
-            tone: "success",
-            value: String(resolvedClaims),
-            sub: "All time",
-          },
-        ]}
-      />
-
       <Card heading={`Claims (${totalClaims})`}>
+        {/* A compact count line, not a whole metrics card — two numbers don't
+            earn their own section, and the open count already rides on the
+            workspace tab. */}
+        <s-stack direction="inline" gap="small-200" alignItems="center">
+          <s-badge tone={openClaims > 0 ? "warning" : "neutral"}>
+            {`${openClaims} open`}
+          </s-badge>
+          <s-badge tone="neutral">{`${resolvedClaims} resolved`}</s-badge>
+        </s-stack>
         <s-stack
           direction="inline"
           gap="base"
@@ -568,8 +654,63 @@ export default function Claims() {
               hasPreviousPage={pagination.hasPreviousPage}
               hasNextPage={pagination.hasNextPage}
             >
+              {selectedClaimIds.size > 0 ? (
+                <s-box slot="filters" padding="small-200">
+                  <s-stack
+                    direction="inline"
+                    gap="base"
+                    alignItems="center"
+                    justifyContent="space-between"
+                  >
+                    <s-text type="strong">
+                      {`${selectedClaimIds.size} selected`}
+                    </s-text>
+                    <s-stack
+                      direction="inline"
+                      gap="small-200"
+                      alignItems="center"
+                    >
+                      <s-button
+                        variant="secondary"
+                        onClick={() => setSelectedClaimIds(new Set())}
+                      >
+                        Clear
+                      </s-button>
+                      <s-button
+                        variant="secondary"
+                        loading={bulkFetcher.state !== "idle"}
+                        disabled={bulkFetcher.state !== "idle"}
+                        onClick={() => submitBulkStatus("reviewing")}
+                      >
+                        Mark reviewing
+                      </s-button>
+                      <s-button
+                        variant="primary"
+                        loading={bulkFetcher.state !== "idle"}
+                        disabled={bulkFetcher.state !== "idle"}
+                        onClick={() => submitBulkStatus("resolved")}
+                      >
+                        Approve
+                      </s-button>
+                    </s-stack>
+                  </s-stack>
+                </s-box>
+              ) : null}
               <s-table-header-row>
-                <s-table-header listSlot="primary">Order</s-table-header>
+                <s-table-header listSlot="primary">
+                  <s-stack
+                    direction="inline"
+                    gap="small-200"
+                    alignItems="center"
+                  >
+                    <s-checkbox
+                      checked={allClaimsSelected}
+                      accessibilityLabel="Select all claims on this page"
+                      onChange={toggleAllClaims}
+                    />
+                    Order
+                  </s-stack>
+                </s-table-header>
                 <s-table-header listSlot="secondary">Customer</s-table-header>
                 <s-table-header listSlot="labeled">Issue</s-table-header>
                 <s-table-header listSlot="labeled">Loss</s-table-header>
@@ -582,25 +723,36 @@ export default function Claims() {
                   return (
                     <s-table-row key={claim.id}>
                       <s-table-cell>
-                        <s-stack direction="block" gap="small-100">
-                          {claim.shopifyOrderId ? (
-                            <s-link
-                              href={`shopify://admin/orders/${claim.shopifyOrderId.split("/").pop()}`}
-                              target="_top"
-                            >
-                              {claim.shopifyOrderName ?? claim.orderNumber}
-                            </s-link>
-                          ) : (
-                            <s-link
-                              href={`shopify://admin/orders?query=${encodeURIComponent(claim.orderNumber)}`}
-                              target="_top"
-                            >
-                              {claim.orderNumber}
-                            </s-link>
-                          )}
-                          <s-text color="subdued">
-                            {new Date(claim.createdAt).toLocaleDateString()}
-                          </s-text>
+                        <s-stack
+                          direction="inline"
+                          gap="small-200"
+                          alignItems="start"
+                        >
+                          <s-checkbox
+                            checked={selectedClaimIds.has(claim.id)}
+                            accessibilityLabel={`Select claim ${claim.orderNumber}`}
+                            onChange={() => toggleClaim(claim.id)}
+                          />
+                          <s-stack direction="block" gap="small-100">
+                            {claim.shopifyOrderId ? (
+                              <s-link
+                                href={`shopify://admin/orders/${claim.shopifyOrderId.split("/").pop()}`}
+                                target="_top"
+                              >
+                                {claim.shopifyOrderName ?? claim.orderNumber}
+                              </s-link>
+                            ) : (
+                              <s-link
+                                href={`shopify://admin/orders?query=${encodeURIComponent(claim.orderNumber)}`}
+                                target="_top"
+                              >
+                                {claim.orderNumber}
+                              </s-link>
+                            )}
+                            <s-text color="subdued">
+                              {new Date(claim.createdAt).toLocaleDateString()}
+                            </s-text>
+                          </s-stack>
                         </s-stack>
                       </s-table-cell>
                       <s-table-cell>

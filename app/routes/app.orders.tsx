@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useFetcher, useLoaderData, useNavigate } from "react-router";
 
 import { AppButton } from "../components/AppButton";
@@ -123,18 +123,109 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   };
 };
 
+type OrderRecord = NonNullable<Awaited<ReturnType<typeof db.order.findFirst>>>;
+type SettingsRecord = NonNullable<
+  Awaited<ReturnType<typeof db.merchantSettings.findUnique>>
+>;
+
+/**
+ * Create a protection offer for one order and email the customer. Shared by the
+ * single-row "Send offer" action and the bulk send. An eligibility problem
+ * (no email, already fulfilled, already protected) comes back as a plain
+ * failure; a failed email is flagged `failed` so the bulk summary can tell
+ * "not eligible" apart from "couldn't send".
+ */
+async function createAndSendOffer(
+  order: OrderRecord,
+  settings: SettingsRecord,
+  shop: string,
+): Promise<{ ok: true } | { ok: false; error: string; failed?: boolean }> {
+  if (!order.email)
+    return { ok: false, error: "This order has no customer email." };
+  if (isOrderFulfilled(order.status))
+    return {
+      ok: false,
+      error: "Protection offers are only available before fulfillment.",
+    };
+  const alreadyProtected = await db.protectedOrder.findUnique({
+    where: { shop_shopifyOrderId: { shop, shopifyOrderId: order.id } },
+  });
+  if (alreadyProtected)
+    return { ok: false, error: "This order is already protected." };
+
+  const orderCents = Math.round(Number(order.totalPrice ?? 0) * 100);
+  const priceCents =
+    settings.protectionFeeType === "percentage"
+      ? Math.min(
+          Math.max(
+            Math.round(
+              (orderCents * settings.protectionPercentBasisPoints) / 10_000,
+            ),
+            settings.protectionMinFeeCents,
+          ),
+          settings.protectionMaxFeeCents,
+        )
+      : settings.protectionFlatFeeCents;
+  const rawToken = randomBytes(32).toString("base64url");
+  const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+  const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+  const offer = await db.protectionOffer.create({
+    data: {
+      shop,
+      originalOrderId: order.id,
+      originalOrderName: order.name,
+      customerEmail: order.email,
+      tokenHash,
+      status: "offer_sent",
+      protectionPriceCents: priceCents,
+      currency: settings.currency,
+      expiresAt,
+    },
+  });
+
+  try {
+    await sendProtectionOffer({
+      email: order.email,
+      orderName: order.name,
+      price: new Intl.NumberFormat("en", {
+        style: "currency",
+        currency: settings.currency,
+      }).format(priceCents / 100),
+      expiresAt,
+      offerUrl: `https://${shop}/apps/kourify/offer?token=${encodeURIComponent(rawToken)}`,
+    });
+  } catch (error) {
+    await db.protectionOffer.delete({ where: { id: offer.id } });
+    return {
+      ok: false,
+      failed: true,
+      error:
+        error instanceof Error
+          ? error.message
+          : "The offer email could not be sent.",
+    };
+  }
+
+  return { ok: true };
+}
+
 const handleAction = async ({ request }: ActionFunctionArgs) => {
   const { session, admin } = await authenticate.admin(request);
   const formData = await request.formData();
   const intent = String(formData.get("intent") ?? "");
-  if (!["send_offer", "fulfill", "deliver"].includes(intent)) {
+  if (
+    !["send_offer", "bulk_send_offer", "fulfill", "deliver"].includes(intent)
+  ) {
     return { ok: false, error: "Unknown action." };
   }
 
-  // Per-shop throttle. send_offer is the tightest since each call emails a
-  // customer; fulfill/deliver fan out to the Shopify API.
+  // Per-shop throttle. The offer intents are the tightest since each one emails
+  // customers; fulfill/deliver fan out to the Shopify API. A bulk send is one
+  // request, so it shares the offer bucket and is capped by size below.
   const [maxRequests, windowMs] =
-    intent === "send_offer" ? [30, 10 * 60 * 1000] : [60, 60 * 1000];
+    intent === "send_offer" || intent === "bulk_send_offer"
+      ? [30, 10 * 60 * 1000]
+      : [60, 60 * 1000];
   if (
     await isRateLimited(
       `orders:${intent}:${session.shop}`,
@@ -146,6 +237,65 @@ const handleAction = async ({ request }: ActionFunctionArgs) => {
       ok: false,
       error: "Too many requests. Please wait a moment and try again.",
     };
+  }
+
+  if (intent === "bulk_send_offer") {
+    const orderIds = String(formData.get("orderIds") ?? "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+    if (!orderIds.length)
+      return { ok: false, error: "Select at least one order first." };
+    // Cap the batch: each id emails a customer, and one request shouldn't fan
+    // out unbounded past the per-shop throttle.
+    if (orderIds.length > 25)
+      return {
+        ok: false,
+        error: "Send offers to at most 25 orders at a time.",
+      };
+    const settings = await db.merchantSettings.findUnique({
+      where: { shop: session.shop },
+    });
+    if (!settings?.protectionEnabled || !settings.protectionVariantId) {
+      return {
+        ok: false,
+        error:
+          "Enable protection and create its product before sending offers.",
+      };
+    }
+    const orders = await db.order.findMany({
+      where: { id: { in: orderIds }, shop: session.shop },
+    });
+    // Skip orders that already carry a live offer, so a bulk send never
+    // double-emails a customer who was already offered protection.
+    const liveOffers = await db.protectionOffer.findMany({
+      where: {
+        shop: session.shop,
+        originalOrderId: { in: orderIds },
+        status: { in: ["offer_sent", "awaiting_payment"] },
+      },
+      select: { originalOrderId: true },
+    });
+    const alreadyOffered = new Set(
+      liveOffers.map((offer) => offer.originalOrderId),
+    );
+    let sent = 0;
+    let skipped = orderIds.length - orders.length; // ids that no longer exist
+    let failed = 0;
+    for (const order of orders) {
+      if (alreadyOffered.has(order.id)) {
+        skipped += 1;
+        continue;
+      }
+      const result = await createAndSendOffer(order, settings, session.shop);
+      if (result.ok) sent += 1;
+      else if (result.failed) failed += 1;
+      else skipped += 1;
+    }
+    const parts = [`Sent ${sent} offer${sent === 1 ? "" : "s"}`];
+    if (skipped) parts.push(`skipped ${skipped}`);
+    if (failed) parts.push(`${failed} failed to send`);
+    return { ok: sent > 0, message: parts.join(" · ") };
   }
 
   const orderId = String(formData.get("orderId") ?? "");
@@ -287,22 +437,6 @@ const handleAction = async ({ request }: ActionFunctionArgs) => {
     return { ok: true, message: `${order.name} was marked delivered.` };
   }
 
-  if (!order || !order.email)
-    return { ok: false, error: "This order has no customer email." };
-  if (isOrderFulfilled(order.status)) {
-    return {
-      ok: false,
-      error: "Protection offers are only available before fulfillment.",
-    };
-  }
-  const alreadyProtected = await db.protectedOrder.findUnique({
-    where: {
-      shop_shopifyOrderId: { shop: session.shop, shopifyOrderId: order.id },
-    },
-  });
-  if (alreadyProtected)
-    return { ok: false, error: "This order is already protected." };
-
   const settings = await db.merchantSettings.findUnique({
     where: { shop: session.shop },
   });
@@ -312,58 +446,8 @@ const handleAction = async ({ request }: ActionFunctionArgs) => {
       error: "Enable protection and create its product before sending offers.",
     };
   }
-  const orderCents = Math.round(Number(order.totalPrice ?? 0) * 100);
-  const priceCents =
-    settings.protectionFeeType === "percentage"
-      ? Math.min(
-          Math.max(
-            Math.round(
-              (orderCents * settings.protectionPercentBasisPoints) / 10_000,
-            ),
-            settings.protectionMinFeeCents,
-          ),
-          settings.protectionMaxFeeCents,
-        )
-      : settings.protectionFlatFeeCents;
-  const rawToken = randomBytes(32).toString("base64url");
-  const tokenHash = createHash("sha256").update(rawToken).digest("hex");
-  const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
-  const offer = await db.protectionOffer.create({
-    data: {
-      shop: session.shop,
-      originalOrderId: order.id,
-      originalOrderName: order.name,
-      customerEmail: order.email,
-      tokenHash,
-      status: "offer_sent",
-      protectionPriceCents: priceCents,
-      currency: settings.currency,
-      expiresAt,
-    },
-  });
-
-  try {
-    await sendProtectionOffer({
-      email: order.email,
-      orderName: order.name,
-      price: new Intl.NumberFormat("en", {
-        style: "currency",
-        currency: settings.currency,
-      }).format(priceCents / 100),
-      expiresAt,
-      offerUrl: `https://${session.shop}/apps/kourify/offer?token=${encodeURIComponent(rawToken)}`,
-    });
-  } catch (error) {
-    await db.protectionOffer.delete({ where: { id: offer.id } });
-    return {
-      ok: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : "The offer email could not be sent.",
-    };
-  }
-
+  const result = await createAndSendOffer(order, settings, session.shop);
+  if (!result.ok) return { ok: false, error: result.error };
   return { ok: true, message: `Protection offer sent for ${order.name}.` };
 };
 
@@ -464,6 +548,43 @@ export default function Orders() {
     (data) => data.message ?? data.error ?? "Offer updated.",
   );
 
+  // Bulk selection is scoped to the orders visible on this page; navigating to
+  // another page or filter clears it so a hidden row can never be acted on.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [filter, page, pageSize]);
+
+  const pageOrderIds = rows.map((order) => order.id);
+  const allSelected =
+    pageOrderIds.length > 0 && pageOrderIds.every((id) => selectedIds.has(id));
+
+  const toggleOne = (id: string) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const toggleAll = () =>
+    setSelectedIds((prev) =>
+      pageOrderIds.every((id) => prev.has(id))
+        ? new Set()
+        : new Set(pageOrderIds),
+    );
+
+  const submitBulkOffer = () => {
+    offerFetcher.submit(
+      {
+        intent: "bulk_send_offer",
+        orderIds: Array.from(selectedIds).join(","),
+      },
+      { method: "POST" },
+    );
+    setSelectedIds(new Set());
+  };
+
   const pageHref = (targetPage: number) => {
     const params = new URLSearchParams();
     if (filter !== "all") params.set("filter", filter);
@@ -551,8 +672,55 @@ export default function Orders() {
               </s-text>
             </s-box>
             <s-table variant="auto">
+              {selectedIds.size > 0 ? (
+                <s-box slot="filters" padding="small-200">
+                  <s-stack
+                    direction="inline"
+                    gap="base"
+                    alignItems="center"
+                    justifyContent="space-between"
+                  >
+                    <s-text type="strong">
+                      {`${selectedIds.size} selected`}
+                    </s-text>
+                    <s-stack
+                      direction="inline"
+                      gap="small-200"
+                      alignItems="center"
+                    >
+                      <AppButton
+                        variant="secondary"
+                        onClick={() => setSelectedIds(new Set())}
+                      >
+                        Clear
+                      </AppButton>
+                      <AppButton
+                        variant="primary"
+                        loading={offerFetcher.state !== "idle"}
+                        disabled={offerFetcher.state !== "idle"}
+                        onClick={submitBulkOffer}
+                      >
+                        Send protection offer
+                      </AppButton>
+                    </s-stack>
+                  </s-stack>
+                </s-box>
+              ) : null}
               <s-table-header-row>
-                <s-table-header listSlot="primary">Order</s-table-header>
+                <s-table-header listSlot="primary">
+                  <s-stack
+                    direction="inline"
+                    gap="small-200"
+                    alignItems="center"
+                  >
+                    <s-checkbox
+                      checked={allSelected}
+                      accessibilityLabel="Select all orders on this page"
+                      onChange={toggleAll}
+                    />
+                    Order
+                  </s-stack>
+                </s-table-header>
                 <s-table-header listSlot="secondary">Customer</s-table-header>
                 <s-table-header listSlot="labeled">Total</s-table-header>
                 <s-table-header listSlot="labeled">Fulfillment</s-table-header>
@@ -566,7 +734,18 @@ export default function Orders() {
                   return (
                     <s-table-row key={order.id}>
                       <s-table-cell>
-                        <s-text type="strong">{order.name}</s-text>
+                        <s-stack
+                          direction="inline"
+                          gap="small-200"
+                          alignItems="center"
+                        >
+                          <s-checkbox
+                            checked={selectedIds.has(order.id)}
+                            accessibilityLabel={`Select ${order.name}`}
+                            onChange={() => toggleOne(order.id)}
+                          />
+                          <s-text type="strong">{order.name}</s-text>
+                        </s-stack>
                       </s-table-cell>
                       <s-table-cell>
                         {order.customerName || order.email ? (
