@@ -5,7 +5,6 @@ import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { Card, MetricsCard } from "../components/Card";
 import { getResolvedClaimsTrend } from "../lib/protection-telemetry.server";
-import { AppButton } from "../components/AppButton";
 import { EmptyState } from "../components/EmptyState";
 import { StatusBadge } from "../components/StatusBadge";
 import { issueTypeLabel } from "../lib/claim-issue-type";
@@ -474,7 +473,7 @@ export default function Claims() {
             label: "Resolved",
             tone: "success",
             value: String(resolvedClaims),
-            sub: "Last 14 days",
+            sub: "All time",
           },
         ]}
       />
@@ -619,7 +618,9 @@ export default function Claims() {
                             claim.orderRiskLevel !== "LOW" && (
                               <s-stack direction="inline">
                                 <s-badge tone="critical">
-                                  {`${claim.orderRiskLevel} risk order`}
+                                  {`${claim.orderRiskLevel.charAt(0)}${claim.orderRiskLevel
+                                    .slice(1)
+                                    .toLowerCase()} risk order`}
                                 </s-badge>
                               </s-stack>
                             )}

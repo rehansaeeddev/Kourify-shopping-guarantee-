@@ -674,6 +674,8 @@ export default function Orders() {
                           !order.deliveredAt ? (
                             <AppButton
                               variant="secondary"
+                              loading={offerFetcher.state !== "idle"}
+                              disabled={offerFetcher.state !== "idle"}
                               onClick={() => {
                                 if (
                                   window.confirm(
@@ -783,7 +785,12 @@ export default function Orders() {
                 Protection payment never fulfills an order automatically.
               </s-banner>
               <s-stack direction="inline" gap="small-200">
-                <AppButton type="submit" variant="primary">
+                <AppButton
+                  type="submit"
+                  variant="primary"
+                  loading={offerFetcher.state !== "idle"}
+                  disabled={offerFetcher.state !== "idle"}
+                >
                   Confirm fulfillment
                 </AppButton>
                 <AppButton

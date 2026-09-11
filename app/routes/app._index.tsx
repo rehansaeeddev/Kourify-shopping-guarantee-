@@ -13,7 +13,7 @@ import { Card, MetricsCard } from "../components/Card";
 import { GettingStarted } from "../components/GettingStarted";
 import { StatusBadge } from "../components/StatusBadge";
 import { issueTypeLabel } from "../lib/claim-issue-type";
-import { AppButton } from "../components/AppButton";
+import { EmptyState } from "../components/EmptyState";
 import { TrustBadgePreview } from "../components/TrustBadgePreview";
 import { getProtectionTelemetry } from "../lib/protection-telemetry.server";
 import { getProtectionAnalytics } from "../lib/protection-orders.server";
@@ -291,7 +291,7 @@ export default function Index() {
         ]}
       />
 
-      <Card heading="Safe Shopping Trustmarks">
+      <Card heading="Trust badges">
         <s-paragraph color="subdued">
           Build confidence with a trust badge across your store.
         </s-paragraph>
@@ -385,10 +385,11 @@ export default function Index() {
 
       <Card heading="Recent claims">
         {recentClaims.length === 0 ? (
-          <s-banner tone="info">
-            No claims yet — they'll show up here once a customer files one from
-            your storefront.
-          </s-banner>
+          <EmptyState
+            icon="clipboard-checklist"
+            heading="No claims yet"
+            description="They'll show up here once a customer files one from your storefront."
+          />
         ) : (
           <>
             <s-table variant="auto">

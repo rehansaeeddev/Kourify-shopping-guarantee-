@@ -358,7 +358,7 @@ export default function Translations() {
                     <s-table-cell>
                       <s-stack direction="inline" gap="small-200">
                         <s-button
-                          variant="primary"
+                          variant="secondary"
                           onClick={() => setSearchParams({ edit: lang.locale })}
                         >
                           Edit
