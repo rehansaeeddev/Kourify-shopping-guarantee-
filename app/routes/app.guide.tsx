@@ -1,36 +1,8 @@
-import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { useLoaderData, useRouteError } from "react-router";
-import { boundary } from "@shopify/shopify-app-react-router/server";
-
-import { authenticate } from "../shopify.server";
-import db from "../db.server";
 import { Card } from "../components/Card";
 import { AppButton } from "../components/AppButton";
-import { getBillingState } from "../lib/billing-state.server";
-import { getProtectionQuota } from "../lib/plan-limits.server";
+import { PageError, PageSkeleton } from "../components/PageState";
+import { useDashboard } from "../lib/queries";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session, billing } = await authenticate.admin(request);
-
-  // Help is state-aware, so it reads the same signals the rest of the app
-  // does rather than describing a generic setup that may not apply.
-  const settings = await db.merchantSettings.findUnique({
-    where: { shop: session.shop },
-  });
-  const { hasActiveBilling, activePlan } = await getBillingState(billing);
-  const quota = await getProtectionQuota(session.shop, activePlan);
-  const openClaims = await db.protectionClaim.count({
-    where: { shop: session.shop, status: { in: ["submitted", "reviewing"] } },
-  });
-
-  return {
-    protectionEnabled: Boolean(settings?.protectionEnabled),
-    badgesEnabled: Boolean(settings?.badgesEnabled),
-    hasActiveBilling,
-    quota,
-    openClaims,
-  };
-};
 
 const FLOW = [
   "Customer selects protection",
@@ -74,13 +46,19 @@ const FAQ: Array<[string, string]> = [
 ];
 
 export default function Guide() {
-  const {
-    protectionEnabled,
-    badgesEnabled,
-    hasActiveBilling,
-    quota,
-    openClaims,
-  } = useLoaderData<typeof loader>();
+  /*
+   * The dashboard's payload already carries everything this page reads,
+   * and both are usually visited in the same sitting — so this shares its
+   * cache rather than asking the backend the same questions again.
+   */
+  const { data, isPending, error, refetch } = useDashboard();
+
+  if (isPending) return <PageSkeleton heading="Help &amp; getting started" />;
+  if (error) return <PageError heading="Help &amp; getting started" error={error} onRetry={refetch} />;
+
+  const { hasActiveBilling, quota, openClaims } = data;
+  const protectionEnabled = Boolean(data.settings.protectionEnabled);
+  const badgesEnabled = Boolean(data.settings.badgesEnabled);
 
   // Three real states, derived from what actually stops protection running.
   const state = quota.exhausted
@@ -255,11 +233,3 @@ export default function Guide() {
     </s-page>
   );
 }
-
-export function ErrorBoundary() {
-  return boundary.error(useRouteError());
-}
-
-export const headers: HeadersFunction = (headersArgs) => {
-  return boundary.headers(headersArgs);
-};
