@@ -62,13 +62,14 @@ describe("shopify.app.toml", () => {
   });
 
   /**
-   * Token exchange is the whole auth story; the PHP package ships no OAuth
-   * callback. A redirect_urls entry would name a URL the backend answers
-   * with a 404.
+   * The CLI's schema requires [auth], and refuses to start without it —
+   * removing it as dead config is what taught us that. It stays pointed at a
+   * page that exists: token exchange is the whole auth story here and the PHP
+   * package ships no OAuth callback, so a redirect that ever did fire should
+   * land somewhere that authenticates rather than on a 404.
    */
-  it("declares no OAuth redirect", () => {
-    // The assignment, not the bare word: the file explains in a comment why
-    // the setting is absent, and matching that would fail on the explanation.
-    expect(toml).not.toMatch(/^\s*redirect_urls\s*=/m);
+  it("keeps the auth section the CLI insists on", () => {
+    expect(toml).toMatch(/^\[auth\]$/m);
+    expect(toml).toMatch(/^\s*redirect_urls\s*=\s*\[\s*"[^"]+"/m);
   });
 });
