@@ -15,6 +15,16 @@ if (
   delete process.env.HOST;
 }
 
+/*
+ * `shopify app dev` injects the app's client id as SHOPIFY_API_KEY, but only
+ * VITE_-prefixed variables reach the browser bundle — and root.tsx needs this
+ * one to start App Bridge. Mirrored rather than hardcoded, so the key always
+ * belongs to whichever app the CLI is actually running.
+ */
+if (process.env.SHOPIFY_API_KEY) {
+  process.env.VITE_SHOPIFY_API_KEY = process.env.SHOPIFY_API_KEY;
+}
+
 const host = new URL(process.env.SHOPIFY_APP_URL || "http://localhost")
   .hostname;
 
