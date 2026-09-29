@@ -56,11 +56,11 @@ export default function Claims() {
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  // Bulk status changes ride their own fetcher. A confirmation modal (not a raw
-  // browser confirm, which leaks the tunnel URL inside the embedded admin) gates
-  // the send, and the outcome lands in a dismissible banner at the top of the
-  // page, matching the single-claim decision flow. Selection is scoped to the
-  // claims visible on this page and clears whenever the list changes.
+  // A confirmation modal gates the bulk send — not a browser confirm(), which
+  // leaks the tunnel URL inside the embedded admin — and the outcome lands in
+  // a dismissible banner at the top of the page, matching the single-claim
+  // decision flow. Selection is scoped to the claims visible on this page and
+  // clears whenever the list changes.
   const bulkConfirmRef = useRef<{
     showOverlay: () => void;
     hideOverlay: () => void;
@@ -241,13 +241,45 @@ export default function Claims() {
   };
 
   const confirmStatusChange = () => {
-    if (pendingStatus) {
-      const settlement =
-        pendingStatus.status === "resolved" && settlementInput.trim() !== ""
-          ? Math.max(0, Math.round(Number(settlementInput) * 100))
-          : null;
-      submitStatus(pendingStatus.claimId, pendingStatus.status, settlement);
+    if (!pendingStatus) return;
+
+    let settlement: number | null = null;
+
+    if (pendingStatus.status === "resolved" && settlementInput.trim() !== "") {
+      const amount = Number(settlementInput);
+
+      /*
+       * A number field still accepts "e", "1e" and a lone "-". Each parses to
+       * NaN, which JSON.stringify sends as null — the backend reads that as
+       * "no amount given", so the claim would resolve and the customer be
+       * emailed while the figure the merchant typed went unrecorded.
+       */
+      if (!Number.isFinite(amount) || amount < 0) {
+        showToast("Enter a settlement amount, or leave it empty.", {
+          isError: true,
+        });
+        return;
+      }
+
+      settlement = Math.round(amount * 100);
+
+      /*
+       * The backend refuses this too, but the modal would already be closed
+       * by then and the merchant would have to reopen the dropdown and start
+       * over. Caught here, they stay in the dialog with their figure intact.
+       */
+      const ceiling = pendingStatus.eligibleLossCents;
+
+      if (ceiling != null && settlement > ceiling) {
+        showToast(
+          `Settlement can't exceed the eligible loss of ${money(ceiling)}.`,
+          { isError: true },
+        );
+        return;
+      }
     }
+
+    submitStatus(pendingStatus.claimId, pendingStatus.status, settlement);
     setPendingStatus(null);
     confirmModalRef.current?.hideOverlay();
   };
