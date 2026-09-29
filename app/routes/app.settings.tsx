@@ -78,19 +78,22 @@ export default function Settings() {
 
   // Allowance spent → protection reads off and can't be switched on.
   const quotaExhausted = quota.exhausted;
-  // Percentage pricing at checkout runs via a Cart Transform price override,
-  // which only takes effect on Shopify Plus. Warn whenever we positively know
-  // the store isn't Plus (skip "unknown" to avoid a false alarm).
-  const percentageUnsupported =
-    planTier !== "plus" &&
-    planTier !== "unknown" &&
-    settings.protectionFeeType === "percentage";
 
   // The backend answers with the saved row, so the page shows what was
   // actually stored — clamped values included — without waiting for the
   // refetch the mutation triggers.
   const currentSettings = protection.data?.settings ?? settings;
   const badgeState = badges.data?.settings ?? currentSettings;
+
+  // Percentage pricing at checkout runs via a Cart Transform price override,
+  // which only takes effect on Shopify Plus. Warn whenever we positively know
+  // the store isn't Plus (skip "unknown" to avoid a false alarm).
+  const percentageUnsupported =
+    planTier !== "plus" &&
+    planTier !== "unknown" &&
+    // currentSettings, not settings: after switching the fee type the warning
+    // has to follow the value just saved, not the one the page loaded with.
+    currentSettings.protectionFeeType === "percentage";
 
   const plan = activePlan as PlanId;
 
@@ -105,6 +108,43 @@ export default function Settings() {
   };
 
   const failed = (cause: Error) => showToast(cause.message, { isError: true });
+
+  /**
+   * A number the merchant typed, or null once it has said why it was ignored.
+   *
+   * s-number-field still hands back "", "e", "1e" and a lone "-", and every
+   * one of those is NaN. The fields used to run it through
+   * `Math.round(Number(v) * 100) || 0`, so clearing a fee to retype it saved
+   * $0.00 on the way past — and the ceiling's `|| null` turned a typo into
+   * "Coverage limit removed".
+   */
+  const numberFrom = (
+    // Typed as optional by Polaris, and the old code ran Number(undefined)
+    // straight into the same NaN as a mistyped one.
+    raw: string | undefined,
+    hint: string,
+  ): number | null => {
+    const value = Number(raw);
+
+    if ((raw ?? "").trim() === "" || !Number.isFinite(value) || value < 0) {
+      showToast(hint, { isError: true });
+
+      return null;
+    }
+
+    return value;
+  };
+
+  const AMOUNT_HINT = "Enter an amount, like 4.99.";
+
+  /*
+   * Every save here sends the whole settings object, built from what was last
+   * rendered. Two saves started before the first answers would each carry the
+   * other's field at its old value, and the later one would quietly undo the
+   * earlier — so a path holds its own controls while its save is in flight.
+   */
+  const savingProtection = protection.isPending;
+  const savingBadges = badges.isPending;
 
   const saveBadges = (overrides: {
     badgesEnabled?: boolean;
@@ -283,15 +323,33 @@ export default function Settings() {
     value: number,
     label: string,
   ) => {
+    const minDays =
+      field === "minDays" ? value : (claimWindows[type]?.minDays ?? 0);
+    const maxDays =
+      field === "maxDays" ? value : (claimWindows[type]?.maxDays ?? 30);
+
+    /*
+     * The server refuses this too, and that is the real guard. It is caught
+     * here so the message can say which end to move: widening 0–30 to 40–60
+     * has to start with the last day, and a bare rejection would leave the
+     * merchant retrying the first field.
+     */
+    if (minDays > maxDays) {
+      showToast(
+        field === "minDays"
+          ? `The first day can't be later than the last (${maxDays}). Raise the last day first.`
+          : `The last day can't be earlier than the first (${minDays}). Lower the first day first.`,
+        { isError: true },
+      );
+
+      return;
+    }
+
     const next: ClaimWindows = {
       ...claimWindows,
-      [type]: {
-        minDays:
-          field === "minDays" ? value : (claimWindows[type]?.minDays ?? 0),
-        maxDays:
-          field === "maxDays" ? value : (claimWindows[type]?.maxDays ?? 30),
-      },
+      [type]: { minDays, maxDays },
     };
+
     saveSettings({ claimWindows: next }, `${label} filing window updated`);
   };
 
@@ -430,7 +488,7 @@ export default function Settings() {
                       checked={
                         currentSettings.protectionEnabled && !quotaExhausted
                       }
-                      disabled={quotaExhausted || protection.isPending}
+                      disabled={quotaExhausted || savingProtection}
                       onChange={(e) =>
                         saveSettings({
                           protectionEnabled: e.currentTarget.checked,
@@ -464,6 +522,7 @@ export default function Settings() {
                   >
                     <s-stack direction="block" gap="base">
                       <s-switch
+                        disabled={savingBadges}
                         label="Show trust badge on storefront"
                         details="Display on your store's theme"
                         checked={badgeState.badgesEnabled}
@@ -475,7 +534,7 @@ export default function Settings() {
                         label="Show on product pages"
                         details="Display badge on product pages"
                         checked={badgeState.showOnProduct}
-                        disabled={!badgeState.badgesEnabled}
+                        disabled={savingBadges || !badgeState.badgesEnabled}
                         onChange={(e) =>
                           saveBadges({ showOnProduct: e.currentTarget.checked })
                         }
@@ -484,7 +543,7 @@ export default function Settings() {
                         label="Show in cart"
                         details="Display badge in cart and drawer"
                         checked={badgeState.showOnCart}
-                        disabled={!badgeState.badgesEnabled}
+                        disabled={savingBadges || !badgeState.badgesEnabled}
                         onChange={(e) =>
                           saveBadges({ showOnCart: e.currentTarget.checked })
                         }
@@ -495,7 +554,7 @@ export default function Settings() {
                       <s-select
                         label="Badge style"
                         value={badgeState.badgeStyle}
-                        disabled={!badgeState.badgesEnabled}
+                        disabled={savingBadges || !badgeState.badgesEnabled}
                         onChange={(e) =>
                           saveBadges({ badgeStyle: e.currentTarget.value })
                         }
@@ -537,6 +596,7 @@ export default function Settings() {
                     </s-paragraph>
                     <s-box minInlineSize="200px">
                       <s-select
+                        disabled={savingBadges}
                         label="Tab position"
                         value={badgeState.guaranteeTabPosition}
                         onChange={(e) =>
@@ -593,6 +653,7 @@ export default function Settings() {
                 </s-paragraph>
                 <s-stack direction="block" gap="base" paddingBlockStart="base">
                   <s-choice-list
+                    disabled={savingProtection}
                     label="Who pays for protection"
                     labelAccessibilityVisibility="exclusive"
                     name="protectionPayer"
@@ -658,6 +719,7 @@ export default function Settings() {
                         <s-text>Fee structure</s-text>
                         <s-box inlineSize="220px">
                           <s-select
+                            disabled={savingProtection}
                             label="Fee structure"
                             labelAccessibilityVisibility="exclusive"
                             value={currentSettings.protectionFeeType}
@@ -690,6 +752,7 @@ export default function Settings() {
                           </s-stack>
                           <s-box inlineSize="140px">
                             <s-number-field
+                              disabled={savingProtection}
                               label="Flat fee per order"
                               labelAccessibilityVisibility="exclusive"
                               prefix="$"
@@ -698,14 +761,18 @@ export default function Settings() {
                               value={(
                                 currentSettings.protectionFlatFeeCents / 100
                               ).toFixed(2)}
-                              onChange={(e) =>
-                                saveSettings({
-                                  protectionFlatFeeCents:
-                                    Math.round(
-                                      Number(e.currentTarget.value) * 100,
-                                    ) || 0,
-                                })
-                              }
+                              onChange={(e) => {
+                                const amount = numberFrom(
+                                  e.currentTarget.value,
+                                  AMOUNT_HINT,
+                                );
+                                if (amount !== null)
+                                  saveSettings({
+                                    protectionFlatFeeCents: Math.round(
+                                      amount * 100,
+                                    ),
+                                  });
+                              }}
                             />
                           </s-box>
                         </s-stack>
@@ -720,6 +787,7 @@ export default function Settings() {
                             <s-text>Percentage of order value</s-text>
                             <s-box inlineSize="140px">
                               <s-number-field
+                                disabled={savingProtection}
                                 label="Percentage"
                                 labelAccessibilityVisibility="exclusive"
                                 suffix="%"
@@ -730,14 +798,18 @@ export default function Settings() {
                                   currentSettings.protectionPercentBasisPoints /
                                   100
                                 ).toFixed(1)}
-                                onChange={(e) =>
-                                  saveSettings({
-                                    protectionPercentBasisPoints:
-                                      Math.round(
-                                        Number(e.currentTarget.value) * 100,
-                                      ) || 0,
-                                  })
-                                }
+                                onChange={(e) => {
+                                  const percent = numberFrom(
+                                    e.currentTarget.value,
+                                    "Enter a percentage, like 2.5.",
+                                  );
+                                  if (percent !== null)
+                                    saveSettings({
+                                      protectionPercentBasisPoints: Math.round(
+                                        percent * 100,
+                                      ),
+                                    });
+                                }}
                               />
                             </s-box>
                           </s-stack>
@@ -750,6 +822,7 @@ export default function Settings() {
                             <s-text>Minimum fee</s-text>
                             <s-box inlineSize="140px">
                               <s-number-field
+                                disabled={savingProtection}
                                 label="Minimum fee"
                                 labelAccessibilityVisibility="exclusive"
                                 prefix="$"
@@ -758,14 +831,18 @@ export default function Settings() {
                                 value={(
                                   currentSettings.protectionMinFeeCents / 100
                                 ).toFixed(2)}
-                                onChange={(e) =>
-                                  saveSettings({
-                                    protectionMinFeeCents:
-                                      Math.round(
-                                        Number(e.currentTarget.value) * 100,
-                                      ) || 0,
-                                  })
-                                }
+                                onChange={(e) => {
+                                  const amount = numberFrom(
+                                    e.currentTarget.value,
+                                    AMOUNT_HINT,
+                                  );
+                                  if (amount !== null)
+                                    saveSettings({
+                                      protectionMinFeeCents: Math.round(
+                                        amount * 100,
+                                      ),
+                                    });
+                                }}
                               />
                             </s-box>
                           </s-stack>
@@ -778,6 +855,7 @@ export default function Settings() {
                             <s-text>Maximum fee</s-text>
                             <s-box inlineSize="140px">
                               <s-number-field
+                                disabled={savingProtection}
                                 label="Maximum fee"
                                 labelAccessibilityVisibility="exclusive"
                                 prefix="$"
@@ -786,14 +864,18 @@ export default function Settings() {
                                 value={(
                                   currentSettings.protectionMaxFeeCents / 100
                                 ).toFixed(2)}
-                                onChange={(e) =>
-                                  saveSettings({
-                                    protectionMaxFeeCents:
-                                      Math.round(
-                                        Number(e.currentTarget.value) * 100,
-                                      ) || 0,
-                                  })
-                                }
+                                onChange={(e) => {
+                                  const amount = numberFrom(
+                                    e.currentTarget.value,
+                                    AMOUNT_HINT,
+                                  );
+                                  if (amount !== null)
+                                    saveSettings({
+                                      protectionMaxFeeCents: Math.round(
+                                        amount * 100,
+                                      ),
+                                    });
+                                }}
                               />
                             </s-box>
                           </s-stack>
@@ -829,6 +911,7 @@ export default function Settings() {
                     </s-stack>
                     <s-box inlineSize="160px">
                       <s-number-field
+                        disabled={savingProtection}
                         label="Maximum eligible item value"
                         labelAccessibilityVisibility="exclusive"
                         prefix="$"
@@ -843,12 +926,41 @@ export default function Settings() {
                               ).toFixed(2)
                         }
                         onChange={(e) => {
-                          const raw = e.currentTarget.value;
+                          const raw = e.currentTarget.value ?? "";
+
+                          // Clearing the field is the deliberate way to say
+                          // "no ceiling", and the only one.
+                          if (raw.trim() === "") {
+                            saveSettings({ maxEligibleItemValueCents: null });
+
+                            return;
+                          }
+
+                          const amount = numberFrom(
+                            raw,
+                            "Enter a limit, like 250.00, or clear the field for no limit.",
+                          );
+
+                          if (amount === null) return;
+
+                          /*
+                           * Zero used to clear the ceiling, because the
+                           * backend reads any non-positive amount as "none".
+                           * Typing 0 is not the same gesture as clearing the
+                           * field, and reading it as "cover everything" is
+                           * the opposite of what it looks like.
+                           */
+                          if (amount === 0) {
+                            showToast(
+                              "A limit of $0.00 would make every item ineligible. Clear the field for no limit.",
+                              { isError: true },
+                            );
+
+                            return;
+                          }
+
                           saveSettings({
-                            maxEligibleItemValueCents:
-                              raw === "" || raw == null
-                                ? null
-                                : Math.round(Number(raw) * 100) || null,
+                            maxEligibleItemValueCents: Math.round(amount * 100),
                           });
                         }}
                       />
@@ -919,6 +1031,7 @@ export default function Settings() {
                         justifyContent="space-between"
                       >
                         <s-checkbox
+                          disabled={savingProtection}
                           label={type.label}
                           checked={enabledTypes.has(type.value)}
                           onChange={(e) =>
@@ -939,16 +1052,21 @@ export default function Settings() {
                               label="Min days"
                               labelAccessibilityVisibility="exclusive"
                               min={0}
-                              disabled={!reasonEnabled}
+                              disabled={savingProtection || !reasonEnabled}
                               value={String(w.minDays)}
-                              onChange={(e) =>
-                                updateWindow(
-                                  type.value,
-                                  "minDays",
-                                  Number(e.currentTarget.value) || 0,
-                                  type.label,
-                                )
-                              }
+                              onChange={(e) => {
+                                const days = numberFrom(
+                                  e.currentTarget.value,
+                                  "Enter a number of days.",
+                                );
+                                if (days !== null)
+                                  updateWindow(
+                                    type.value,
+                                    "minDays",
+                                    Math.round(days),
+                                    type.label,
+                                  );
+                              }}
                             />
                           </s-box>
                           <s-text color="subdued">to</s-text>
@@ -957,16 +1075,21 @@ export default function Settings() {
                               label="Max days"
                               labelAccessibilityVisibility="exclusive"
                               min={0}
-                              disabled={!reasonEnabled}
+                              disabled={savingProtection || !reasonEnabled}
                               value={String(w.maxDays)}
-                              onChange={(e) =>
-                                updateWindow(
-                                  type.value,
-                                  "maxDays",
-                                  Number(e.currentTarget.value) || 0,
-                                  type.label,
-                                )
-                              }
+                              onChange={(e) => {
+                                const days = numberFrom(
+                                  e.currentTarget.value,
+                                  "Enter a number of days.",
+                                );
+                                if (days !== null)
+                                  updateWindow(
+                                    type.value,
+                                    "maxDays",
+                                    Math.round(days),
+                                    type.label,
+                                  );
+                              }}
                             />
                           </s-box>
                           <s-text color="subdued">days</s-text>
