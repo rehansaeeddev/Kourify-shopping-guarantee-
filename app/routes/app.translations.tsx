@@ -109,7 +109,7 @@ export default function Translations() {
   }
 
   return (
-    <s-page heading="Claim page languages">
+    <s-page inlineSize="large" heading="Claim page languages">
       <s-button slot="secondary-actions" href="/app/claims" variant="secondary">
         Back to claims
       </s-button>
@@ -480,7 +480,7 @@ function LanguageEditor({
   const pct = keys.length ? Math.round((doneCount / keys.length) * 100) : 0;
 
   return (
-    <s-page heading={`Edit ${editing.label}`}>
+    <s-page inlineSize="large" heading={`Edit ${editing.label}`}>
       <s-button slot="secondary-actions" variant="secondary" onClick={onDone}>
         Back to languages
       </s-button>

@@ -106,7 +106,7 @@ export default function OrderSync() {
     });
 
   return (
-    <s-page heading="Order sync">
+    <s-page inlineSize="large" heading="Order sync">
       <s-button slot="secondary-actions" href="/app" variant="secondary">
         Back to home
       </s-button>

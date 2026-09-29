@@ -3,7 +3,6 @@ import { AppButton } from "../components/AppButton";
 import { PageError, PageSkeleton } from "../components/PageState";
 import { useDashboard } from "../lib/queries";
 
-
 const FLOW = [
   "Customer selects protection",
   "Eligible item becomes protected",
@@ -54,7 +53,14 @@ export default function Guide() {
   const { data, isPending, error, refetch } = useDashboard();
 
   if (isPending) return <PageSkeleton heading="Help &amp; getting started" />;
-  if (error) return <PageError heading="Help &amp; getting started" error={error} onRetry={refetch} />;
+  if (error)
+    return (
+      <PageError
+        heading="Help &amp; getting started"
+        error={error}
+        onRetry={refetch}
+      />
+    );
 
   const { hasActiveBilling, quota, openClaims } = data;
   const protectionEnabled = Boolean(data.settings.protectionEnabled);
@@ -68,7 +74,7 @@ export default function Guide() {
       : "setup";
 
   return (
-    <s-page heading="Help &amp; getting started">
+    <s-page inlineSize="large" heading="Help &amp; getting started">
       <s-stack direction="block" gap="large">
         {/* Branded header, matching the dashboard's (see theme.css). Back stays
             a real s-button so embedded navigation works. */}

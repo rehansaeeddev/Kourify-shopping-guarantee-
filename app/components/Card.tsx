@@ -45,7 +45,6 @@ const TONE_TO_ICON_TONE: Record<
   critical: "critical",
 };
 
-
 /**
  * One metric, following App Home's metrics-card composition: a quiet caption
  * with a tone icon, then the figure itself as the prominent heading. Tiles are

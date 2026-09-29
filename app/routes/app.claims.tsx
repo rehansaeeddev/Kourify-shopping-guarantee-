@@ -265,7 +265,7 @@ export default function Claims() {
       .catch((cause: Error) => showToast(cause.message, { isError: true }));
 
   return (
-    <s-page heading="Claims">
+    <s-page inlineSize="large" heading="Claims">
       <s-button
         slot="secondary-actions"
         href="/app/settings"

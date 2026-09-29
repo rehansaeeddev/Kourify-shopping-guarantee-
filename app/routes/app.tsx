@@ -45,7 +45,7 @@ export function ErrorBoundary() {
         : "Something went wrong loading this page.";
 
   return (
-    <s-page heading="Something went wrong">
+    <s-page inlineSize="large" heading="Something went wrong">
       <s-section>
         <s-banner tone="critical" heading="This page could not load">
           <s-paragraph>{message}</s-paragraph>

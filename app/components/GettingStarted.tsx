@@ -96,7 +96,11 @@ export function GettingStarted({
                   display={expanded[index] ? "auto" : "none"}
                   paddingBlockStart="small-200"
                 >
-                  <s-box padding="base" background="subdued" borderRadius="base">
+                  <s-box
+                    padding="base"
+                    background="subdued"
+                    borderRadius="base"
+                  >
                     <s-stack direction="block" gap="small-200">
                       <s-paragraph>{step.detail}</s-paragraph>
                       {step.action && (

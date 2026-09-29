@@ -65,7 +65,7 @@ export default function Index() {
       : { tone: "success" as const, value: "Live", sub: feeSummary };
 
   return (
-    <s-page heading={greeting}>
+    <s-page inlineSize="large" heading={greeting}>
       {/* One block stack owns the vertical rhythm so every card gets clear,
           even space above and below it. */}
       <s-stack direction="block" gap="large">
