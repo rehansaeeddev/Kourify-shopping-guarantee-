@@ -1,4 +1,4 @@
-import { Card, StatTile } from "../components/Card";
+import { Card, MetricsCard, StatTile } from "../components/Card";
 import { EmptyState } from "../components/EmptyState";
 import { GettingStarted } from "../components/GettingStarted";
 import { PageError, PageSkeleton } from "../components/PageState";
@@ -130,71 +130,44 @@ export default function Index() {
           ]}
         />
 
-        {/* Dashboard: a dense stat row, then a protection-mix and status pair,
-          then a help panel — every card is filled, no dead space. The setup
-          guide and config cards below are unchanged. */}
-        <s-grid
-          gridTemplateColumns="repeat(auto-fit, minmax(170px, 1fr))"
-          gap="base"
-        >
-          {(
-            [
-              {
-                icon: "order",
-                tone: "neutral",
-                label: "Orders",
-                value: String(totalOrders),
-              },
-              {
-                icon: "shield-check-mark",
-                tone: "success",
-                label: "Protected",
-                value: String(analytics.protectedOrders),
-              },
-              {
-                icon: "clock",
-                tone: openClaims > 0 ? "warning" : "neutral",
-                label: "Open claims",
-                value: String(openClaims),
-              },
-              {
-                icon: "cash-dollar",
-                tone: "success",
-                label: "Protection sales",
-                value: `$${(analytics.protectionRevenueCents / 100).toFixed(2)}`,
-              },
-            ] as const
-          ).map((stat) => (
-            /*
-             * subdued, not base. `base` is the same white the admin now
-             * paints the page in, so these four read as one flat sheet with
-             * hairlines on it — the figures that matter most on the page were
-             * the hardest things on it to see. A surface the pattern owns is
-             * what the migration guide allows; a border drawn to fake a card
-             * is what it does not.
-             */
-            <s-box
-              key={stat.label}
-              padding="base"
-              background="subdued"
-              borderWidth="base"
-              borderColor="strong"
-              borderRadius="base"
-            >
-              <s-stack direction="inline" gap="base" alignItems="center">
-                <s-icon
-                  type={stat.icon as never}
-                  tone={stat.tone}
-                  size="base"
-                />
-                <s-stack direction="block" gap="small-500">
-                  <s-heading>{stat.value}</s-heading>
-                  <s-text color="subdued">{stat.label}</s-text>
-                </s-stack>
-              </s-stack>
-            </s-box>
-          ))}
-        </s-grid>
+        {/*
+          One card, not four boxes.
+          These are the page's headline figures, and four separate surfaces of
+          equal weight made them compete with each other and with everything
+          below. The App Home metrics composition puts them on a single
+          surface with dividers between, which is also what stops them
+          disappearing now the admin's page is white: one card reads as a card,
+          four hairlined boxes read as a sheet of paper.
+        */}
+        <MetricsCard
+          accessibilityLabel="Protection at a glance"
+          metrics={[
+            {
+              icon: "order",
+              tone: "default",
+              label: "Orders",
+              value: String(totalOrders),
+            },
+            {
+              icon: "shield-check-mark",
+              tone: "success",
+              label: "Protected",
+              value: String(analytics.protectedOrders),
+            },
+            {
+              icon: "clock",
+              tone: openClaims > 0 ? "warning" : "default",
+              label: "Open claims",
+              value: String(openClaims),
+            },
+            {
+              icon: "cash-dollar",
+              tone: "success",
+              label: "Protection sales",
+              value: `$${(analytics.protectionRevenueCents / 100).toFixed(2)}`,
+            },
+          ]}
+        />
 
         <s-grid
           gridTemplateColumns="@container (inline-size <= 720px) 1fr, 1fr 1fr"
@@ -313,7 +286,15 @@ export default function Index() {
           </Card>
         </s-grid>
 
-        <Card heading="Help & resources">
+        {/*
+          Reference links, not a region, so no card around them.
+          The two panels inside already carry their own subdued surface — a
+          card around them was a box inside a box, and one more equal-weight
+          slab on a page that had too many. What is left is a heading and two
+          tiles, which is what this content is.
+        */}
+        <s-stack direction="block" gap="base">
+          <s-heading>Help &amp; resources</s-heading>
           <s-grid
             gridTemplateColumns="@container (inline-size <= 720px) 1fr, 1fr 1fr"
             gap="base"
@@ -343,7 +324,7 @@ export default function Index() {
               </s-stack>
             </s-box>
           </s-grid>
-        </Card>
+        </s-stack>
 
         {/* One Overview card holds every KPI in a packed grid, rather than two
           half-empty Status/Performance cards spread thin across the width.
