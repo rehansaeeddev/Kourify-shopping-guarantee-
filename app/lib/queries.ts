@@ -45,10 +45,16 @@ function search(params: Record<string, unknown>): string {
 // ---------------------------------------------------------------- reading
 
 export const useDashboard = () =>
-  useQuery({ queryKey: keys.dashboard, queryFn: () => api.get<Dashboard>("/dashboard") });
+  useQuery({
+    queryKey: keys.dashboard,
+    queryFn: () => api.get<Dashboard>("/dashboard"),
+  });
 
 export const useDashboardTrends = () =>
-  useQuery({ queryKey: keys.dashboardTrends, queryFn: () => api.get<Trends>("/dashboard/trends") });
+  useQuery({
+    queryKey: keys.dashboardTrends,
+    queryFn: () => api.get<Trends>("/dashboard/trends"),
+  });
 
 export const useClaims = (params: ClaimsParams) =>
   useQuery({
@@ -66,10 +72,16 @@ export const useOrders = (params: OrdersParams) =>
   });
 
 export const useSettings = () =>
-  useQuery({ queryKey: keys.settings, queryFn: () => api.get<SettingsPayload>("/settings") });
+  useQuery({
+    queryKey: keys.settings,
+    queryFn: () => api.get<SettingsPayload>("/settings"),
+  });
 
 export const useTranslations = () =>
-  useQuery({ queryKey: keys.translations, queryFn: () => api.get<TranslationsPayload>("/translations") });
+  useQuery({
+    queryKey: keys.translations,
+    queryFn: () => api.get<TranslationsPayload>("/translations"),
+  });
 
 export const useOrderSync = (page: number) =>
   useQuery({
@@ -85,7 +97,10 @@ export const useOrderSync = (page: number) =>
   });
 
 export const useBilling = () =>
-  useQuery({ queryKey: keys.billing, queryFn: () => api.get<BillingPayload>("/billing") });
+  useQuery({
+    queryKey: keys.billing,
+    queryFn: () => api.get<BillingPayload>("/billing"),
+  });
 
 // --------------------------------------------------------------- writing
 
@@ -118,7 +133,8 @@ function useInvalidating<TData, TVariables>(
 
 export const useUpdateClaim = () =>
   useInvalidating(
-    ({ id, ...body }: UpdateClaim) => api.patch<{ ok: boolean }>(`/claims/${id}`, body),
+    ({ id, ...body }: UpdateClaim) =>
+      api.patch<{ ok: boolean }>(`/claims/${id}`, body),
     [["claims"], keys.dashboard],
   );
 
@@ -130,13 +146,15 @@ export const useBulkUpdateClaims = () =>
 
 export const useSaveBadges = () =>
   useInvalidating(
-    (body: Record<string, unknown>) => api.put<SaveResult>("/settings/badges", body),
+    (body: Record<string, unknown>) =>
+      api.put<SaveResult>("/settings/badges", body),
     [keys.settings],
   );
 
 export const useSaveProtection = () =>
   useInvalidating(
-    (body: Record<string, unknown>) => api.put<SaveResult>("/settings/protection", body),
+    (body: Record<string, unknown>) =>
+      api.put<SaveResult>("/settings/protection", body),
     // Protection touches the allowance and the plan mirror, both of which the
     // dashboard and billing pages show.
     [keys.settings, keys.dashboard, keys.billing],
@@ -147,7 +165,8 @@ export const useStartOrderSync = () =>
 
 export const useSubscribe = () =>
   useInvalidating(
-    (body: { plan: string }) => api.post<SubscribeResult>("/billing/subscribe", body),
+    (body: { plan: string }) =>
+      api.post<SubscribeResult>("/billing/subscribe", body),
     [keys.billing, keys.dashboard, keys.settings],
   );
 
@@ -157,10 +176,18 @@ export const useTranslationMutations = () => ({
       api.post<Ok>("/translations", body),
     [keys.translations],
   ),
-  seed: useInvalidating(() => api.post<Ok>("/translations/seed"), [keys.translations]),
+  seed: useInvalidating(
+    () => api.post<Ok>("/translations/seed"),
+    [keys.translations],
+  ),
   saveStrings: useInvalidating(
-    ({ locale, strings }: { locale: string; strings: Record<string, string> }) =>
-      api.put<Ok>(`/translations/${locale}/strings`, { strings }),
+    ({
+      locale,
+      strings,
+    }: {
+      locale: string;
+      strings: Record<string, string>;
+    }) => api.put<Ok>(`/translations/${locale}/strings`, { strings }),
     [keys.translations],
   ),
   update: useInvalidating(
@@ -209,7 +236,10 @@ export type Claim = {
   protectedItem: { id: string; title: string; sku: string | null } | null;
 };
 
-export type WorkspaceCounts = { openClaims: number; ordersNeedingAction: number };
+export type WorkspaceCounts = {
+  openClaims: number;
+  ordersNeedingAction: number;
+};
 
 export type Dashboard = {
   shop: string;
@@ -338,6 +368,8 @@ export type OrderSyncPayload = {
   jobs: SyncJob[];
   page: number;
   totalPages: number;
+  /** Every job, not just this page's — the jobs card counts the lot. */
+  jobCount: number;
   activeJobCount: number;
   workspaceCounts: WorkspaceCounts;
 };
@@ -355,7 +387,11 @@ type Ok = { ok: boolean; message?: string; error?: string | null };
 type SaveResult = Ok & { settings: Record<string, unknown> };
 type BulkResult = Ok & { changed: number; skipped: number };
 type SyncResult = Ok & { error?: string };
-type SubscribeResult = { ok: boolean; confirmationUrl?: string; error?: string };
+type SubscribeResult = {
+  ok: boolean;
+  confirmationUrl?: string;
+  error?: string;
+};
 
 export type UpdateClaim = {
   id: string;

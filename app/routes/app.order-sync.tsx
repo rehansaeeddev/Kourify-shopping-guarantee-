@@ -1,42 +1,13 @@
-import type {
-  ActionFunctionArgs,
-  HeadersFunction,
-  LoaderFunctionArgs,
-} from "react-router";
-import {
-  useFetcher,
-  useLoaderData,
-  useRevalidator,
-  useRouteError,
-} from "react-router";
-import { boundary } from "@shopify/shopify-app-react-router/server";
-
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router";
+
 import { Card, MetricsCard } from "../components/Card";
 import { EmptyState } from "../components/EmptyState";
-import { useFetcherToast } from "../hooks/useFetcherToast";
-import { useTablePagination } from "../hooks/useTablePagination";
-import db from "../db.server";
-import { startOrderBulkSync } from "../lib/order-bulk-sync.server";
-import { isRateLimited } from "../lib/rate-limit.server";
-import { authenticate } from "../shopify.server";
+import { PageError, PageSkeleton } from "../components/PageState";
+import { useToast } from "../components/Toast";
 import { WorkspaceTabs } from "../components/WorkspaceTabs";
-import { getWorkspaceCounts } from "../lib/workspace-counts.server";
-
-type SyncResult = {
-  ok: boolean;
-  error?: string;
-};
-
-type SyncJobView = {
-  id: string;
-  status: string;
-  objectCount: number | null;
-  errorMessage: string | null;
-  startedAt: string | null;
-  finishedAt: string | null;
-  createdAt: string;
-};
+import { useTablePagination } from "../hooks/useTablePagination";
+import { useOrderSync, useStartOrderSync } from "../lib/queries";
 
 const SYNC_JOB_STATUS_LABEL: Record<string, string> = {
   queued: "Queued",
@@ -45,143 +16,32 @@ const SYNC_JOB_STATUS_LABEL: Record<string, string> = {
   failed: "Failed",
 };
 
-const JOBS_PAGE_SIZE = 10;
-
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
-  const url = new URL(request.url);
-  const page = Math.max(
-    1,
-    Math.floor(Number(url.searchParams.get("page")) || 1),
-  );
-
-  const [orderCount, latestOrder, jobCount, activeJobCount, jobs] =
-    await Promise.all([
-      db.order.count({ where: { shop: session.shop } }),
-      db.order.findFirst({
-        where: { shop: session.shop },
-        orderBy: { updatedAt: "desc" },
-        select: { updatedAt: true },
-      }),
-      db.syncJob.count({
-        where: { shop: session.shop, type: "order_backfill" },
-      }),
-      // Independent of the page being viewed — a job running on another page
-      // shouldn't stop being polled just because it's scrolled out of view.
-      db.syncJob.count({
-        where: {
-          shop: session.shop,
-          type: "order_backfill",
-          status: { in: ["queued", "running"] },
-        },
-      }),
-      db.syncJob.findMany({
-        where: { shop: session.shop, type: "order_backfill" },
-        orderBy: { createdAt: "desc" },
-        skip: (page - 1) * JOBS_PAGE_SIZE,
-        take: JOBS_PAGE_SIZE,
-      }),
-    ]);
-
-  const workspaceCounts = await getWorkspaceCounts(session.shop);
-
-  const jobViews: SyncJobView[] = jobs.map((job) => ({
-    id: job.id,
-    status: job.status,
-    objectCount: job.objectCount,
-    errorMessage: job.errorMessage,
-    startedAt: job.startedAt?.toISOString() ?? null,
-    finishedAt: job.finishedAt?.toISOString() ?? null,
-    createdAt: job.createdAt.toISOString(),
-  }));
-
-  return {
-    orderCount,
-    lastUpdatedAt: latestOrder?.updatedAt.toISOString() ?? null,
-    orderSyncEnabled: process.env.ORDER_SYNC_ENABLED === "true",
-    workspaceCounts,
-    jobs: jobViews,
-    jobPage: page,
-    jobTotalPages: Math.max(1, Math.ceil(jobCount / JOBS_PAGE_SIZE)),
-    jobCount,
-    hasActiveJob: activeJobCount > 0,
-  };
-};
-
-export const action = async ({
-  request,
-}: ActionFunctionArgs): Promise<SyncResult> => {
-  const { admin, session } = await authenticate.admin(request);
-  const formData = await request.formData();
-
-  if (process.env.ORDER_SYNC_ENABLED !== "true") {
-    return {
-      ok: false,
-      error:
-        "Order sync requires Shopify approval for protected customer data.",
-    };
-  }
-
-  if (formData.get("intent") !== "sync") {
-    return { ok: false, error: "Unknown action." };
-  }
-
-  // Submitting a bulk operation is cheap, but rate-limit anyway so a merchant
-  // double-clicking "Sync orders now" can't queue up several jobs at once.
-  if (await isRateLimited(`order-sync:${session.shop}`, 5, 5 * 60 * 1000)) {
-    return {
-      ok: false,
-      error: "Order sync was run too recently. Please wait a few minutes.",
-    };
-  }
-
-  // Orders are exported server-side via Shopify's Bulk Operations API and
-  // ingested asynchronously when bulk_operations/finish fires — this avoids
-  // pulling a store's entire order history through the request/response
-  // cycle, which times out well before 7,000+ orders finish paginating.
-  const result = await startOrderBulkSync(session.shop, admin);
-  if (!result.ok) {
-    return { ok: false, error: result.error };
-  }
-  return { ok: true };
-};
-
 export default function OrderSync() {
-  const {
-    orderCount,
-    lastUpdatedAt,
-    orderSyncEnabled,
-    workspaceCounts,
-    jobs,
-    jobPage,
-    jobTotalPages,
-    jobCount,
-    hasActiveJob,
-  } = useLoaderData<typeof loader>();
-  const syncFetcher = useFetcher<SyncResult>();
-  const revalidator = useRevalidator();
-  const syncing = syncFetcher.state !== "idle" || hasActiveJob;
+  const [searchParams] = useSearchParams();
+  const page = Math.max(1, Math.floor(Number(searchParams.get("page")) || 1));
+
+  /*
+   * This is the one query in the admin that polls: a backfill finishes
+   * asynchronously, when Shopify's bulk_operations/finish webhook lands, so
+   * nothing the merchant does here tells the page it is done. The hook stops
+   * polling on its own once no job is in flight.
+   */
+  const { data, isPending, error, refetch } = useOrderSync(page);
+  const startSync = useStartOrderSync();
+  const { showToast } = useToast();
 
   const jobPageHref = (targetPage: number) =>
     targetPage > 1 ? `/app/order-sync?page=${targetPage}` : "/app/order-sync";
-  const jobPagination = useTablePagination(jobPage, jobTotalPages, jobPageHref);
-
-  useFetcherToast(syncFetcher, (data) =>
-    data.ok
-      ? "Order sync started — this can take a few minutes for large stores."
-      : (data.error ?? "Order sync failed."),
+  const jobPagination = useTablePagination(
+    page,
+    data?.totalPages ?? 1,
+    jobPageHref,
   );
 
-  // A running job finishes asynchronously (via the bulk_operations/finish
-  // webhook), so poll the loader while one is in flight to pick up its
-  // status without the merchant having to refresh. The effect re-runs (and
-  // clears the previous interval) whenever hasActiveJob flips, so polling
-  // stops on its own once the job completes.
-  useEffect(() => {
-    if (!hasActiveJob) return;
-    const interval = setInterval(() => revalidator.revalidate(), 4000);
-    return () => clearInterval(interval);
-  }, [hasActiveJob, revalidator]);
+  const hasActiveJob = (data?.activeJobCount ?? 0) > 0;
+  // Read before the loading guard below, because the effect that watches it
+  // has to be declared unconditionally.
+  const loadedJobs = data?.jobs;
 
   // When a job that was running flips to done, surface the outcome in a banner
   // at the top of the page so the merchant sees the sync finished without
@@ -196,8 +56,8 @@ export default function OrderSync() {
       wasActive.current = true;
       return;
     }
-    if (wasActive.current) {
-      const latest = jobs[0];
+    if (wasActive.current && loadedJobs) {
+      const latest = loadedJobs[0];
       if (latest?.status === "failed") {
         setSyncBanner({
           ok: false,
@@ -212,14 +72,38 @@ export default function OrderSync() {
       }
       wasActive.current = false;
     }
-  }, [hasActiveJob, jobs]);
+  }, [hasActiveJob, loadedJobs]);
 
-  const lastUpdated = lastUpdatedAt
+  if (isPending) return <PageSkeleton heading="Order sync" />;
+  if (error)
+    return <PageError heading="Order sync" error={error} onRetry={refetch} />;
+
+  const {
+    orderCount,
+    lastSyncedAt,
+    enabled: orderSyncEnabled,
+    workspaceCounts,
+    jobs,
+    jobCount,
+  } = data;
+
+  const syncing = startSync.isPending || hasActiveJob;
+
+  const lastUpdated = lastSyncedAt
     ? new Intl.DateTimeFormat(undefined, {
         dateStyle: "medium",
         timeStyle: "short",
-      }).format(new Date(lastUpdatedAt))
+      }).format(new Date(lastSyncedAt))
     : "Never";
+
+  const runSync = () =>
+    startSync.mutate(undefined, {
+      onSuccess: () =>
+        showToast(
+          "Order sync started — this can take a few minutes for large stores.",
+        ),
+      onError: (cause) => showToast(cause.message, { isError: true }),
+    });
 
   return (
     <s-page heading="Order sync">
@@ -277,16 +161,15 @@ export default function OrderSync() {
               this button whenever orders change.
             </s-paragraph>
           )}
-          {syncFetcher.data && !syncFetcher.data.ok ? (
-            <s-banner tone="critical">{syncFetcher.data.error}</s-banner>
+          {startSync.error ? (
+            <s-banner tone="critical">{startSync.error.message}</s-banner>
           ) : null}
-          <syncFetcher.Form method="post">
-            <input type="hidden" name="intent" value="sync" />
+          <s-stack direction="inline">
             <s-button
-              type="submit"
               variant="primary"
               loading={syncing}
               disabled={syncing || !orderSyncEnabled}
+              onClick={runSync}
             >
               {!orderSyncEnabled
                 ? "Order access required"
@@ -294,7 +177,7 @@ export default function OrderSync() {
                   ? "Sync running…"
                   : "Sync orders now"}
             </s-button>
-          </syncFetcher.Form>
+          </s-stack>
         </s-stack>
       </Card>
 
@@ -357,11 +240,3 @@ export default function OrderSync() {
     </s-page>
   );
 }
-
-export function ErrorBoundary() {
-  return boundary.error(useRouteError());
-}
-
-export const headers: HeadersFunction = (headersArgs) => {
-  return boundary.headers(headersArgs);
-};
