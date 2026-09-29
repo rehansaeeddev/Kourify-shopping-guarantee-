@@ -7,11 +7,7 @@ import { PageError, PageSkeleton } from "../components/PageState";
 import { TrustBadgePreview } from "../components/TrustBadgePreview";
 import { useToast } from "../components/Toast";
 import { ALL_ISSUE_TYPES } from "../lib/claim-issue-type";
-import {
-  CLAIM_ISSUE_TYPES,
-  parseClaimWindows,
-  type ClaimWindows,
-} from "../lib/claim-window";
+import { parseClaimWindows, type ClaimWindows } from "../lib/claim-window";
 import {
   BASIC_PROTECTED_ORDER_LIMIT,
   planAllowsCustomerPays,

@@ -1,17 +1,12 @@
+/**
+ * The English reference copy the translation editor shows beside each field.
+ *
+ * Only that. Rendering the storefront claim page in a shopper's language —
+ * bundles, fallback resolution, RTL — is the backend's job now
+ * (App\Services\ClaimTranslations), and keeping a second implementation here
+ * would mean two answers to "what does this key say".
+ */
 export type TranslationStrings = Record<string, string>;
-
-/** Locales that render right-to-left. */
-export const RTL_LOCALES = new Set(["ar", "he", "fa", "ur"]);
-
-/** Suggested display names for the language switcher (merchant can override). */
-export const LOCALE_LABELS: Record<string, string> = {
-  en: "English",
-  fr: "Français",
-  ar: "العربية",
-  hi: "हिन्दी",
-  es: "Español",
-  de: "Deutsch",
-};
 
 /**
  * English is the canonical source of truth for the KEY set — every other
@@ -344,50 +339,6 @@ export const DEFAULT_TRANSLATIONS: Record<string, TranslationStrings> = {
   },
 };
 
-/** Canonical list of translatable keys, derived from the English master. */
-export const CLAIM_KEYS = Object.keys(DEFAULT_TRANSLATIONS.en);
-
 export function normalizeLocale(locale: string): string {
   return locale.toLowerCase().split("-")[0];
-}
-
-export function isRtl(locale: string): boolean {
-  return RTL_LOCALES.has(normalizeLocale(locale));
-}
-
-export type LocaleBundle = {
-  label: string;
-  direction: "ltr" | "rtl";
-  strings: TranslationStrings;
-};
-
-/** Resolve one key within a bundle, falling back to the English master. */
-export function t(bundle: LocaleBundle | undefined, key: string): string {
-  return bundle?.strings[key] ?? DEFAULT_TRANSLATIONS.en[key] ?? key;
-}
-
-function buildBundle(
-  locale: string,
-  row?: { label: string; direction: string; strings: string },
-): LocaleBundle {
-  let dbStrings: TranslationStrings = {};
-  if (row) {
-    try {
-      dbStrings = JSON.parse(row.strings) as TranslationStrings;
-    } catch {
-      dbStrings = {};
-    }
-  }
-  return {
-    label: row?.label ?? LOCALE_LABELS[locale] ?? locale,
-    direction:
-      (row?.direction as "ltr" | "rtl") ?? (isRtl(locale) ? "rtl" : "ltr"),
-    // English base guarantees no missing keys; locale defaults override it;
-    // the merchant's DB values override last.
-    strings: {
-      ...DEFAULT_TRANSLATIONS.en,
-      ...(DEFAULT_TRANSLATIONS[locale] ?? {}),
-      ...dbStrings,
-    },
-  };
 }

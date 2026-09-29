@@ -10,7 +10,6 @@ import { WorkspaceTabs } from "../components/WorkspaceTabs";
 import { useTablePagination } from "../hooks/useTablePagination";
 import { api } from "../lib/api";
 import { issueTypeLabel } from "../lib/claim-issue-type";
-import { EVIDENCE_REQUIRED_TYPES } from "../lib/claim-window";
 import { useBulkUpdateClaims, useClaims, useUpdateClaim } from "../lib/queries";
 
 const STATUS_CONFIRM_MODAL_ID = "kourify-status-confirm-modal";
@@ -80,6 +79,44 @@ export default function Claims() {
     setSelectedClaimIds(new Set());
   }, [params.tab, params.q, params.page]);
 
+  const [pendingStatus, setPendingStatus] = useState<{
+    claimId: string;
+    status: string;
+    eligibleLossCents: number | null;
+  } | null>(null);
+  const [settlementInput, setSettlementInput] = useState("");
+  const confirmModalRef = useRef<{
+    showOverlay: () => void;
+    hideOverlay: () => void;
+  } | null>(null);
+
+  type StatusOutcome = {
+    status: string;
+    orderName: string;
+    shopifyOrderId: string | null;
+  };
+  const [statusBanner, setStatusBanner] = useState<StatusOutcome | null>(null);
+
+  const pageHref = (targetPage: number) => {
+    const next = new URLSearchParams();
+    if (params.tab !== "all") next.set("tab", params.tab);
+    if (params.q) next.set("q", params.q);
+    if (targetPage > 1) next.set("page", String(targetPage));
+    const query = next.toString();
+    return query ? `/app/claims?${query}` : "/app/claims";
+  };
+
+  /*
+   * Every hook has to be above the guards below. React counts them per
+   * render, and a guard that returns early on the first pass and not on the
+   * second changes that count — which is a crash, not a warning.
+   */
+  const pagination = useTablePagination(
+    params.page,
+    data?.totalPages ?? 1,
+    pageHref,
+  );
+
   if (isPending) return <PageSkeleton heading="Claims" />;
   if (error)
     return <PageError heading="Claims" error={error} onRetry={refetch} />;
@@ -89,7 +126,6 @@ export default function Claims() {
     openClaims,
     resolvedClaims,
     totalClaims,
-    totalPages,
     pageSize,
     filteredCount,
     workspaceCounts,
@@ -148,24 +184,6 @@ export default function Claims() {
     setPendingBulk(null);
     bulkConfirmRef.current?.hideOverlay();
   };
-
-  const [pendingStatus, setPendingStatus] = useState<{
-    claimId: string;
-    status: string;
-    eligibleLossCents: number | null;
-  } | null>(null);
-  const [settlementInput, setSettlementInput] = useState("");
-  const confirmModalRef = useRef<{
-    showOverlay: () => void;
-    hideOverlay: () => void;
-  } | null>(null);
-
-  type StatusOutcome = {
-    status: string;
-    orderName: string;
-    shopifyOrderId: string | null;
-  };
-  const [statusBanner, setStatusBanner] = useState<StatusOutcome | null>(null);
 
   const submitStatus = (
     claimId: string,
@@ -237,17 +255,6 @@ export default function Claims() {
     setPendingStatus(null);
     confirmModalRef.current?.hideOverlay();
   };
-
-  const pageHref = (targetPage: number) => {
-    const params = new URLSearchParams();
-    if (tab !== "all") params.set("tab", tab);
-    if (q) params.set("q", q);
-    if (targetPage > 1) params.set("page", String(targetPage));
-    const query = params.toString();
-    return query ? `/app/claims?${query}` : "/app/claims";
-  };
-
-  const pagination = useTablePagination(page, totalPages, pageHref);
 
   const exportCsv = () =>
     api
