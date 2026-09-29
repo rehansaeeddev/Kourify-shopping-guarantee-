@@ -214,22 +214,69 @@ export default function Guide() {
           </Card>
 
           <Card heading="Common tasks">
-            <s-stack direction="block" gap="small-200">
-              <s-link href="/app/settings">
-                Change who pays, pricing or eligibility
-              </s-link>
-              <s-link href="/app/claims">Review and decide open claims</s-link>
-              <s-link href="/app/orders">
-                See which orders are protected, or offer protection after
-                purchase
-              </s-link>
-              <s-link href="/app/translations">
-                Translate the storefront claim form
-              </s-link>
-              <s-link href="/app/billing">
-                {hasActiveBilling ? "Change your plan" : "Choose a plan"}
-              </s-link>
-            </s-stack>
+            {/* Tiles, not a column of links.
+              This is the one part of the guide a merchant comes here to use
+              rather than to read, and five underlined sentences stacked in a
+              list was the flattest thing on the page — nothing to aim at, and
+              nothing to tell one from another but reading all five. The tile
+              is the same one the dashboard uses for its help links. */}
+            <s-grid
+              gridTemplateColumns="@container (inline-size <= 640px) 1fr, 1fr 1fr"
+              gap="base"
+            >
+              {[
+                {
+                  href: "/app/settings",
+                  icon: "settings",
+                  label: "Change who pays, pricing or eligibility",
+                },
+                {
+                  href: "/app/claims",
+                  icon: "clipboard-checklist",
+                  label: "Review and decide open claims",
+                },
+                {
+                  href: "/app/orders",
+                  icon: "order",
+                  label:
+                    "See which orders are protected, or offer protection after purchase",
+                },
+                {
+                  href: "/app/translations",
+                  icon: "language-translate",
+                  label: "Translate the storefront claim form",
+                },
+                {
+                  href: "/app/billing",
+                  icon: "cash-dollar",
+                  label: hasActiveBilling
+                    ? "Change your plan"
+                    : "Choose a plan",
+                },
+              ].map((task) => (
+                <s-clickable
+                  key={task.href}
+                  href={task.href}
+                  padding="base"
+                  background="subdued"
+                  borderRadius="base"
+                  accessibilityLabel={task.label}
+                >
+                  <s-stack
+                    direction="inline"
+                    gap="small-200"
+                    alignItems="center"
+                  >
+                    <s-icon
+                      type={task.icon as never}
+                      tone="neutral"
+                      size="base"
+                    />
+                    <s-text>{task.label}</s-text>
+                  </s-stack>
+                </s-clickable>
+              ))}
+            </s-grid>
           </Card>
 
           <Card heading="Questions">
