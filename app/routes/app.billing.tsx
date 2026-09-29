@@ -159,12 +159,21 @@ function PlanPicker({
         {cards.map((card) => {
           const isCurrent = card.id === activePlan;
           return (
+            /*
+             * All three carry a surface, not just the current one.
+             * `undefined` here meant transparent, which on the admin's white
+             * page left the two plans a merchant might actually switch to as
+             * hairline outlines — the least visible thing on the page was the
+             * decision the page exists for. Which one is current is still
+             * said twice: a heavier edge, and the badge it already had.
+             */
             <s-box
               key={card.name}
               padding="base"
-              border="base"
+              background="subdued"
+              borderWidth="base"
+              borderColor={isCurrent ? "strong" : "base"}
               borderRadius="base"
-              background={isCurrent ? "subdued" : undefined}
             >
               <s-stack direction="block" gap="base">
                 <s-stack direction="inline" gap="small-200" alignItems="center">
@@ -235,10 +244,30 @@ function PlanPicker({
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+/**
+ * One figure, with the icon of what it counts.
+ *
+ * Four of these sit in a row, and as plain label-over-value they were four
+ * identical grey-then-black pairs — nothing to tell apart at a glance, and
+ * nothing to land on. The icon is the same device the dashboard's tiles use.
+ */
+function Stat({
+  label,
+  value,
+  icon,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string;
+  icon: string;
+  tone?: "neutral" | "success" | "warning" | "critical";
+}) {
   return (
     <s-stack direction="block" gap="small-500">
-      <s-text color="subdued">{label}</s-text>
+      <s-stack direction="inline" gap="small-200" alignItems="center">
+        <s-icon type={icon as never} tone={tone} size="small" />
+        <s-text color="subdued">{label}</s-text>
+      </s-stack>
       <s-text type="strong" fontVariantNumeric="tabular-nums">
         {value}
       </s-text>
@@ -364,9 +393,13 @@ export default function Billing() {
               gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
               gap="base"
             >
-              <Stat label="Plan" value={plan.name} />
-              <Stat label="Price" value={plan.price} />
-              <Stat label="Billing interval" value={plan.interval} />
+              <Stat label="Plan" value={plan.name} icon="plan" />
+              <Stat label="Price" value={plan.price} icon="cash-dollar" />
+              <Stat
+                label="Billing interval"
+                value={plan.interval}
+                icon="calendar"
+              />
               <s-stack direction="block" gap="small-500">
                 <s-text color="subdued">Status</s-text>
                 <s-stack direction="inline">
@@ -391,21 +424,38 @@ export default function Billing() {
             gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
             gap="base"
           >
-            <Stat label="Protected orders" value={String(protectedOrders)} />
+            <Stat
+              label="Protected orders"
+              value={String(protectedOrders)}
+              icon="shield-check-mark"
+              tone={protectedOrders > 0 ? "success" : "neutral"}
+            />
             {isUsage && (
               <Stat
                 label="Kourify usage fee"
                 value={`${money(USAGE_FEE_CENTS)} per order`}
+                icon="receipt-dollar"
               />
             )}
             <Stat
               label="Usage charges"
               value={money(isUsage ? billedUsageCents : 0)}
+              icon="receipt"
             />
             {isBasic && quota.limit !== null && (
               <Stat
                 label="Allowance used"
                 value={`${quota.used} of ${quota.limit}`}
+                icon="gauge"
+                // The allowance is the one figure here that turns into a
+                // problem, so it says so before the banner below does.
+                tone={
+                  quota.overAllowance
+                    ? "critical"
+                    : quota.exhausted
+                      ? "warning"
+                      : "neutral"
+                }
               />
             )}
           </s-grid>
