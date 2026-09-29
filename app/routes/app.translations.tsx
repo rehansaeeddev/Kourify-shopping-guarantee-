@@ -1,230 +1,30 @@
 import { useMemo, useRef, useState } from "react";
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { useFetcher, useLoaderData, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 
 import { Card } from "../components/Card";
 import { EmptyState } from "../components/EmptyState";
-import { useFetcherToast } from "../hooks/useFetcherToast";
-import db from "../db.server";
+import { PageError, PageSkeleton } from "../components/PageState";
+import { useToast } from "../components/Toast";
 import {
-  CLAIM_KEYS,
   DEFAULT_TRANSLATIONS,
-  LOCALE_LABELS,
-  isRtl,
   normalizeLocale,
   type TranslationStrings,
 } from "../lib/claim-i18n";
-import { authenticate } from "../shopify.server";
+import {
+  useTranslationMutations,
+  useTranslations,
+  type Language,
+} from "../lib/queries";
 
-type ActionResult = { ok: boolean; message?: string; error?: string };
-
-function seedStrings(locale: string): TranslationStrings {
-  // Seed only the locale's own template (Arabic, Hindi, …). Any key we don't
-  // ship falls back to English at render time via the runtime merge, so we
-  // never freeze English copy into the row — and shipped templates fill in
-  // automatically without the merchant typing anything.
-  return { ...(DEFAULT_TRANSLATIONS[locale] ?? {}) };
-}
-
-function parseStrings(raw: string): TranslationStrings {
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === "object")
-      return parsed as TranslationStrings;
-  } catch {
-    // fall through
-  }
-  return {};
-}
-
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
-  const [rows, settings] = await Promise.all([
-    db.storefrontTranslation.findMany({
-      where: { shop: session.shop },
-      orderBy: { locale: "asc" },
-    }),
-    db.merchantSettings.findUnique({ where: { shop: session.shop } }),
-  ]);
-
-  const languages = rows.map((row) => ({
-    locale: row.locale,
-    label: row.label,
-    direction: row.direction,
-    enabled: row.enabled,
-    strings: parseStrings(row.strings),
-  }));
-
-  const editLocale = normalizeLocale(
-    new URL(request.url).searchParams.get("edit") ?? "",
-  );
-  const editing = editLocale
-    ? (languages.find((lang) => lang.locale === editLocale) ?? null)
-    : null;
-
-  return {
-    languages,
-    editing,
-    fallback: normalizeLocale(settings?.storefrontFallbackLanguage ?? "en"),
-    keys: CLAIM_KEYS,
-    referenceEn: DEFAULT_TRANSLATIONS.en,
-  };
-};
-
-export const action = async ({
-  request,
-}: ActionFunctionArgs): Promise<ActionResult> => {
-  const { session } = await authenticate.admin(request);
-  const shop = session.shop;
-  const form = await request.formData();
-  const intent = String(form.get("intent") ?? "");
-
-  try {
-    if (intent === "seed_defaults") {
-      for (const locale of ["en", "fr"]) {
-        await db.storefrontTranslation.upsert({
-          where: { shop_locale: { shop, locale } },
-          update: {},
-          create: {
-            shop,
-            locale,
-            label: LOCALE_LABELS[locale] ?? locale,
-            direction: isRtl(locale) ? "rtl" : "ltr",
-            enabled: true,
-            strings: JSON.stringify(seedStrings(locale)),
-          },
-        });
-      }
-      return { ok: true, message: "English and French added." };
-    }
-
-    if (intent === "add") {
-      const locale = normalizeLocale(String(form.get("locale") ?? "").trim());
-      const label =
-        String(form.get("label") ?? "").trim() ||
-        LOCALE_LABELS[locale] ||
-        locale;
-      // Auto-force RTL for known RTL locales even if the dropdown said LTR.
-      const direction =
-        String(form.get("direction") ?? "") === "rtl" || isRtl(locale)
-          ? "rtl"
-          : "ltr";
-      if (!/^[a-z]{2,3}$/.test(locale)) {
-        return {
-          ok: false,
-          error: "Enter a valid language code (2–3 letters, e.g. ar, hi).",
-        };
-      }
-      const existing = await db.storefrontTranslation.findUnique({
-        where: { shop_locale: { shop, locale } },
-      });
-      if (existing) {
-        return { ok: false, error: `${locale} is already added.` };
-      }
-      await db.storefrontTranslation.create({
-        data: {
-          shop,
-          locale,
-          label,
-          direction,
-          enabled: true,
-          strings: JSON.stringify(seedStrings(locale)),
-        },
-      });
-      return {
-        ok: true,
-        message: `${label} added — translate its strings next.`,
-      };
-    }
-
-    if (intent === "save") {
-      const locale = normalizeLocale(String(form.get("locale") ?? ""));
-      const label = String(form.get("label") ?? "").trim() || locale;
-      const direction =
-        String(form.get("direction") ?? "") === "rtl" ? "rtl" : "ltr";
-      const enabled = form.get("enabled") === "true";
-      const strings: TranslationStrings = {};
-      for (const [key, value] of form.entries()) {
-        if (key.startsWith("s:")) strings[key.slice(2)] = String(value);
-      }
-      await db.storefrontTranslation.update({
-        where: { shop_locale: { shop, locale } },
-        data: {
-          label,
-          direction,
-          enabled,
-          strings: JSON.stringify(strings),
-        },
-      });
-      return { ok: true, message: `${label} saved.` };
-    }
-
-    // Name and direction only. Deliberately separate from "save", which
-    // rebuilds the whole `strings` blob from its form — running that from the
-    // list, where no string fields exist, would wipe every translation.
-    if (intent === "settings") {
-      const locale = normalizeLocale(String(form.get("locale") ?? ""));
-      const label = String(form.get("label") ?? "").trim() || locale;
-      const direction =
-        String(form.get("direction") ?? "") === "rtl" ? "rtl" : "ltr";
-      await db.storefrontTranslation.update({
-        where: { shop_locale: { shop, locale } },
-        data: { label, direction },
-      });
-      return { ok: true, message: `${label} updated.` };
-    }
-
-    if (intent === "toggle") {
-      const locale = normalizeLocale(String(form.get("locale") ?? ""));
-      const enabled = form.get("enabled") === "true";
-      await db.storefrontTranslation.update({
-        where: { shop_locale: { shop, locale } },
-        data: { enabled },
-      });
-      return {
-        ok: true,
-        message: enabled ? "Language enabled." : "Language hidden.",
-      };
-    }
-
-    if (intent === "set_default") {
-      const locale = normalizeLocale(String(form.get("locale") ?? ""));
-      await db.merchantSettings.upsert({
-        where: { shop },
-        update: { storefrontFallbackLanguage: locale },
-        create: {
-          shop,
-          storefrontFallbackLanguage: locale,
-          claimWindows: "{}",
-        },
-      });
-      return { ok: true, message: `Default language set to ${locale}.` };
-    }
-
-    if (intent === "remove") {
-      const locale = normalizeLocale(String(form.get("locale") ?? ""));
-      await db.storefrontTranslation
-        .delete({ where: { shop_locale: { shop, locale } } })
-        .catch(() => null);
-      return { ok: true, message: `${locale} removed.` };
-    }
-
-    return { ok: false, error: "Unknown action." };
-  } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "Something went wrong.",
-    };
-  }
-};
+/** What every mutation here answers with. */
+type Result = { ok: boolean; message?: string; error?: string | null };
 
 export default function Translations() {
-  const { languages, editing, fallback, keys, referenceEn } =
-    useLoaderData<typeof loader>();
-  const [, setSearchParams] = useSearchParams();
+  const { data, isPending, error, refetch } = useTranslations();
+  const mutations = useTranslationMutations();
+  const { showToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [renaming, setRenaming] = useState<string | null>(null);
-  const fetcher = useFetcher<ActionResult>();
-  useFetcherToast(fetcher, (data) => data.message ?? data.error ?? "Updated.");
 
   // Removing a language drops its saved translations, so it's confirmed in a
   // native modal rather than a browser confirm() popup.
@@ -237,24 +37,58 @@ export default function Translations() {
     label: string;
   } | null>(null);
 
-  const confirmRemove = () => {
-    if (pendingRemove) {
-      fetcher.submit(
-        { intent: "remove", locale: pendingRemove.locale },
-        { method: "POST" },
-      );
-    }
-    setPendingRemove(null);
-    removeModalRef.current?.hideOverlay();
-  };
-
   const cancelRemove = () => {
     setPendingRemove(null);
     removeModalRef.current?.hideOverlay();
   };
 
+  /*
+   * Every mutation on this page reports the same way: the backend's own
+   * sentence on success, its own reason on failure. Passed per call rather
+   * than baked into the hooks, because only this page wants a toast.
+   */
+  const notify = {
+    onSuccess: (result: Result) => showToast(result.message ?? "Updated."),
+    onError: (cause: Error) => showToast(cause.message, { isError: true }),
+  };
+
+  if (isPending) return <PageSkeleton heading="Claim page languages" />;
+  if (error)
+    return (
+      <PageError
+        heading="Claim page languages"
+        error={error}
+        onRetry={refetch}
+      />
+    );
+
+  const { languages, keys } = data;
+  const fallback = data.defaultLocale;
+  const referenceEn = DEFAULT_TRANSLATIONS.en;
+
+  // Which language the editor is open on. A query parameter rather than
+  // state, so the browser's back button leaves the editor.
+  const editLocale = normalizeLocale(searchParams.get("edit") ?? "");
+  const editing = editLocale
+    ? (languages.find((lang) => lang.locale === editLocale) ?? null)
+    : null;
+
   const renamingLang =
     languages.find((lang) => lang.locale === renaming) ?? null;
+
+  const busy =
+    mutations.add.isPending ||
+    mutations.seed.isPending ||
+    mutations.update.isPending ||
+    mutations.remove.isPending ||
+    mutations.setDefault.isPending ||
+    mutations.saveStrings.isPending;
+
+  const confirmRemove = () => {
+    if (pendingRemove) mutations.remove.mutate(pendingRemove.locale, notify);
+    setPendingRemove(null);
+    removeModalRef.current?.hideOverlay();
+  };
 
   if (editing) {
     return (
@@ -262,7 +96,13 @@ export default function Translations() {
         editing={editing}
         keys={keys}
         referenceEn={referenceEn}
-        fetcher={fetcher}
+        busy={busy}
+        onSave={(strings) =>
+          mutations.saveStrings.mutate(
+            { locale: editing.locale, strings },
+            notify,
+          )
+        }
         onDone={() => setSearchParams({})}
       />
     );
@@ -285,14 +125,9 @@ export default function Translations() {
             <s-stack direction="inline">
               <s-button
                 variant="primary"
-                loading={fetcher.state !== "idle"}
-                disabled={fetcher.state !== "idle"}
-                onClick={() =>
-                  fetcher.submit(
-                    { intent: "seed_defaults" },
-                    { method: "POST" },
-                  )
-                }
+                loading={mutations.seed.isPending}
+                disabled={busy}
+                onClick={() => mutations.seed.mutate(undefined, notify)}
               >
                 Add English &amp; French
               </s-button>
@@ -303,13 +138,22 @@ export default function Translations() {
         <>
           {renamingLang ? (
             <Card heading={`Edit ${renamingLang.label}`}>
-              <fetcher.Form method="post">
-                <input type="hidden" name="intent" value="settings" />
-                <input
-                  type="hidden"
-                  name="locale"
-                  value={renamingLang.locale}
-                />
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const form = new FormData(event.currentTarget);
+
+                  mutations.update.mutate(
+                    {
+                      locale: renamingLang.locale,
+                      label: String(form.get("label") ?? ""),
+                      direction: String(form.get("direction") ?? "ltr"),
+                    },
+                    notify,
+                  );
+                  setRenaming(null);
+                }}
+              >
                 <s-grid
                   gridTemplateColumns="1fr 1fr"
                   gap="base"
@@ -333,9 +177,8 @@ export default function Translations() {
                   <s-button
                     type="submit"
                     variant="primary"
-                    loading={fetcher.state !== "idle"}
-                    disabled={fetcher.state !== "idle"}
-                    onClick={() => setRenaming(null)}
+                    loading={mutations.update.isPending}
+                    disabled={busy}
                   >
                     Save
                   </s-button>
@@ -346,7 +189,7 @@ export default function Translations() {
                     Cancel
                   </s-button>
                 </s-stack>
-              </fetcher.Form>
+              </form>
             </Card>
           ) : null}
 
@@ -398,16 +241,11 @@ export default function Translations() {
                         </s-button>
                         <s-button
                           variant="secondary"
-                          loading={fetcher.state !== "idle"}
-                          disabled={fetcher.state !== "idle"}
+                          disabled={busy}
                           onClick={() =>
-                            fetcher.submit(
-                              {
-                                intent: "toggle",
-                                locale: lang.locale,
-                                enabled: String(!lang.enabled),
-                              },
-                              { method: "POST" },
+                            mutations.update.mutate(
+                              { locale: lang.locale, enabled: !lang.enabled },
+                              notify,
                             )
                           }
                         >
@@ -416,13 +254,9 @@ export default function Translations() {
                         {lang.locale !== fallback ? (
                           <s-button
                             variant="secondary"
-                            loading={fetcher.state !== "idle"}
-                            disabled={fetcher.state !== "idle"}
+                            disabled={busy}
                             onClick={() =>
-                              fetcher.submit(
-                                { intent: "set_default", locale: lang.locale },
-                                { method: "POST" },
-                              )
+                              mutations.setDefault.mutate(lang.locale, notify)
                             }
                           >
                             Make default
@@ -431,8 +265,7 @@ export default function Translations() {
                         {lang.locale !== fallback ? (
                           <s-button
                             variant="secondary"
-                            loading={fetcher.state !== "idle"}
-                            disabled={fetcher.state !== "idle"}
+                            disabled={busy}
                             onClick={() => {
                               setPendingRemove({
                                 locale: lang.locale,
@@ -454,7 +287,11 @@ export default function Translations() {
         </>
       )}
 
-      <AddLanguage fetcher={fetcher} />
+      <AddLanguage
+        busy={busy}
+        pending={mutations.add.isPending}
+        onAdd={(language) => mutations.add.mutate(language, notify)}
+      />
 
       <s-modal
         ref={removeModalRef as never}
@@ -470,8 +307,8 @@ export default function Translations() {
           slot="primary-action"
           variant="primary"
           tone="critical"
-          loading={fetcher.state !== "idle"}
-          disabled={fetcher.state !== "idle"}
+          loading={mutations.remove.isPending}
+          disabled={busy}
           onClick={confirmRemove}
         >
           Remove
@@ -485,17 +322,35 @@ export default function Translations() {
 }
 
 function AddLanguage({
-  fetcher,
+  busy,
+  pending,
+  onAdd,
 }: {
-  fetcher: ReturnType<typeof useFetcher<ActionResult>>;
+  busy: boolean;
+  pending: boolean;
+  onAdd: (language: {
+    locale: string;
+    label: string;
+    direction: string;
+  }) => void;
 }) {
   const [direction, setDirection] = useState("ltr");
 
   return (
     <Card heading="Add a language">
-      <fetcher.Form method="post">
-        <input type="hidden" name="intent" value="add" />
-        <input type="hidden" name="direction" value={direction} />
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          const form = new FormData(event.currentTarget);
+
+          onAdd({
+            locale: String(form.get("locale") ?? "").trim(),
+            label: String(form.get("label") ?? "").trim(),
+            direction,
+          });
+          event.currentTarget.reset();
+        }}
+      >
         <s-stack direction="block" gap="base">
           <s-paragraph>
             Common codes: <s-text type="strong">ar</s-text> (Arabic, RTL),{" "}
@@ -532,14 +387,14 @@ function AddLanguage({
             <s-button
               type="submit"
               variant="primary"
-              loading={fetcher.state !== "idle"}
-              disabled={fetcher.state !== "idle"}
+              loading={pending}
+              disabled={busy}
             >
               Add language
             </s-button>
           </s-grid>
         </s-stack>
-      </fetcher.Form>
+      </form>
     </Card>
   );
 }
@@ -596,19 +451,15 @@ function LanguageEditor({
   editing,
   keys,
   referenceEn,
-  fetcher,
+  busy,
+  onSave,
   onDone,
 }: {
-  editing: {
-    locale: string;
-    label: string;
-    direction: string;
-    enabled: boolean;
-    strings: TranslationStrings;
-  };
+  editing: Language;
   keys: string[];
   referenceEn: TranslationStrings;
-  fetcher: ReturnType<typeof useFetcher<ActionResult>>;
+  busy: boolean;
+  onSave: (strings: TranslationStrings) => void;
   onDone: () => void;
 }) {
   // Which strings are filled in. Seeded from what's saved, then kept live as
@@ -634,18 +485,22 @@ function LanguageEditor({
         Back to languages
       </s-button>
 
-      <fetcher.Form method="post">
-        <input type="hidden" name="intent" value="save" />
-        <input type="hidden" name="locale" value={editing.locale} />
-        {/* None of these are editable here — they live on the languages list,
-            which is where languages are managed. They still have to ride along
-            with the form: the save action rebuilds the row from what it
-            receives, so dropping them would rename the language to its bare
-            locale code and quietly hide it from the switcher. */}
-        <input type="hidden" name="label" value={editing.label} />
-        <input type="hidden" name="direction" value={editing.direction} />
-        <input type="hidden" name="enabled" value={String(editing.enabled)} />
+      {/* Uncontrolled on purpose: the fields are read off the form in one
+          pass on submit, so typing in any of a few hundred inputs does not
+          re-render the whole editor. */}
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          const form = new FormData(event.currentTarget);
+          const strings: TranslationStrings = {};
 
+          for (const [key, value] of form.entries()) {
+            if (key.startsWith("s:")) strings[key.slice(2)] = String(value);
+          }
+
+          onSave(strings);
+        }}
+      >
         <Card heading="Translations">
           <s-paragraph color="subdued">
             {`Blank fields fall back to English automatically.`}
@@ -776,14 +631,14 @@ function LanguageEditor({
             <s-button
               type="submit"
               variant="primary"
-              loading={fetcher.state !== "idle"}
-              disabled={fetcher.state !== "idle"}
+              loading={busy}
+              disabled={busy}
             >
               Save translations
             </s-button>
           </s-stack>
         </Card>
-      </fetcher.Form>
+      </form>
     </s-page>
   );
 }
