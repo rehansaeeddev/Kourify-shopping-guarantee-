@@ -1,5 +1,5 @@
 import { reactRouter } from "@react-router/dev/vite";
-import { defineConfig, type UserConfig } from "vite";
+import { defineConfig, type Plugin, type UserConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 // Related: https://github.com/remix-run/remix/issues/2835#issuecomment-1144102176
@@ -37,6 +37,48 @@ const host = new URL(process.env.SHOPIFY_APP_URL || "http://localhost")
  * are same-origin because Laravel serves the built SPA itself — which is what
  * lets the API client use relative paths in both places.
  */
+/**
+ * Says who may frame the dev server.
+ *
+ * A browser refuses to frame an embedded app that does not name its allowed
+ * ancestors, and the refusal renders as an empty broken frame inside the
+ * Shopify admin rather than an error anyone can read. In production Laravel
+ * sends this header (AdminAppController); during `shopify app dev` Vite serves
+ * the document instead, and Vite sends no CSP of its own.
+ */
+function frameAncestors(): Plugin {
+  return {
+    name: "kourify:frame-ancestors",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const shop = new URL(
+          req.url ?? "/",
+          "http://localhost",
+        ).searchParams.get("shop");
+
+        // Same normalising as the backend: Shopify sends either spelling.
+        const domain =
+          shop && /^[a-z0-9][a-z0-9-]*(\.myshopify\.com)?$/i.test(shop)
+            ? shop.endsWith(".myshopify.com")
+              ? shop
+              : `${shop}.myshopify.com`
+            : null;
+
+        res.setHeader(
+          "Content-Security-Policy",
+          domain
+            ? `frame-ancestors https://${domain} https://admin.shopify.com;`
+            : // No shop on this request — a wildcard rather than 'none', so a
+              // reload without the parameter does not render as a broken frame.
+              "frame-ancestors https://*.myshopify.com https://admin.shopify.com;",
+        );
+
+        next();
+      });
+    },
+  };
+}
+
 const BACKEND = process.env.KOURIFY_BACKEND_URL || "http://127.0.0.1:8000";
 const BACKEND_PATHS = ["/api", "/webhooks", "/proxy"];
 
@@ -79,7 +121,7 @@ export default defineConfig({
       ]),
     ),
   },
-  plugins: [reactRouter(), tsconfigPaths()],
+  plugins: [frameAncestors(), reactRouter(), tsconfigPaths()],
   build: {
     assetsInlineLimit: 0,
   },

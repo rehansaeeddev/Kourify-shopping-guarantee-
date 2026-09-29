@@ -6,59 +6,21 @@
 # and /api, and it serves the built admin SPA from the same origin — which is
 # why the frontend can call /api with a relative path at all.
 
-client_id = "75bd0949768c0ee5113a39d2bb4a09b7"
+client_id = "05f95f63f2b874fd2f6103a4ebb7d697"
 application_url = "https://example.com"
 embedded = true
-name = "kourify-shopping-guarantee"
-
-[access_scopes]
-# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_customers,read_orders,write_orders,write_order_edits,write_fulfillments,read_publications,write_publications,write_metaobject_definitions,write_metaobjects,write_products,write_files,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders,read_cart_transforms,write_cart_transforms"
-
-[app_proxy]
-url = "https://example.com/proxy"
-subpath = "kourify"
-prefix = "apps"
+name = "kourify-shopping-guaranteey"
 
 [webhooks]
 api_version = "2026-10"
-
-  [[webhooks.subscriptions]]
-  uri = "/webhooks/app/uninstalled"
-  topics = [ "app/uninstalled" ]
-
-  [[webhooks.subscriptions]]
-  uri = "/webhooks/app/scopes_update"
-  topics = [ "app/scopes_update" ]
-
-  [[webhooks.subscriptions]]
-  uri = "/webhooks/orders/create"
-  topics = [ "orders/create" ]
 
   [[webhooks.subscriptions]]
   uri = "/webhooks/orders/updated"
   topics = [ "orders/updated" ]
 
   [[webhooks.subscriptions]]
-  uri = "/webhooks/orders/paid"
-  topics = [ "orders/paid" ]
-
-  # Both revoke protection on an order that was paid for and then unwound.
-  # Without them a refunded order keeps its coverage and stays claimable.
-  [[webhooks.subscriptions]]
-  uri = "/webhooks/orders/cancelled"
-  topics = [ "orders/cancelled" ]
-
-  [[webhooks.subscriptions]]
   uri = "/webhooks/refunds/create"
   topics = [ "refunds/create" ]
-
-  # How an order backfill learns its export is ready. The bulk operation runs
-  # on Shopify's side and reports only here, so without this subscription a
-  # sync starts, is never told it finished, and sits on "running" forever.
-  [[webhooks.subscriptions]]
-  uri = "/webhooks/bulk_operations/finish"
-  topics = [ "bulk_operations/finish" ]
 
   [[webhooks.subscriptions]]
   uri = "/webhooks/customers/data_request"
@@ -72,14 +34,51 @@ api_version = "2026-10"
   uri = "/webhooks/shop/redact"
   compliance_topics = [ "shop/redact" ]
 
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/scopes_update"
+  topics = [ "app/scopes_update" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/orders/paid"
+  topics = [ "orders/paid" ]
+
+  # How an order backfill learns its export is ready. The bulk operation runs
+  # on Shopify's side and reports only here, so without this subscription a
+  # sync starts, is never told it finished, and sits on "running" forever.
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/bulk_operations/finish"
+  topics = [ "bulk_operations/finish" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/orders/create"
+  topics = [ "orders/create" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/uninstalled"
+  topics = [ "app/uninstalled" ]
+
+  # Both revoke protection on an order that was paid for and then unwound.
+  # Without them a refunded order keeps its coverage and stays claimable.
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/orders/cancelled"
+  topics = [ "orders/cancelled" ]
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_cart_transforms,read_customers,read_merchant_managed_fulfillment_orders,read_orders,read_publications,write_cart_transforms,write_files,write_fulfillments,write_merchant_managed_fulfillment_orders,write_metaobject_definitions,write_metaobjects,write_order_edits,write_orders,write_products,write_publications"
+
 # Required by the CLI's schema, even though this app installs through Shopify
 # managed installation and authenticates by token exchange. There is no OAuth
 # callback anywhere — shopify/shopify-app-php does not provide one — so this is
-# pointed at the app itself: if Shopify ever did redirect here it would land on
-# a real page that authenticates the normal way, rather than a 404.
+# pointed at the app itself rather than an /api/auth the backend would 404.
 # `shopify app dev` overwrites it with the tunnel on every run.
 [auth]
 redirect_urls = [ "https://example.com/app" ]
+
+[app_proxy]
+url = "https://example.com/proxy"
+subpath = "kourify"
+prefix = "apps"
 
 [build]
 automatically_update_urls_on_dev = true

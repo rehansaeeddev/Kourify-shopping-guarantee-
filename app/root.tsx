@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
 import "./styles/theme.css";
 
@@ -7,7 +8,16 @@ import "./styles/theme.css";
  */
 const SHOPIFY_API_KEY = import.meta.env.VITE_SHOPIFY_API_KEY as string;
 
-export default function App() {
+/**
+ * The document.
+ *
+ * Exported as `Layout`, not returned from the default export: in SPA mode the
+ * shell is prerendered at build time, and React Router only uses the root's
+ * `Layout` for it. Without one it falls back to a document of its own — which
+ * silently dropped both CDN scripts below, so App Bridge never minted a
+ * session token and the s-* elements stayed plain text.
+ */
+export function Layout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
@@ -34,10 +44,14 @@ export default function App() {
         <Links />
       </head>
       <body>
-        <Outlet />
+        {children}
         <ScrollRestoration />
         <Scripts />
       </body>
     </html>
   );
+}
+
+export default function App() {
+  return <Outlet />;
 }
