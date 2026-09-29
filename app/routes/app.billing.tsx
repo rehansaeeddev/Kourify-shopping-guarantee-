@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { PageError, PageSkeleton } from "../components/PageState";
 import { useBilling, useSubscribe } from "../lib/queries";
@@ -253,6 +253,17 @@ export default function Billing() {
   const [chooseError, setChooseError] = useState<string | null>(null);
   const { showToast } = useToast();
 
+  /*
+   * Only the downgrade is confirmed here. Every paid plan already passes
+   * through Shopify's own approval screen, which states the price and takes
+   * a deliberate second action — Basic is the one path with nothing between
+   * the click and a cancelled subscription.
+   */
+  const downgradeModalRef = useRef<{
+    showOverlay: () => void;
+    hideOverlay: () => void;
+  } | null>(null);
+
   if (isPending) return <PageSkeleton heading="Billing" />;
   if (error)
     return <PageError heading="Billing" error={error} onRetry={refetch} />;
@@ -269,6 +280,24 @@ export default function Billing() {
   // an unrecognised one falls back to Basic rather than rendering `undefined`.
   const activePlan = (data.activePlan as PlanId) ?? "basic";
   const plan = PLAN_SUMMARY[activePlan] ?? PLAN_SUMMARY.basic;
+
+  function requestPlan(next: PlanId) {
+    if (next === "basic") {
+      // Clear any banner from a previous attempt, so the modal is not opened
+      // over a stale "could not start this plan change".
+      setChooseError(null);
+      downgradeModalRef.current?.showOverlay();
+
+      return;
+    }
+
+    choosePlan(next);
+  }
+
+  function confirmDowngrade() {
+    downgradeModalRef.current?.hideOverlay();
+    choosePlan("basic");
+  }
 
   function choosePlan(next: PlanId) {
     setChooseError(null);
@@ -407,7 +436,7 @@ export default function Billing() {
             <PlanPicker
               activePlan={activePlan}
               hasActiveBilling={hasActiveBilling}
-              onChoose={choosePlan}
+              onChoose={requestPlan}
               pendingPlan={
                 subscribe.isPending
                   ? ((subscribe.variables?.plan as PlanId) ?? null)
@@ -428,6 +457,59 @@ export default function Billing() {
             </s-paragraph>
           </s-section>
         )}
+
+        <s-modal
+          ref={downgradeModalRef as never}
+          id="kourify-downgrade-confirm-modal"
+          heading="Downgrade to Basic?"
+        >
+          <s-stack direction="block" gap="base">
+            <s-paragraph>
+              {`Your ${plan.name} subscription is cancelled right away. Shopify credits you for the rest of the billing cycle.`}
+            </s-paragraph>
+
+            <s-unordered-list>
+              {/* The merchant's own number, not a generic warning. Past the
+                  allowance this is the difference between "you have room" and
+                  "protection stops the moment you confirm". */}
+              <s-list-item>
+                {protectedOrders > BASIC_PROTECTED_ORDER_LIMIT
+                  ? `Basic covers ${BASIC_PROTECTED_ORDER_LIMIT} protected orders. You have ${protectedOrders}, so protection switches off for new orders immediately.`
+                  : `Basic covers ${BASIC_PROTECTED_ORDER_LIMIT} protected orders. You have ${protectedOrders}, and protection pauses once you reach the limit.`}
+              </s-list-item>
+              <s-list-item>
+                Customers can no longer pay for protection. You cover it
+                yourself, or it stays off.
+              </s-list-item>
+              {/* The question merchants actually ask, and the answer is
+                  reassuring — so it belongs before the decision, not after. */}
+              <s-list-item>
+                Orders that are already protected keep their coverage and can
+                still be claimed.
+              </s-list-item>
+            </s-unordered-list>
+
+            <s-paragraph color="subdued">
+              You can subscribe again at any time.
+            </s-paragraph>
+          </s-stack>
+
+          <s-button
+            slot="primary-action"
+            variant="primary"
+            tone="critical"
+            loading={subscribe.isPending}
+            onClick={confirmDowngrade}
+          >
+            Downgrade to Basic
+          </s-button>
+          <s-button
+            slot="secondary-actions"
+            onClick={() => downgradeModalRef.current?.hideOverlay()}
+          >
+            Keep my plan
+          </s-button>
+        </s-modal>
       </PageBody>
     </s-page>
   );
