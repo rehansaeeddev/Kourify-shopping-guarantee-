@@ -98,16 +98,23 @@ export default function Index() {
           steps={[
             {
               label: "Turn on trust badges",
+              icon: "shield-check-mark",
+              minutes: 1,
               detail: settings.badgesEnabled
                 ? `On · ${settings.badgeStyle} style`
                 : "Show a trust badge on your product page and cart — turn it on in Settings.",
               done: settings.badgesEnabled,
+              // A finished step keeps an action, it just changes verb. The row
+              // is visible either way now, and one with nothing on its right
+              // reads as a dead end rather than as something already handled.
               action: settings.badgesEnabled
-                ? undefined
+                ? { label: "Customize", href: "/app/settings" }
                 : { label: "Set up trust badges", href: "/app/settings" },
             },
             {
               label: "Package protection is live on your storefront",
+              icon: "package",
+              minutes: 3,
               detail:
                 protectionStatus.value === "Live"
                   ? 'The "Protect your order" widget is on your product page and cart. Customize copy and price from the theme editor blocks.'
@@ -115,11 +122,13 @@ export default function Index() {
               done: protectionStatus.value === "Live",
               action:
                 protectionStatus.value === "Live"
-                  ? undefined
+                  ? { label: "Manage", href: "/app/settings" }
                   : { label: "Open settings", href: "/app/settings" },
             },
             {
               label: "Review your first claim",
+              icon: "clipboard-checklist",
+              minutes: 2,
               detail:
                 totalClaims > 0
                   ? `${totalClaims} claim${totalClaims === 1 ? "" : "s"} received${openClaims > 0 ? `, ${openClaims} open` : ""}.`
