@@ -531,6 +531,13 @@ function LanguageEditor({
                     <s-button
                       key={group.id}
                       variant={tab === group.id ? "primary" : "secondary"}
+                      // variant is styling; on its own it tells a screen
+                      // reader nothing about which group is open.
+                      accessibilityLabel={
+                        tab === group.id
+                          ? `${group.title}, current group`
+                          : group.title
+                      }
                       onClick={() => setTab(group.id)}
                     >
                       {remaining === 0

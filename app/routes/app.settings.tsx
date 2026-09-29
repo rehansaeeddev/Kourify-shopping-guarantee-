@@ -354,7 +354,12 @@ export default function Settings() {
                     padding="small-300"
                     borderRadius="base"
                     background={isActive ? "subdued" : undefined}
-                    accessibilityLabel={tab.label}
+                    /* The current section is shown by a background and a bolder
+                     label, and neither reaches a screen reader — both are
+                     presentation. Saying it is the only way it carries. */
+                    accessibilityLabel={
+                      isActive ? `${tab.label}, current section` : tab.label
+                    }
                   >
                     <s-stack
                       direction="inline"
