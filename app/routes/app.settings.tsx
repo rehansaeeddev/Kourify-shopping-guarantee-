@@ -324,41 +324,56 @@ export default function Settings() {
           action. Below the breakpoint the rail becomes the first row and the
           panels stack under it. */}
       <s-grid
-        gridTemplateColumns="@container (inline-size <= 860px) 1fr, 220px minmax(0, 1fr)"
+        /* No minmax() here: the conditional value is split on commas, so a
+           comma inside a function swallows the whole definition and the grid
+           silently collapses to one column. */
+        gridTemplateColumns="@container (inline-size <= 700px) 1fr, 240px 1fr"
         gap="large"
         alignItems="start"
       >
-        <s-stack
-          direction="block"
-          gap="small-500"
-          accessibilityLabel="Settings sections"
+        <s-box
+          padding="small-300"
+          background="base"
+          borderWidth="base"
+          borderColor="base"
+          borderRadius="base"
         >
-          {SETTINGS_TABS.map((tab) => {
-            const isActive = tab.id === activeTab;
+          <s-stack
+            direction="block"
+            gap="small-500"
+            accessibilityLabel="Settings sections"
+          >
+            {SETTINGS_TABS.map((tab) => {
+              const isActive = tab.id === activeTab;
 
-            return (
-              <s-clickable
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                padding="small-300"
-                borderRadius="base"
-                background={isActive ? "subdued" : undefined}
-                accessibilityLabel={tab.label}
-              >
-                <s-stack direction="inline" gap="small-200" alignItems="center">
-                  <s-icon
-                    type={tab.icon}
-                    size="small"
-                    tone={isActive ? undefined : "neutral"}
-                  />
-                  <s-text type={isActive ? "strong" : undefined}>
-                    {tab.label}
-                  </s-text>
-                </s-stack>
-              </s-clickable>
-            );
-          })}
-        </s-stack>
+              return (
+                <s-clickable
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  padding="small-300"
+                  borderRadius="base"
+                  background={isActive ? "subdued" : undefined}
+                  accessibilityLabel={tab.label}
+                >
+                  <s-stack
+                    direction="inline"
+                    gap="small-200"
+                    alignItems="center"
+                  >
+                    <s-icon
+                      type={tab.icon}
+                      size="small"
+                      tone={isActive ? undefined : "neutral"}
+                    />
+                    <s-text type={isActive ? "strong" : undefined}>
+                      {tab.label}
+                    </s-text>
+                  </s-stack>
+                </s-clickable>
+              );
+            })}
+          </s-stack>
+        </s-box>
 
         <s-stack direction="block" gap="base">
           {activeTab === "general" && (
