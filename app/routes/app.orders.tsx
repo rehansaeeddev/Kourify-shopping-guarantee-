@@ -14,6 +14,7 @@ import {
   useSendOffer,
   useSendOffers,
 } from "../lib/queries";
+import { PageBody } from "../components/PageBody";
 
 const FILTERS = ["all", "protected", "unprotected"] as const;
 const FULFILLMENTS = ["all", "fulfilled", "unfulfilled"] as const;
@@ -231,455 +232,470 @@ export default function Orders() {
   };
 
   return (
-    <s-page heading="Orders">
-      <WorkspaceTabs
-        active="orders"
-        counts={{
-          orders: workspaceCounts.ordersNeedingAction,
-          claims: workspaceCounts.openClaims,
-        }}
-      />
+    <s-page inlineSize="large" heading="Orders">
+      <PageBody>
+        <WorkspaceTabs
+          active="orders"
+          counts={{
+            orders: workspaceCounts.ordersNeedingAction,
+            claims: workspaceCounts.openClaims,
+          }}
+        />
 
-      <Card heading="Shopify orders">
-        <s-grid
-          gridTemplateColumns="@container (inline-size <= 640px) 1fr, 1fr auto auto"
-          gap="base"
-          alignItems="end"
-        >
-          {/* Search submits on Enter; the two dropdowns navigate on change.
+        <Card heading="Shopify orders">
+          <s-grid
+            gridTemplateColumns="@container (inline-size <= 640px) 1fr, 1fr auto auto"
+            gap="base"
+            alignItems="end"
+          >
+            {/* Search submits on Enter; the two dropdowns navigate on change.
               filter + fulfillment ride along as hidden inputs so a search keeps
               the active filters. */}
-          <Form method="get">
-            {filter !== "all" ? (
-              <input type="hidden" name="filter" value={filter} />
-            ) : null}
-            {fulfillment !== "all" ? (
-              <input type="hidden" name="fulfillment" value={fulfillment} />
-            ) : null}
-            <s-search-field
-              label="Search orders"
-              labelAccessibilityVisibility="exclusive"
-              name="q"
-              value={q}
-              placeholder="Search order #, customer, or email"
-            />
-          </Form>
-          <s-box minInlineSize="170px">
-            <s-select
-              label="Protection"
-              value={filter}
-              onChange={(e) =>
-                navigate(
-                  ordersHref({
-                    filter: e.currentTarget.value ?? "all",
-                    page: 1,
-                  }),
-                )
-              }
-            >
-              <s-option value="all">{`All (${counts.all})`}</s-option>
-              <s-option value="protected">
-                {`Protected (${counts.protected})`}
-              </s-option>
-              <s-option value="unprotected">
-                {`Unprotected (${counts.unprotected})`}
-              </s-option>
-            </s-select>
-          </s-box>
-          <s-box minInlineSize="170px">
-            <s-select
-              label="Fulfillment"
-              value={fulfillment}
-              onChange={(e) =>
-                navigate(
-                  ordersHref({
-                    fulfillment: e.currentTarget.value ?? "all",
-                    page: 1,
-                  }),
-                )
-              }
-            >
-              <s-option value="all">Any fulfillment</s-option>
-              <s-option value="fulfilled">Fulfilled</s-option>
-              <s-option value="unfulfilled">Unfulfilled</s-option>
-            </s-select>
-          </s-box>
-        </s-grid>
-      </Card>
+            <Form method="get">
+              {filter !== "all" ? (
+                <input type="hidden" name="filter" value={filter} />
+              ) : null}
+              {fulfillment !== "all" ? (
+                <input type="hidden" name="fulfillment" value={fulfillment} />
+              ) : null}
+              <s-search-field
+                label="Search orders"
+                labelAccessibilityVisibility="exclusive"
+                name="q"
+                value={q}
+                placeholder="Search order #, customer, or email"
+              />
+            </Form>
+            <s-box minInlineSize="170px">
+              <s-select
+                label="Protection"
+                value={filter}
+                onChange={(e) =>
+                  navigate(
+                    ordersHref({
+                      filter: e.currentTarget.value ?? "all",
+                      page: 1,
+                    }),
+                  )
+                }
+              >
+                <s-option value="all">{`All (${counts.all})`}</s-option>
+                <s-option value="protected">
+                  {`Protected (${counts.protected})`}
+                </s-option>
+                <s-option value="unprotected">
+                  {`Unprotected (${counts.unprotected})`}
+                </s-option>
+              </s-select>
+            </s-box>
+            <s-box minInlineSize="170px">
+              <s-select
+                label="Fulfillment"
+                value={fulfillment}
+                onChange={(e) =>
+                  navigate(
+                    ordersHref({
+                      fulfillment: e.currentTarget.value ?? "all",
+                      page: 1,
+                    }),
+                  )
+                }
+              >
+                <s-option value="all">Any fulfillment</s-option>
+                <s-option value="fulfilled">Fulfilled</s-option>
+                <s-option value="unfulfilled">Unfulfilled</s-option>
+              </s-select>
+            </s-box>
+          </s-grid>
+        </Card>
 
-      <Card>
-        {rows.length === 0 ? (
-          <EmptyState
-            icon="order"
-            heading={
-              q || filter !== "all" || fulfillment !== "all"
-                ? "No matching orders"
-                : "No orders here"
-            }
-            description={
-              q || filter !== "all" || fulfillment !== "all"
-                ? "Nothing matches your search and filters. Try clearing them."
-                : "Synchronize orders to see them here."
-            }
-          />
-        ) : (
-          <>
-            {/* Fixed-height header bar: the min height is reserved, so the
+        <Card>
+          {rows.length === 0 ? (
+            <EmptyState
+              icon="order"
+              heading={
+                q || filter !== "all" || fulfillment !== "all"
+                  ? "No matching orders"
+                  : "No orders here"
+              }
+              description={
+                q || filter !== "all" || fulfillment !== "all"
+                  ? "Nothing matches your search and filters. Try clearing them."
+                  : "Synchronize orders to see them here."
+              }
+            />
+          ) : (
+            <>
+              {/* Fixed-height header bar: the min height is reserved, so the
                 bulk actions can appear on the right only once rows are selected
                 without ever changing the bar's height — nothing shifts, and no
                 disabled button lingers on top while nothing is selected. */}
-            <s-box minBlockSize="44px">
-              <s-stack
-                direction="inline"
-                gap="base"
-                alignItems="center"
-                justifyContent="space-between"
-              >
-                <s-stack direction="inline" gap="small-200" alignItems="center">
-                  <s-checkbox
-                    checked={allSelected}
-                    accessibilityLabel="Select all orders on this page"
-                    onChange={toggleAll}
-                  />
-                  {selectedIds.size > 0 ? (
-                    <s-text type="strong">{`${selectedIds.size} selected`}</s-text>
-                  ) : (
-                    <s-text color="subdued">
-                      {`Showing ${(page - 1) * pageSize + 1}–${
-                        (page - 1) * pageSize + rows.length
-                      } of ${filteredCount} order${filteredCount === 1 ? "" : "s"}`}
-                    </s-text>
-                  )}
-                </s-stack>
-                {selectedIds.size > 0 ? (
+              <s-box minBlockSize="44px">
+                <s-stack
+                  direction="inline"
+                  gap="base"
+                  alignItems="center"
+                  justifyContent="space-between"
+                >
                   <s-stack
                     direction="inline"
                     gap="small-200"
                     alignItems="center"
                   >
-                    <AppButton
-                      variant="secondary"
-                      onClick={() => setSelectedIds(new Set())}
-                    >
-                      Clear
-                    </AppButton>
-                    <AppButton
-                      variant="primary"
-                      loading={sendOffers.isPending}
-                      disabled={busy}
-                      onClick={submitBulkOffer}
-                    >
-                      Send protection offer
-                    </AppButton>
+                    <s-checkbox
+                      checked={allSelected}
+                      accessibilityLabel="Select all orders on this page"
+                      onChange={toggleAll}
+                    />
+                    {selectedIds.size > 0 ? (
+                      <s-text type="strong">{`${selectedIds.size} selected`}</s-text>
+                    ) : (
+                      <s-text color="subdued">
+                        {`Showing ${(page - 1) * pageSize + 1}–${
+                          (page - 1) * pageSize + rows.length
+                        } of ${filteredCount} order${filteredCount === 1 ? "" : "s"}`}
+                      </s-text>
+                    )}
                   </s-stack>
-                ) : null}
-              </s-stack>
-            </s-box>
-            <s-table variant="auto">
-              <s-table-header-row>
-                <s-table-header listSlot="primary">Order</s-table-header>
-                <s-table-header listSlot="secondary">Customer</s-table-header>
-                <s-table-header listSlot="labeled">Total</s-table-header>
-                <s-table-header listSlot="labeled">Fulfillment</s-table-header>
-                <s-table-header listSlot="labeled">Protection</s-table-header>
-                <s-table-header listSlot="inline">Action</s-table-header>
-              </s-table-header-row>
-              <s-table-body>
-                {rows.map((order) => {
-                  const orderId = order.id.split("/").pop();
-                  const isFulfilled = isOrderFulfilled(order.status);
-                  return (
-                    <s-table-row key={order.id}>
-                      <s-table-cell>
-                        <s-stack
-                          direction="inline"
-                          gap="small-200"
-                          alignItems="center"
-                        >
-                          <s-checkbox
-                            checked={selectedIds.has(order.id)}
-                            accessibilityLabel={`Select ${order.name}`}
-                            onChange={() => toggleOne(order.id)}
-                          />
-                          <s-text type="strong">{order.name}</s-text>
-                        </s-stack>
-                      </s-table-cell>
-                      <s-table-cell>
-                        {order.customerName || order.email ? (
-                          <s-stack direction="block" gap="small-100">
-                            {order.customerName ? (
-                              <s-text>{order.customerName}</s-text>
-                            ) : null}
-                            {order.email ? (
-                              <s-text color="subdued">{order.email}</s-text>
-                            ) : null}
-                          </s-stack>
-                        ) : (
-                          "Customer details unavailable"
-                        )}
-                      </s-table-cell>
-                      <s-table-cell>
-                        <s-text fontVariantNumeric="tabular-nums">
-                          {formatMoney(order.totalPrice, currency)}
-                        </s-text>
-                      </s-table-cell>
-                      <s-table-cell>
-                        {/* One badge per cell — "Delivered" supersedes
-                          "Fulfilled", so rows keep a uniform height. */}
-                        <s-badge
-                          tone={
-                            order.deliveredAt
-                              ? "success"
-                              : isFulfilled
-                                ? "info"
-                                : "neutral"
-                          }
-                        >
-                          {order.deliveredAt
-                            ? "Delivered"
-                            : fulfillmentLabel(order.status)}
-                        </s-badge>
-                      </s-table-cell>
-                      <s-table-cell>
-                        {order.protected ? (
-                          /* The fee itself carries the status — a protected
-                           order is the only one with money in this column. */
-                          <s-text
-                            type="strong"
-                            fontVariantNumeric="tabular-nums"
+                  {selectedIds.size > 0 ? (
+                    <s-stack
+                      direction="inline"
+                      gap="small-200"
+                      alignItems="center"
+                    >
+                      <AppButton
+                        variant="secondary"
+                        onClick={() => setSelectedIds(new Set())}
+                      >
+                        Clear
+                      </AppButton>
+                      <AppButton
+                        variant="primary"
+                        loading={sendOffers.isPending}
+                        disabled={busy}
+                        onClick={submitBulkOffer}
+                      >
+                        Send protection offer
+                      </AppButton>
+                    </s-stack>
+                  ) : null}
+                </s-stack>
+              </s-box>
+              <s-table variant="auto">
+                <s-table-header-row>
+                  <s-table-header listSlot="primary">Order</s-table-header>
+                  <s-table-header listSlot="secondary">Customer</s-table-header>
+                  <s-table-header listSlot="labeled">Total</s-table-header>
+                  <s-table-header listSlot="labeled">
+                    Fulfillment
+                  </s-table-header>
+                  <s-table-header listSlot="labeled">Protection</s-table-header>
+                  <s-table-header listSlot="inline">Action</s-table-header>
+                </s-table-header-row>
+                <s-table-body>
+                  {rows.map((order) => {
+                    const orderId = order.id.split("/").pop();
+                    const isFulfilled = isOrderFulfilled(order.status);
+                    return (
+                      <s-table-row key={order.id}>
+                        <s-table-cell>
+                          <s-stack
+                            direction="inline"
+                            gap="small-200"
+                            alignItems="center"
                           >
-                            {order.protectionPriceCents
-                              ? formatMoney(
-                                  order.protectionPriceCents / 100,
-                                  order.protectionCurrency,
-                                )
-                              : "Covered by you"}
-                          </s-text>
-                        ) : (
-                          <s-stack direction="block" gap="small-100">
-                            <s-text color="subdued">
-                              {protectionLabel(order.offerStatus)}
-                            </s-text>
-                            {order.offerStatus === "offer_sent" &&
-                            order.offerExpiresAt ? (
-                              <s-text color="subdued">
-                                {offerExpiryLabel(order.offerExpiresAt)}
-                              </s-text>
-                            ) : null}
+                            <s-checkbox
+                              checked={selectedIds.has(order.id)}
+                              accessibilityLabel={`Select ${order.name}`}
+                              onChange={() => toggleOne(order.id)}
+                            />
+                            <s-text type="strong">{order.name}</s-text>
                           </s-stack>
-                        )}
-                      </s-table-cell>
-                      <s-table-cell>
-                        <s-button
-                          variant="tertiary"
-                          icon="menu-horizontal"
-                          accessibilityLabel={`Actions for ${order.name}`}
-                          commandFor={`order-actions-${orderId}`}
-                          command="--show"
-                        ></s-button>
-                        <s-menu
-                          id={`order-actions-${orderId}`}
-                          accessibilityLabel={`Actions for ${order.name}`}
-                        >
+                        </s-table-cell>
+                        <s-table-cell>
+                          {order.customerName || order.email ? (
+                            <s-stack direction="block" gap="small-100">
+                              {order.customerName ? (
+                                <s-text>{order.customerName}</s-text>
+                              ) : null}
+                              {order.email ? (
+                                <s-text color="subdued">{order.email}</s-text>
+                              ) : null}
+                            </s-stack>
+                          ) : (
+                            "Customer details unavailable"
+                          )}
+                        </s-table-cell>
+                        <s-table-cell>
+                          <s-text fontVariantNumeric="tabular-nums">
+                            {formatMoney(order.totalPrice, currency)}
+                          </s-text>
+                        </s-table-cell>
+                        <s-table-cell>
+                          {/* One badge per cell — "Delivered" supersedes
+                          "Fulfilled", so rows keep a uniform height. */}
+                          <s-badge
+                            tone={
+                              order.deliveredAt
+                                ? "success"
+                                : isFulfilled
+                                  ? "info"
+                                  : "neutral"
+                            }
+                          >
+                            {order.deliveredAt
+                              ? "Delivered"
+                              : fulfillmentLabel(order.status)}
+                          </s-badge>
+                        </s-table-cell>
+                        <s-table-cell>
+                          {order.protected ? (
+                            /* The fee itself carries the status — a protected
+                           order is the only one with money in this column. */
+                            <s-text
+                              type="strong"
+                              fontVariantNumeric="tabular-nums"
+                            >
+                              {order.protectionPriceCents
+                                ? formatMoney(
+                                    order.protectionPriceCents / 100,
+                                    order.protectionCurrency,
+                                  )
+                                : "Covered by you"}
+                            </s-text>
+                          ) : (
+                            <s-stack direction="block" gap="small-100">
+                              <s-text color="subdued">
+                                {protectionLabel(order.offerStatus)}
+                              </s-text>
+                              {order.offerStatus === "offer_sent" &&
+                              order.offerExpiresAt ? (
+                                <s-text color="subdued">
+                                  {offerExpiryLabel(order.offerExpiresAt)}
+                                </s-text>
+                              ) : null}
+                            </s-stack>
+                          )}
+                        </s-table-cell>
+                        <s-table-cell>
                           <s-button
                             variant="tertiary"
-                            href={`shopify://admin/orders/${orderId}`}
+                            icon="menu-horizontal"
+                            accessibilityLabel={`Actions for ${order.name}`}
+                            commandFor={`order-actions-${orderId}`}
+                            command="--show"
+                          ></s-button>
+                          <s-menu
+                            id={`order-actions-${orderId}`}
+                            accessibilityLabel={`Actions for ${order.name}`}
                           >
-                            View order
-                          </s-button>
-                          {!order.protected &&
-                          !isFulfilled &&
-                          order.email &&
-                          !["offer_sent", "awaiting_payment"].includes(
-                            order.offerStatus ?? "",
-                          ) ? (
                             <s-button
                               variant="tertiary"
-                              onClick={() =>
-                                sendOffer.mutate({ orderId: order.id }, notify)
-                              }
+                              href={`shopify://admin/orders/${orderId}`}
                             >
-                              Send offer
+                              View order
                             </s-button>
-                          ) : null}
-                          {order.protected && !isFulfilled ? (
-                            <s-button
-                              variant="tertiary"
-                              onClick={() => setFulfillmentOrder(order)}
-                            >
-                              Fulfill order
-                            </s-button>
-                          ) : null}
-                          {order.protected &&
-                          isFulfilled &&
-                          !order.deliveredAt ? (
-                            <s-button
-                              variant="tertiary"
-                              onClick={() => {
-                                setPendingDeliver({
-                                  id: order.id,
-                                  name: order.name,
-                                });
-                                deliverModalRef.current?.showOverlay();
-                              }}
-                            >
-                              Mark as delivered
-                            </s-button>
-                          ) : null}
-                        </s-menu>
-                      </s-table-cell>
-                    </s-table-row>
-                  );
-                })}
-              </s-table-body>
-            </s-table>
-          </>
-        )}
+                            {!order.protected &&
+                            !isFulfilled &&
+                            order.email &&
+                            !["offer_sent", "awaiting_payment"].includes(
+                              order.offerStatus ?? "",
+                            ) ? (
+                              <s-button
+                                variant="tertiary"
+                                onClick={() =>
+                                  sendOffer.mutate(
+                                    { orderId: order.id },
+                                    notify,
+                                  )
+                                }
+                              >
+                                Send offer
+                              </s-button>
+                            ) : null}
+                            {order.protected && !isFulfilled ? (
+                              <s-button
+                                variant="tertiary"
+                                onClick={() => setFulfillmentOrder(order)}
+                              >
+                                Fulfill order
+                              </s-button>
+                            ) : null}
+                            {order.protected &&
+                            isFulfilled &&
+                            !order.deliveredAt ? (
+                              <s-button
+                                variant="tertiary"
+                                onClick={() => {
+                                  setPendingDeliver({
+                                    id: order.id,
+                                    name: order.name,
+                                  });
+                                  deliverModalRef.current?.showOverlay();
+                                }}
+                              >
+                                Mark as delivered
+                              </s-button>
+                            ) : null}
+                          </s-menu>
+                        </s-table-cell>
+                      </s-table-row>
+                    );
+                  })}
+                </s-table-body>
+              </s-table>
+            </>
+          )}
 
-        {rows.length > 0 && (
-          <s-stack
-            direction="inline"
-            gap="small-200"
-            alignItems="center"
-            justifyContent="space-between"
-            paddingBlockStart="base"
-          >
-            <s-stack direction="inline" gap="small-200" alignItems="center">
-              <s-text color="subdued">Show</s-text>
-              <s-box inlineSize="90px">
-                <s-select
-                  label="Rows per page"
-                  labelAccessibilityVisibility="exclusive"
-                  value={String(pageSize)}
-                  onChange={(e) =>
-                    handlePageSizeChange(
-                      e.currentTarget.value ?? String(DEFAULT_PAGE_SIZE),
-                    )
-                  }
-                >
-                  {PAGE_SIZES.map((size) => (
-                    <s-option key={size} value={String(size)}>
-                      {size}
-                    </s-option>
-                  ))}
-                </s-select>
-              </s-box>
-              <s-text color="subdued">orders per page</s-text>
-            </s-stack>
-
-            {totalPages > 1 && (
-              <s-stack direction="inline" gap="small-200">
-                <AppButton
-                  variant="secondary"
-                  disabled={page <= 1}
-                  href={page > 1 ? pageHref(page - 1) : undefined}
-                >
-                  Previous
-                </AppButton>
-                <AppButton
-                  variant="secondary"
-                  disabled={page >= totalPages}
-                  href={page < totalPages ? pageHref(page + 1) : undefined}
-                >
-                  Next
-                </AppButton>
+          {rows.length > 0 && (
+            <s-stack
+              direction="inline"
+              gap="small-200"
+              alignItems="center"
+              justifyContent="space-between"
+              paddingBlockStart="base"
+            >
+              <s-stack direction="inline" gap="small-200" alignItems="center">
+                <s-text color="subdued">Show</s-text>
+                <s-box inlineSize="90px">
+                  <s-select
+                    label="Rows per page"
+                    labelAccessibilityVisibility="exclusive"
+                    value={String(pageSize)}
+                    onChange={(e) =>
+                      handlePageSizeChange(
+                        e.currentTarget.value ?? String(DEFAULT_PAGE_SIZE),
+                      )
+                    }
+                  >
+                    {PAGE_SIZES.map((size) => (
+                      <s-option key={size} value={String(size)}>
+                        {size}
+                      </s-option>
+                    ))}
+                  </s-select>
+                </s-box>
+                <s-text color="subdued">orders per page</s-text>
               </s-stack>
-            )}
-          </s-stack>
-        )}
-      </Card>
-      {fulfillmentOrder ? (
-        <Card heading={`Fulfill ${fulfillmentOrder.name}`}>
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              const form = new FormData(event.currentTarget);
 
-              fulfillOrder.mutate(
-                {
-                  orderId: fulfillmentOrder.id,
-                  // The server asks for this too: fulfilling is not something
-                  // to trigger from a stray request.
-                  confirmed: true,
-                  trackingNumber: String(form.get("trackingNumber") ?? ""),
-                  trackingCompany: String(form.get("trackingCompany") ?? ""),
-                  trackingUrl: String(form.get("trackingUrl") ?? ""),
-                  notifyCustomer: form.get("notifyCustomer") === "true",
-                },
-                {
-                  ...notify,
-                  onSuccess: (result) => {
-                    notify.onSuccess(result);
-                    setFulfillmentOrder(null);
-                  },
-                },
-              );
-            }}
-          >
-            <s-stack gap="base">
-              <s-box maxInlineSize="360px">
-                <s-text-field label="Tracking number" name="trackingNumber" />
-              </s-box>
-              <s-box maxInlineSize="360px">
-                <s-text-field label="Shipping carrier" name="trackingCompany" />
-              </s-box>
-              <s-box maxInlineSize="420px">
-                <s-text-field label="Tracking URL" name="trackingUrl" />
-              </s-box>
-              <s-checkbox
-                label="Notify the customer"
-                name="notifyCustomer"
-                value="true"
-                checked
-              />
-              <s-banner tone="warning">
-                Confirm only when the order is packed and ready to be fulfilled.
-                Protection payment never fulfills an order automatically.
-              </s-banner>
-              <s-stack direction="inline" gap="small-200">
-                <AppButton
-                  type="submit"
-                  variant="primary"
-                  loading={fulfillOrder.isPending}
-                  disabled={busy}
-                >
-                  Confirm fulfillment
-                </AppButton>
-                <AppButton
-                  variant="secondary"
-                  onClick={() => setFulfillmentOrder(null)}
-                >
-                  Cancel
-                </AppButton>
-              </s-stack>
+              {totalPages > 1 && (
+                <s-stack direction="inline" gap="small-200">
+                  <AppButton
+                    variant="secondary"
+                    disabled={page <= 1}
+                    href={page > 1 ? pageHref(page - 1) : undefined}
+                  >
+                    Previous
+                  </AppButton>
+                  <AppButton
+                    variant="secondary"
+                    disabled={page >= totalPages}
+                    href={page < totalPages ? pageHref(page + 1) : undefined}
+                  >
+                    Next
+                  </AppButton>
+                </s-stack>
+              )}
             </s-stack>
-          </form>
+          )}
         </Card>
-      ) : null}
+        {fulfillmentOrder ? (
+          <Card heading={`Fulfill ${fulfillmentOrder.name}`}>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                const form = new FormData(event.currentTarget);
 
-      <s-modal
-        ref={deliverModalRef as never}
-        id="kourify-deliver-confirm-modal"
-        heading="Mark as delivered"
-      >
-        <s-paragraph>
-          {pendingDeliver
-            ? `Confirm that ${pendingDeliver.name} was actually delivered. This records the delivery date and starts any post-delivery claim windows, and can't be undone.`
-            : ""}
-        </s-paragraph>
-        <s-button
-          slot="primary-action"
-          variant="primary"
-          loading={deliverOrder.isPending}
-          disabled={busy}
-          onClick={confirmDeliver}
+                fulfillOrder.mutate(
+                  {
+                    orderId: fulfillmentOrder.id,
+                    // The server asks for this too: fulfilling is not something
+                    // to trigger from a stray request.
+                    confirmed: true,
+                    trackingNumber: String(form.get("trackingNumber") ?? ""),
+                    trackingCompany: String(form.get("trackingCompany") ?? ""),
+                    trackingUrl: String(form.get("trackingUrl") ?? ""),
+                    notifyCustomer: form.get("notifyCustomer") === "true",
+                  },
+                  {
+                    ...notify,
+                    onSuccess: (result) => {
+                      notify.onSuccess(result);
+                      setFulfillmentOrder(null);
+                    },
+                  },
+                );
+              }}
+            >
+              <s-stack gap="base">
+                <s-box maxInlineSize="360px">
+                  <s-text-field label="Tracking number" name="trackingNumber" />
+                </s-box>
+                <s-box maxInlineSize="360px">
+                  <s-text-field
+                    label="Shipping carrier"
+                    name="trackingCompany"
+                  />
+                </s-box>
+                <s-box maxInlineSize="420px">
+                  <s-text-field label="Tracking URL" name="trackingUrl" />
+                </s-box>
+                <s-checkbox
+                  label="Notify the customer"
+                  name="notifyCustomer"
+                  value="true"
+                  checked
+                />
+                <s-banner tone="warning">
+                  Confirm only when the order is packed and ready to be
+                  fulfilled. Protection payment never fulfills an order
+                  automatically.
+                </s-banner>
+                <s-stack direction="inline" gap="small-200">
+                  <AppButton
+                    type="submit"
+                    variant="primary"
+                    loading={fulfillOrder.isPending}
+                    disabled={busy}
+                  >
+                    Confirm fulfillment
+                  </AppButton>
+                  <AppButton
+                    variant="secondary"
+                    onClick={() => setFulfillmentOrder(null)}
+                  >
+                    Cancel
+                  </AppButton>
+                </s-stack>
+              </s-stack>
+            </form>
+          </Card>
+        ) : null}
+
+        <s-modal
+          ref={deliverModalRef as never}
+          id="kourify-deliver-confirm-modal"
+          heading="Mark as delivered"
         >
-          Mark as delivered
-        </s-button>
-        <s-button slot="secondary-actions" onClick={cancelDeliver}>
-          Cancel
-        </s-button>
-      </s-modal>
+          <s-paragraph>
+            {pendingDeliver
+              ? `Confirm that ${pendingDeliver.name} was actually delivered. This records the delivery date and starts any post-delivery claim windows, and can't be undone.`
+              : ""}
+          </s-paragraph>
+          <s-button
+            slot="primary-action"
+            variant="primary"
+            loading={deliverOrder.isPending}
+            disabled={busy}
+            onClick={confirmDeliver}
+          >
+            Mark as delivered
+          </s-button>
+          <s-button slot="secondary-actions" onClick={cancelDeliver}>
+            Cancel
+          </s-button>
+        </s-modal>
+      </PageBody>
     </s-page>
   );
 }

@@ -11,6 +11,7 @@ import { useTablePagination } from "../hooks/useTablePagination";
 import { api } from "../lib/api";
 import { issueTypeLabel } from "../lib/claim-issue-type";
 import { useBulkUpdateClaims, useClaims, useUpdateClaim } from "../lib/queries";
+import { PageBody } from "../components/PageBody";
 
 const STATUS_CONFIRM_MODAL_ID = "kourify-status-confirm-modal";
 const STATUSES = ["submitted", "reviewing", "resolved", "denied"] as const;
@@ -265,7 +266,7 @@ export default function Claims() {
       .catch((cause: Error) => showToast(cause.message, { isError: true }));
 
   return (
-    <s-page heading="Claims">
+    <s-page inlineSize="large" heading="Claims">
       <s-button
         slot="secondary-actions"
         href="/app/settings"
@@ -276,437 +277,454 @@ export default function Claims() {
       <s-button slot="secondary-actions" href="/app" variant="secondary">
         Back
       </s-button>
+      <PageBody>
+        {bulkBanner && (
+          <s-banner
+            tone={bulkBanner.ok ? "success" : "critical"}
+            heading={
+              bulkBanner.ok ? "Claims updated" : "Couldn't update claims"
+            }
+            dismissible
+            onDismiss={() => setBulkBanner(null)}
+          >
+            {bulkBanner.text}
+          </s-banner>
+        )}
 
-      {bulkBanner && (
-        <s-banner
-          tone={bulkBanner.ok ? "success" : "critical"}
-          heading={bulkBanner.ok ? "Claims updated" : "Couldn't update claims"}
-          dismissible
-          onDismiss={() => setBulkBanner(null)}
-        >
-          {bulkBanner.text}
-        </s-banner>
-      )}
+        {statusBanner && (
+          <s-banner
+            tone={statusBanner.status === "resolved" ? "success" : "info"}
+            heading={
+              statusBanner.status === "resolved"
+                ? `Claim ${statusBanner.orderName} resolved`
+                : `Claim ${statusBanner.orderName} denied`
+            }
+            dismissible
+            onDismiss={() => setStatusBanner(null)}
+          >
+            {statusBanner.status === "resolved"
+              ? "The customer has been emailed to say their claim was approved."
+              : "The customer has been emailed to say their claim wasn't approved."}
+            {statusBanner.shopifyOrderId && (
+              <s-button
+                slot="primary-action"
+                href={`shopify://admin/orders/${statusBanner.shopifyOrderId
+                  .split("/")
+                  .pop()}`}
+                target="_top"
+              >
+                View order
+              </s-button>
+            )}
+          </s-banner>
+        )}
 
-      {statusBanner && (
-        <s-banner
-          tone={statusBanner.status === "resolved" ? "success" : "info"}
-          heading={
-            statusBanner.status === "resolved"
-              ? `Claim ${statusBanner.orderName} resolved`
-              : `Claim ${statusBanner.orderName} denied`
-          }
-          dismissible
-          onDismiss={() => setStatusBanner(null)}
-        >
-          {statusBanner.status === "resolved"
-            ? "The customer has been emailed to say their claim was approved."
-            : "The customer has been emailed to say their claim wasn't approved."}
-          {statusBanner.shopifyOrderId && (
-            <s-button
-              slot="primary-action"
-              href={`shopify://admin/orders/${statusBanner.shopifyOrderId
-                .split("/")
-                .pop()}`}
-              target="_top"
-            >
-              View order
-            </s-button>
-          )}
-        </s-banner>
-      )}
+        <WorkspaceTabs
+          active="claims"
+          counts={{
+            orders: workspaceCounts.ordersNeedingAction,
+            claims: workspaceCounts.openClaims,
+          }}
+        />
 
-      <WorkspaceTabs
-        active="claims"
-        counts={{
-          orders: workspaceCounts.ordersNeedingAction,
-          claims: workspaceCounts.openClaims,
-        }}
-      />
-
-      <Card heading={`Claims (${totalClaims})`}>
-        {/* One block stack owns the card's vertical rhythm so the count line,
+        <Card heading={`Claims (${totalClaims})`}>
+          {/* One block stack owns the card's vertical rhythm so the count line,
             filters, search and table each get even breathing room instead of
             butting up against one another. */}
-        <s-stack direction="block" gap="base">
-          {/* A compact count line, not a whole metrics card — two numbers don't
+          <s-stack direction="block" gap="base">
+            {/* A compact count line, not a whole metrics card — two numbers don't
             earn their own section, and the open count already rides on the
             workspace tab. */}
-          <s-stack direction="inline" gap="small-200" alignItems="center">
-            <s-badge tone={openClaims > 0 ? "warning" : "neutral"}>
-              {`${openClaims} open`}
-            </s-badge>
-            <s-badge tone="neutral">{`${resolvedClaims} resolved`}</s-badge>
-          </s-stack>
-          {/* Search submits on Enter; the Status dropdown navigates on change,
+            <s-stack direction="inline" gap="small-200" alignItems="center">
+              <s-badge tone={openClaims > 0 ? "warning" : "neutral"}>
+                {`${openClaims} open`}
+              </s-badge>
+              <s-badge tone="neutral">{`${resolvedClaims} resolved`}</s-badge>
+            </s-stack>
+            {/* Search submits on Enter; the Status dropdown navigates on change,
             keeping the current search. */}
-          <s-grid
-            gridTemplateColumns="@container (inline-size <= 640px) 1fr, 1fr auto auto"
-            gap="base"
-            alignItems="end"
-          >
-            <Form method="get">
-              {tab !== "all" ? (
-                <input type="hidden" name="tab" value={tab} />
-              ) : null}
-              <s-search-field
-                label="Search claims"
-                labelAccessibilityVisibility="exclusive"
-                name="q"
-                value={q}
-                placeholder="Search order, name, or email"
-              />
-            </Form>
-            <s-box minInlineSize="180px">
-              <s-select
-                label="Status"
-                value={tab}
-                onChange={(e) => {
-                  const value = e.currentTarget.value ?? "all";
-                  const params = new URLSearchParams();
-                  if (value !== "all") params.set("tab", value);
-                  if (q) params.set("q", q);
-                  const search = params.toString();
-                  navigate(search ? `/app/claims?${search}` : "/app/claims");
-                }}
-              >
-                {TABS.map((t) => (
-                  <s-option key={t.value} value={t.value}>
-                    {t.label}
-                  </s-option>
-                ))}
-              </s-select>
-            </s-box>
-            <s-button variant="secondary" onClick={exportCsv}>
-              Export CSV
-            </s-button>
-          </s-grid>
-        </s-stack>
-      </Card>
+            <s-grid
+              gridTemplateColumns="@container (inline-size <= 640px) 1fr, 1fr auto auto"
+              gap="base"
+              alignItems="end"
+            >
+              <Form method="get">
+                {tab !== "all" ? (
+                  <input type="hidden" name="tab" value={tab} />
+                ) : null}
+                <s-search-field
+                  label="Search claims"
+                  labelAccessibilityVisibility="exclusive"
+                  name="q"
+                  value={q}
+                  placeholder="Search order, name, or email"
+                />
+              </Form>
+              <s-box minInlineSize="180px">
+                <s-select
+                  label="Status"
+                  value={tab}
+                  onChange={(e) => {
+                    const value = e.currentTarget.value ?? "all";
+                    const params = new URLSearchParams();
+                    if (value !== "all") params.set("tab", value);
+                    if (q) params.set("q", q);
+                    const search = params.toString();
+                    navigate(search ? `/app/claims?${search}` : "/app/claims");
+                  }}
+                >
+                  {TABS.map((t) => (
+                    <s-option key={t.value} value={t.value}>
+                      {t.label}
+                    </s-option>
+                  ))}
+                </s-select>
+              </s-box>
+              <s-button variant="secondary" onClick={exportCsv}>
+                Export CSV
+              </s-button>
+            </s-grid>
+          </s-stack>
+        </Card>
 
-      <Card>
-        {claims.length === 0 ? (
-          <EmptyState
-            icon="clipboard-checklist"
-            heading={q ? "No matching claims" : "No claims here"}
-            description={
-              q
-                ? `Nothing matches “${q}”. Try a different order number, name, or email.`
-                : "Nothing matches this filter yet."
-            }
-          />
-        ) : (
-          <>
-            {/* Fixed-height header bar so selecting never shifts the table:
+        <Card>
+          {claims.length === 0 ? (
+            <EmptyState
+              icon="clipboard-checklist"
+              heading={q ? "No matching claims" : "No claims here"}
+              description={
+                q
+                  ? `Nothing matches “${q}”. Try a different order number, name, or email.`
+                  : "Nothing matches this filter yet."
+              }
+            />
+          ) : (
+            <>
+              {/* Fixed-height header bar so selecting never shifts the table:
                 the select-all checkbox and count sit on the left, and the bulk
                 actions appear on the right only once claims are selected — no
                 disabled button lingers on top while nothing is selected. */}
-            <s-box minBlockSize="44px">
-              <s-stack
-                direction="inline"
-                gap="base"
-                alignItems="center"
-                justifyContent="space-between"
-              >
-                <s-stack direction="inline" gap="small-200" alignItems="center">
-                  <s-checkbox
-                    checked={allClaimsSelected}
-                    accessibilityLabel="Select all claims on this page"
-                    onChange={toggleAllClaims}
-                  />
-                  {selectedClaimIds.size > 0 ? (
-                    <s-text type="strong">
-                      {`${selectedClaimIds.size} selected`}
-                    </s-text>
-                  ) : (
-                    <s-text color="subdued">
-                      {`Showing ${(page - 1) * pageSize + 1}–${
-                        (page - 1) * pageSize + claims.length
-                      } of ${filteredCount} claim${filteredCount === 1 ? "" : "s"}`}
-                    </s-text>
-                  )}
-                </s-stack>
-                {selectedClaimIds.size > 0 ? (
+              <s-box minBlockSize="44px">
+                <s-stack
+                  direction="inline"
+                  gap="base"
+                  alignItems="center"
+                  justifyContent="space-between"
+                >
                   <s-stack
                     direction="inline"
                     gap="small-200"
                     alignItems="center"
                   >
-                    <s-button
-                      variant="secondary"
-                      onClick={() => setSelectedClaimIds(new Set())}
-                    >
-                      Clear
-                    </s-button>
-                    <s-button
-                      variant="secondary"
-                      loading={bulkUpdate.isPending}
-                      disabled={bulkUpdate.isPending}
-                      onClick={() => openBulkConfirm("reviewing")}
-                    >
-                      Mark reviewing
-                    </s-button>
-                    <s-button
-                      variant="primary"
-                      loading={bulkUpdate.isPending}
-                      disabled={bulkUpdate.isPending}
-                      onClick={() => openBulkConfirm("resolved")}
-                    >
-                      Approve
-                    </s-button>
+                    <s-checkbox
+                      checked={allClaimsSelected}
+                      accessibilityLabel="Select all claims on this page"
+                      onChange={toggleAllClaims}
+                    />
+                    {selectedClaimIds.size > 0 ? (
+                      <s-text type="strong">
+                        {`${selectedClaimIds.size} selected`}
+                      </s-text>
+                    ) : (
+                      <s-text color="subdued">
+                        {`Showing ${(page - 1) * pageSize + 1}–${
+                          (page - 1) * pageSize + claims.length
+                        } of ${filteredCount} claim${filteredCount === 1 ? "" : "s"}`}
+                      </s-text>
+                    )}
                   </s-stack>
-                ) : null}
-              </s-stack>
-            </s-box>
-            <s-table
-              ref={pagination.ref as never}
-              variant="auto"
-              paginate={pagination.paginate}
-              hasPreviousPage={pagination.hasPreviousPage}
-              hasNextPage={pagination.hasNextPage}
-            >
-              <s-table-header-row>
-                <s-table-header listSlot="primary">Order</s-table-header>
-                <s-table-header listSlot="secondary">Customer</s-table-header>
-                <s-table-header listSlot="labeled">Issue</s-table-header>
-                <s-table-header listSlot="labeled">Loss</s-table-header>
-                <s-table-header listSlot="inline">Status</s-table-header>
-              </s-table-header-row>
-              <s-table-body>
-                {claims.map((claim) => {
-                  const claimNumberForEmail =
-                    emailClaimNumbers[claim.email] ?? 1;
-                  return (
-                    <s-table-row key={claim.id}>
-                      <s-table-cell>
-                        <s-stack
-                          direction="inline"
-                          gap="small-200"
-                          alignItems="start"
-                        >
-                          <s-checkbox
-                            checked={selectedClaimIds.has(claim.id)}
-                            accessibilityLabel={`Select claim ${claim.orderNumber}`}
-                            onChange={() => toggleClaim(claim.id)}
-                          />
-                          <s-stack direction="block" gap="small-100">
-                            {claim.shopifyOrderId ? (
-                              <s-link
-                                href={`shopify://admin/orders/${claim.shopifyOrderId.split("/").pop()}`}
-                                target="_top"
-                              >
-                                {claim.shopifyOrderName ?? claim.orderNumber}
-                              </s-link>
-                            ) : (
-                              <s-link
-                                href={`shopify://admin/orders?query=${encodeURIComponent(claim.orderNumber)}`}
-                                target="_top"
-                              >
-                                {claim.orderNumber}
-                              </s-link>
-                            )}
-                            <s-text color="subdued">
-                              {new Date(claim.createdAt).toLocaleDateString()}
-                            </s-text>
-                          </s-stack>
-                        </s-stack>
-                      </s-table-cell>
-                      <s-table-cell>
-                        <s-stack direction="block" gap="small-100">
-                          <s-text>{claim.fullName}</s-text>
-                          <s-text color="subdued">{claim.email}</s-text>
-                          {claimNumberForEmail > 1 && (
-                            <s-stack direction="inline">
-                              <s-badge tone="warning">
-                                {`${ordinal(claimNumberForEmail)} claim from this email`}
-                              </s-badge>
+                  {selectedClaimIds.size > 0 ? (
+                    <s-stack
+                      direction="inline"
+                      gap="small-200"
+                      alignItems="center"
+                    >
+                      <s-button
+                        variant="secondary"
+                        onClick={() => setSelectedClaimIds(new Set())}
+                      >
+                        Clear
+                      </s-button>
+                      <s-button
+                        variant="secondary"
+                        loading={bulkUpdate.isPending}
+                        disabled={bulkUpdate.isPending}
+                        onClick={() => openBulkConfirm("reviewing")}
+                      >
+                        Mark reviewing
+                      </s-button>
+                      <s-button
+                        variant="primary"
+                        loading={bulkUpdate.isPending}
+                        disabled={bulkUpdate.isPending}
+                        onClick={() => openBulkConfirm("resolved")}
+                      >
+                        Approve
+                      </s-button>
+                    </s-stack>
+                  ) : null}
+                </s-stack>
+              </s-box>
+              <s-table
+                ref={pagination.ref as never}
+                variant="auto"
+                paginate={pagination.paginate}
+                hasPreviousPage={pagination.hasPreviousPage}
+                hasNextPage={pagination.hasNextPage}
+              >
+                <s-table-header-row>
+                  <s-table-header listSlot="primary">Order</s-table-header>
+                  <s-table-header listSlot="secondary">Customer</s-table-header>
+                  <s-table-header listSlot="labeled">Issue</s-table-header>
+                  <s-table-header listSlot="labeled">Loss</s-table-header>
+                  <s-table-header listSlot="inline">Status</s-table-header>
+                </s-table-header-row>
+                <s-table-body>
+                  {claims.map((claim) => {
+                    const claimNumberForEmail =
+                      emailClaimNumbers[claim.email] ?? 1;
+                    return (
+                      <s-table-row key={claim.id}>
+                        <s-table-cell>
+                          <s-stack
+                            direction="inline"
+                            gap="small-200"
+                            alignItems="start"
+                          >
+                            <s-checkbox
+                              checked={selectedClaimIds.has(claim.id)}
+                              accessibilityLabel={`Select claim ${claim.orderNumber}`}
+                              onChange={() => toggleClaim(claim.id)}
+                            />
+                            <s-stack direction="block" gap="small-100">
+                              {claim.shopifyOrderId ? (
+                                <s-link
+                                  href={`shopify://admin/orders/${claim.shopifyOrderId.split("/").pop()}`}
+                                  target="_top"
+                                >
+                                  {claim.shopifyOrderName ?? claim.orderNumber}
+                                </s-link>
+                              ) : (
+                                <s-link
+                                  href={`shopify://admin/orders?query=${encodeURIComponent(claim.orderNumber)}`}
+                                  target="_top"
+                                >
+                                  {claim.orderNumber}
+                                </s-link>
+                              )}
+                              <s-text color="subdued">
+                                {new Date(claim.createdAt).toLocaleDateString()}
+                              </s-text>
                             </s-stack>
-                          )}
-                          {claim.orderRiskLevel &&
-                            claim.orderRiskLevel !== "LOW" && (
+                          </s-stack>
+                        </s-table-cell>
+                        <s-table-cell>
+                          <s-stack direction="block" gap="small-100">
+                            <s-text>{claim.fullName}</s-text>
+                            <s-text color="subdued">{claim.email}</s-text>
+                            {claimNumberForEmail > 1 && (
                               <s-stack direction="inline">
-                                <s-badge tone="critical">
-                                  {`${claim.orderRiskLevel.charAt(0)}${claim.orderRiskLevel
-                                    .slice(1)
-                                    .toLowerCase()} risk order`}
+                                <s-badge tone="warning">
+                                  {`${ordinal(claimNumberForEmail)} claim from this email`}
                                 </s-badge>
                               </s-stack>
                             )}
-                        </s-stack>
-                      </s-table-cell>
-                      <s-table-cell>
-                        {issueTypeLabel(claim.issueType)}
-                        {claim.evidenceUrl && (
-                          <>
-                            <br />
-                            <s-button
-                              variant="secondary"
-                              command="--show"
-                              commandFor="kourify-evidence-modal"
-                              onClick={() => setPreviewUrl(claim.evidenceUrl)}
+                            {claim.orderRiskLevel &&
+                              claim.orderRiskLevel !== "LOW" && (
+                                <s-stack direction="inline">
+                                  <s-badge tone="critical">
+                                    {`${claim.orderRiskLevel.charAt(0)}${claim.orderRiskLevel
+                                      .slice(1)
+                                      .toLowerCase()} risk order`}
+                                  </s-badge>
+                                </s-stack>
+                              )}
+                          </s-stack>
+                        </s-table-cell>
+                        <s-table-cell>
+                          {issueTypeLabel(claim.issueType)}
+                          {claim.evidenceUrl && (
+                            <>
+                              <br />
+                              <s-button
+                                variant="secondary"
+                                command="--show"
+                                commandFor="kourify-evidence-modal"
+                                onClick={() => setPreviewUrl(claim.evidenceUrl)}
+                              >
+                                View photo
+                              </s-button>
+                            </>
+                          )}
+                        </s-table-cell>
+                        <s-table-cell>
+                          <s-stack direction="block" gap="small-100">
+                            <s-text
+                              type="strong"
+                              fontVariantNumeric="tabular-nums"
                             >
-                              View photo
-                            </s-button>
-                          </>
-                        )}
-                      </s-table-cell>
-                      <s-table-cell>
-                        <s-stack direction="block" gap="small-100">
-                          <s-text
-                            type="strong"
-                            fontVariantNumeric="tabular-nums"
-                          >
-                            {claim.eligibleLossCents != null
-                              ? money(claim.eligibleLossCents)
-                              : "—"}
-                          </s-text>
-                          {claim.protectedItem && (
-                            <s-text color="subdued">
-                              {`${claim.protectedItem.title} · ${claim.claimedQuantity ?? 1} × ${money(claim.itemValueCents ?? 0)}`}
+                              {claim.eligibleLossCents != null
+                                ? money(claim.eligibleLossCents)
+                                : "—"}
                             </s-text>
-                          )}
-                          {claim.settlementCents != null && (
-                            <s-text color="subdued">
-                              {`Approved ${money(claim.settlementCents)}`}
-                            </s-text>
-                          )}
-                        </s-stack>
-                      </s-table-cell>
+                            {claim.protectedItem && (
+                              <s-text color="subdued">
+                                {`${claim.protectedItem.title} · ${claim.claimedQuantity ?? 1} × ${money(claim.itemValueCents ?? 0)}`}
+                              </s-text>
+                            )}
+                            {claim.settlementCents != null && (
+                              <s-text color="subdued">
+                                {`Approved ${money(claim.settlementCents)}`}
+                              </s-text>
+                            )}
+                          </s-stack>
+                        </s-table-cell>
 
-                      <s-table-cell>
-                        <s-stack direction="block" gap="small-100">
-                          {/* The badge shows the status at a glance; the menu
+                        <s-table-cell>
+                          <s-stack direction="block" gap="small-100">
+                            {/* The badge shows the status at a glance; the menu
                               changes it — so the column no longer stacks a badge
                               above a full-width select that said the same thing. */}
-                          <s-stack
-                            direction="inline"
-                            gap="small-100"
-                            alignItems="center"
-                          >
-                            <StatusBadge status={claim.status} />
-                            <s-button
-                              variant="tertiary"
-                              icon="menu-horizontal"
-                              accessibilityLabel={`Change status for ${claim.orderNumber}`}
-                              commandFor={`status-menu-${claim.id}`}
-                              command="--show"
-                            ></s-button>
-                            <s-menu
-                              id={`status-menu-${claim.id}`}
-                              accessibilityLabel="Change status"
+                            <s-stack
+                              direction="inline"
+                              gap="small-100"
+                              alignItems="center"
                             >
-                              {STATUSES.map((status) => (
-                                <s-button
-                                  key={status}
-                                  variant="tertiary"
-                                  onClick={() => updateStatus(claim.id, status)}
-                                >
-                                  {status.charAt(0).toUpperCase() +
-                                    status.slice(1)}
-                                </s-button>
-                              ))}
-                            </s-menu>
-                          </s-stack>
-                          {claim.status === "resolved" &&
-                            claim.shopifyOrderId && (
-                              <s-link
-                                href={`shopify://admin/orders/${claim.shopifyOrderId.split("/").pop()}`}
-                                target="_top"
+                              <StatusBadge status={claim.status} />
+                              <s-button
+                                variant="tertiary"
+                                icon="menu-horizontal"
+                                accessibilityLabel={`Change status for ${claim.orderNumber}`}
+                                commandFor={`status-menu-${claim.id}`}
+                                command="--show"
+                              ></s-button>
+                              <s-menu
+                                id={`status-menu-${claim.id}`}
+                                accessibilityLabel="Change status"
                               >
-                                Process refund/replacement →
-                              </s-link>
-                            )}
-                        </s-stack>
-                      </s-table-cell>
-                    </s-table-row>
-                  );
-                })}
-              </s-table-body>
-            </s-table>
-          </>
-        )}
-      </Card>
+                                {STATUSES.map((status) => (
+                                  <s-button
+                                    key={status}
+                                    variant="tertiary"
+                                    onClick={() =>
+                                      updateStatus(claim.id, status)
+                                    }
+                                  >
+                                    {status.charAt(0).toUpperCase() +
+                                      status.slice(1)}
+                                  </s-button>
+                                ))}
+                              </s-menu>
+                            </s-stack>
+                            {claim.status === "resolved" &&
+                              claim.shopifyOrderId && (
+                                <s-link
+                                  href={`shopify://admin/orders/${claim.shopifyOrderId.split("/").pop()}`}
+                                  target="_top"
+                                >
+                                  Process refund/replacement →
+                                </s-link>
+                              )}
+                          </s-stack>
+                        </s-table-cell>
+                      </s-table-row>
+                    );
+                  })}
+                </s-table-body>
+              </s-table>
+            </>
+          )}
+        </Card>
 
-      <s-modal
-        ref={confirmModalRef as never}
-        id={STATUS_CONFIRM_MODAL_ID}
-        heading={
-          pendingStatus?.status === "resolved" ? "Resolve claim" : "Deny claim"
-        }
-      >
-        <s-paragraph>
-          {pendingStatus?.status === "resolved"
-            ? "The customer will be emailed straight away to say their claim was approved. This can't be undone."
-            : "The customer will be emailed straight away to say their claim wasn't approved. This can't be undone."}
-        </s-paragraph>
+        <s-modal
+          ref={confirmModalRef as never}
+          id={STATUS_CONFIRM_MODAL_ID}
+          heading={
+            pendingStatus?.status === "resolved"
+              ? "Resolve claim"
+              : "Deny claim"
+          }
+        >
+          <s-paragraph>
+            {pendingStatus?.status === "resolved"
+              ? "The customer will be emailed straight away to say their claim was approved. This can't be undone."
+              : "The customer will be emailed straight away to say their claim wasn't approved. This can't be undone."}
+          </s-paragraph>
 
-        {pendingStatus?.status === "resolved" && (
-          <s-stack direction="block" gap="small-200" paddingBlockStart="base">
-            <s-number-field
-              label="Settlement amount you'll fund"
-              prefix="$"
-              min={0}
-              step={0.01}
-              value={settlementInput}
-              onChange={(e) => setSettlementInput(e.currentTarget.value ?? "")}
+          {pendingStatus?.status === "resolved" && (
+            <s-stack direction="block" gap="small-200" paddingBlockStart="base">
+              <s-number-field
+                label="Settlement amount you'll fund"
+                prefix="$"
+                min={0}
+                step={0.01}
+                value={settlementInput}
+                onChange={(e) =>
+                  setSettlementInput(e.currentTarget.value ?? "")
+                }
+              />
+              <s-text color="subdued">
+                {pendingStatus.eligibleLossCents != null
+                  ? `Eligible loss is ${money(pendingStatus.eligibleLossCents)}. You can approve less, but not more. Leave empty to record no amount.`
+                  : "This claim predates item-level coverage, so there's no calculated eligible loss. Enter the amount you're funding, or leave empty."}
+              </s-text>
+            </s-stack>
+          )}
+          <s-button
+            slot="primary-action"
+            variant="primary"
+            tone={pendingStatus?.status === "denied" ? "critical" : "auto"}
+            onClick={confirmStatusChange}
+          >
+            {pendingStatus?.status === "resolved"
+              ? "Resolve and notify"
+              : "Deny and notify"}
+          </s-button>
+          <s-button slot="secondary-actions" onClick={cancelStatusChange}>
+            Cancel
+          </s-button>
+        </s-modal>
+
+        <s-modal
+          ref={bulkConfirmRef as never}
+          id="kourify-bulk-status-modal"
+          heading={
+            pendingBulk?.status === "resolved"
+              ? `Approve ${pendingBulk.count} claim${pendingBulk.count === 1 ? "" : "s"}?`
+              : `Mark ${pendingBulk?.count ?? 0} claim${pendingBulk?.count === 1 ? "" : "s"} reviewing?`
+          }
+        >
+          <s-paragraph>
+            {pendingBulk?.status === "resolved"
+              ? "Each customer is emailed straight away to say their claim was approved. Claims already resolved are skipped, and this can't be undone."
+              : "Each customer is emailed to say their claim is now being reviewed. Claims already in review are skipped."}
+          </s-paragraph>
+          <s-button
+            slot="primary-action"
+            variant="primary"
+            loading={bulkUpdate.isPending}
+            disabled={bulkUpdate.isPending}
+            onClick={confirmBulkStatus}
+          >
+            {pendingBulk?.status === "resolved"
+              ? "Approve and notify"
+              : "Mark reviewing and notify"}
+          </s-button>
+          <s-button slot="secondary-actions" onClick={cancelBulkConfirm}>
+            Cancel
+          </s-button>
+        </s-modal>
+
+        <s-modal id="kourify-evidence-modal" heading="Evidence photo">
+          {previewUrl && (
+            <s-image
+              src={previewUrl}
+              alt="Claim evidence"
+              objectFit="contain"
             />
-            <s-text color="subdued">
-              {pendingStatus.eligibleLossCents != null
-                ? `Eligible loss is ${money(pendingStatus.eligibleLossCents)}. You can approve less, but not more. Leave empty to record no amount.`
-                : "This claim predates item-level coverage, so there's no calculated eligible loss. Enter the amount you're funding, or leave empty."}
-            </s-text>
-          </s-stack>
-        )}
-        <s-button
-          slot="primary-action"
-          variant="primary"
-          tone={pendingStatus?.status === "denied" ? "critical" : "auto"}
-          onClick={confirmStatusChange}
-        >
-          {pendingStatus?.status === "resolved"
-            ? "Resolve and notify"
-            : "Deny and notify"}
-        </s-button>
-        <s-button slot="secondary-actions" onClick={cancelStatusChange}>
-          Cancel
-        </s-button>
-      </s-modal>
-
-      <s-modal
-        ref={bulkConfirmRef as never}
-        id="kourify-bulk-status-modal"
-        heading={
-          pendingBulk?.status === "resolved"
-            ? `Approve ${pendingBulk.count} claim${pendingBulk.count === 1 ? "" : "s"}?`
-            : `Mark ${pendingBulk?.count ?? 0} claim${pendingBulk?.count === 1 ? "" : "s"} reviewing?`
-        }
-      >
-        <s-paragraph>
-          {pendingBulk?.status === "resolved"
-            ? "Each customer is emailed straight away to say their claim was approved. Claims already resolved are skipped, and this can't be undone."
-            : "Each customer is emailed to say their claim is now being reviewed. Claims already in review are skipped."}
-        </s-paragraph>
-        <s-button
-          slot="primary-action"
-          variant="primary"
-          loading={bulkUpdate.isPending}
-          disabled={bulkUpdate.isPending}
-          onClick={confirmBulkStatus}
-        >
-          {pendingBulk?.status === "resolved"
-            ? "Approve and notify"
-            : "Mark reviewing and notify"}
-        </s-button>
-        <s-button slot="secondary-actions" onClick={cancelBulkConfirm}>
-          Cancel
-        </s-button>
-      </s-modal>
-
-      <s-modal id="kourify-evidence-modal" heading="Evidence photo">
-        {previewUrl && (
-          <s-image src={previewUrl} alt="Claim evidence" objectFit="contain" />
-        )}
-      </s-modal>
+          )}
+        </s-modal>
+      </PageBody>
     </s-page>
   );
 }

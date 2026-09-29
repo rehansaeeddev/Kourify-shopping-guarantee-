@@ -1,4 +1,5 @@
 import { redirect } from "react-router";
+import { PageBody } from "../../components/PageBody";
 
 /**
  * The root has nothing of its own to show.
@@ -24,15 +25,17 @@ export function clientLoader({ request }: { request: Request }) {
 
 export default function Index() {
   return (
-    <s-page heading="Kourify">
-      <s-section>
-        <s-banner heading="Open this app from your Shopify admin">
-          <s-paragraph>
-            Kourify runs inside the Shopify admin. Open it from Apps in your
-            store, or install it from the App Store.
-          </s-paragraph>
-        </s-banner>
-      </s-section>
+    <s-page inlineSize="large" heading="Kourify">
+      <PageBody>
+        <s-section>
+          <s-banner heading="Open this app from your Shopify admin">
+            <s-paragraph>
+              Kourify runs inside the Shopify admin. Open it from Apps in your
+              store, or install it from the App Store.
+            </s-paragraph>
+          </s-banner>
+        </s-section>
+      </PageBody>
     </s-page>
   );
 }

@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router";
 import { PageError, PageSkeleton } from "../components/PageState";
 import { useBilling, useSubscribe } from "../lib/queries";
 import { BASIC_PROTECTED_ORDER_LIMIT, type PlanId } from "../lib/plans";
+import { PageBody } from "../components/PageBody";
 
 /**
  * Per-order Kourify usage charge on the Usage plan. Billed to the *merchant*.
@@ -293,118 +294,120 @@ export default function Billing() {
   const showPlans = !hasActiveBilling || searchParams.get("plans") === "1";
 
   return (
-    <s-page heading="Billing">
+    <s-page inlineSize="large" heading="Billing">
       <s-button slot="secondary-actions" href="/app" variant="secondary">
         Back
       </s-button>
+      <PageBody>
+        {testMode && (
+          <s-banner tone="info" heading="Test billing is on">
+            <s-paragraph>
+              Subscriptions created here are Shopify test charges — nothing is
+              actually billed. This is set on the server, not from this page.
+            </s-paragraph>
+          </s-banner>
+        )}
 
-      {testMode && (
-        <s-banner tone="info" heading="Test billing is on">
-          <s-paragraph>
-            Subscriptions created here are Shopify test charges — nothing is
-            actually billed. This is set on the server, not from this page.
-          </s-paragraph>
-        </s-banner>
-      )}
+        {!showPlans && (
+          <s-section heading="Current plan">
+            <s-grid
+              gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
+              gap="base"
+            >
+              <Stat label="Plan" value={plan.name} />
+              <Stat label="Price" value={plan.price} />
+              <Stat label="Billing interval" value={plan.interval} />
+              <s-stack direction="block" gap="small-500">
+                <s-text color="subdued">Status</s-text>
+                <s-stack direction="inline">
+                  <s-badge tone={hasActiveBilling ? "success" : "neutral"}>
+                    {hasActiveBilling ? "Active" : "Free plan"}
+                  </s-badge>
+                </s-stack>
+              </s-stack>
+            </s-grid>
 
-      {!showPlans && (
-        <s-section heading="Current plan">
+            <s-button
+              variant="secondary"
+              onClick={() => setSearchParams({ plans: "1" })}
+            >
+              Change plan
+            </s-button>
+          </s-section>
+        )}
+
+        <s-section heading="Usage this period">
           <s-grid
             gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
             gap="base"
           >
-            <Stat label="Plan" value={plan.name} />
-            <Stat label="Price" value={plan.price} />
-            <Stat label="Billing interval" value={plan.interval} />
-            <s-stack direction="block" gap="small-500">
-              <s-text color="subdued">Status</s-text>
-              <s-stack direction="inline">
-                <s-badge tone={hasActiveBilling ? "success" : "neutral"}>
-                  {hasActiveBilling ? "Active" : "Free plan"}
-                </s-badge>
-              </s-stack>
-            </s-stack>
+            <Stat label="Protected orders" value={String(protectedOrders)} />
+            {isUsage && (
+              <Stat
+                label="Kourify usage fee"
+                value={`${money(USAGE_FEE_CENTS)} per order`}
+              />
+            )}
+            <Stat
+              label="Usage charges"
+              value={money(isUsage ? billedUsageCents : 0)}
+            />
+            {isBasic && quota.limit !== null && (
+              <Stat
+                label="Allowance used"
+                value={`${quota.used} of ${quota.limit}`}
+              />
+            )}
           </s-grid>
 
-          <s-button
-            variant="secondary"
-            onClick={() => setSearchParams({ plans: "1" })}
-          >
-            Change plan
-          </s-button>
-        </s-section>
-      )}
-
-      <s-section heading="Usage this period">
-        <s-grid
-          gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
-          gap="base"
-        >
-          <Stat label="Protected orders" value={String(protectedOrders)} />
-          {isUsage && (
-            <Stat
-              label="Kourify usage fee"
-              value={`${money(USAGE_FEE_CENTS)} per order`}
-            />
+          {!isUsage && (
+            <s-paragraph color="subdued">
+              {isBasic
+                ? "No Kourify usage fee on Basic."
+                : "No per-order usage fee on Unlimited."}
+            </s-paragraph>
           )}
-          <Stat
-            label="Usage charges"
-            value={money(isUsage ? billedUsageCents : 0)}
-          />
-          {isBasic && quota.limit !== null && (
-            <Stat
-              label="Allowance used"
-              value={`${quota.used} of ${quota.limit}`}
-            />
+
+          {quota.overAllowance && (
+            <s-banner tone="warning" heading="Over your plan allowance">
+              {`${quota.used} protected orders against a limit of ${quota.limit}. Protection a customer already paid for is always honoured, so orders that were mid-checkout when the limit was reached still went through. New merchant-paid coverage is paused until you upgrade.`}
+            </s-banner>
           )}
-        </s-grid>
 
-        {!isUsage && (
-          <s-paragraph color="subdued">
-            {isBasic
-              ? "No Kourify usage fee on Basic."
-              : "No per-order usage fee on Unlimited."}
-          </s-paragraph>
-        )}
-
-        {quota.overAllowance && (
-          <s-banner tone="warning" heading="Over your plan allowance">
-            {`${quota.used} protected orders against a limit of ${quota.limit}. Protection a customer already paid for is always honoured, so orders that were mid-checkout when the limit was reached still went through. New merchant-paid coverage is paused until you upgrade.`}
-          </s-banner>
-        )}
-
-        {quota.exhausted && !quota.overAllowance && (
-          <s-banner tone="warning" heading="Allowance used up">
-            {`You've used all ${quota.limit} protected orders on Basic. Protection is switched off for new orders — existing protected orders keep their coverage and can still be claimed.`}
-          </s-banner>
-        )}
-      </s-section>
-
-      {showPlans ? (
-        <s-section heading="Plans">
-          <PlanPicker
-            activePlan={activePlan}
-            hasActiveBilling={hasActiveBilling}
-            onChoose={choosePlan}
-            pendingPlan={
-              subscribe.isPending
-                ? ((subscribe.variables?.plan as PlanId) ?? null)
-                : null
-            }
-            errorMessage={
-              chooseError ?? (subscribe.error ? subscribe.error.message : null)
-            }
-          />
+          {quota.exhausted && !quota.overAllowance && (
+            <s-banner tone="warning" heading="Allowance used up">
+              {`You've used all ${quota.limit} protected orders on Basic. Protection is switched off for new orders — existing protected orders keep their coverage and can still be claimed.`}
+            </s-banner>
+          )}
         </s-section>
-      ) : (
-        <s-section heading="Billing information">
-          <s-paragraph>
-            {`Shopify handles subscription billing and charges your store through Shopify. Kourify never sees or stores your payment details. The ${money(
-              USAGE_FEE_CENTS,
-            )} usage fee is billed to you per protected order on the Usage plan — it is not the protection price your customers pay, not coverage, and not a claim settlement.`}
-          </s-paragraph>
-        </s-section>
-      )}
+
+        {showPlans ? (
+          <s-section heading="Plans">
+            <PlanPicker
+              activePlan={activePlan}
+              hasActiveBilling={hasActiveBilling}
+              onChoose={choosePlan}
+              pendingPlan={
+                subscribe.isPending
+                  ? ((subscribe.variables?.plan as PlanId) ?? null)
+                  : null
+              }
+              errorMessage={
+                chooseError ??
+                (subscribe.error ? subscribe.error.message : null)
+              }
+            />
+          </s-section>
+        ) : (
+          <s-section heading="Billing information">
+            <s-paragraph>
+              {`Shopify handles subscription billing and charges your store through Shopify. Kourify never sees or stores your payment details. The ${money(
+                USAGE_FEE_CENTS,
+              )} usage fee is billed to you per protected order on the Usage plan — it is not the protection price your customers pay, not coverage, and not a claim settlement.`}
+            </s-paragraph>
+          </s-section>
+        )}
+      </PageBody>
     </s-page>
   );
 }

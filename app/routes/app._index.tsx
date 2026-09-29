@@ -5,6 +5,7 @@ import { PageError, PageSkeleton } from "../components/PageState";
 import { StatusBadge } from "../components/StatusBadge";
 import { issueTypeLabel } from "../lib/claim-issue-type";
 import { useDashboard } from "../lib/queries";
+import { PageBody } from "../components/PageBody";
 
 function greetingForHour(hour: number): string {
   if (hour < 12) return "Good morning";
@@ -65,10 +66,8 @@ export default function Index() {
       : { tone: "success" as const, value: "Live", sub: feeSummary };
 
   return (
-    <s-page heading={greeting}>
-      {/* One block stack owns the vertical rhythm so every card gets clear,
-          even space above and below it. */}
-      <s-stack direction="block" gap="large">
+    <s-page inlineSize="large" heading={greeting}>
+      <PageBody>
         {/* The one deliberately custom-styled banner (see theme.css), added on
             request. Its buttons stay real s-buttons so navigation still works
             inside the embedded admin. */}
@@ -453,7 +452,7 @@ export default function Index() {
             </>
           )}
         </Card>
-      </s-stack>
+      </PageBody>
     </s-page>
   );
 }

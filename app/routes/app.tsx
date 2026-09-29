@@ -4,6 +4,7 @@ import { Outlet, isRouteErrorResponse, useRouteError } from "react-router";
 import { ApiError } from "../lib/api";
 import { queryClient } from "../lib/query-client";
 import { ToastProvider } from "../components/Toast";
+import { PageBody } from "../components/PageBody";
 
 /**
  * The admin shell.
@@ -45,15 +46,17 @@ export function ErrorBoundary() {
         : "Something went wrong loading this page.";
 
   return (
-    <s-page heading="Something went wrong">
-      <s-section>
-        <s-banner tone="critical" heading="This page could not load">
-          <s-paragraph>{message}</s-paragraph>
-        </s-banner>
-        <s-stack direction="inline">
-          <s-button onClick={() => window.location.reload()}>Reload</s-button>
-        </s-stack>
-      </s-section>
+    <s-page inlineSize="large" heading="Something went wrong">
+      <PageBody>
+        <s-section>
+          <s-banner tone="critical" heading="This page could not load">
+            <s-paragraph>{message}</s-paragraph>
+          </s-banner>
+          <s-stack direction="inline">
+            <s-button onClick={() => window.location.reload()}>Reload</s-button>
+          </s-stack>
+        </s-section>
+      </PageBody>
     </s-page>
   );
 }

@@ -1,4 +1,5 @@
 import { ApiError } from "../lib/api";
+import { PageBody } from "./PageBody";
 
 /**
  * What a page shows while its data is in flight.
@@ -9,13 +10,15 @@ import { ApiError } from "../lib/api";
  */
 export function PageSkeleton({ heading }: { heading: string }) {
   return (
-    <s-page heading={heading}>
-      <s-section>
-        <s-stack direction="inline" gap="small-300" alignItems="center">
-          <s-spinner accessibilityLabel="Loading" />
-          <s-text color="subdued">Loading…</s-text>
-        </s-stack>
-      </s-section>
+    <s-page inlineSize="large" heading={heading}>
+      <PageBody>
+        <s-section>
+          <s-stack direction="inline" gap="small-300" alignItems="center">
+            <s-spinner accessibilityLabel="Loading" />
+            <s-text color="subdued">Loading…</s-text>
+          </s-stack>
+        </s-section>
+      </PageBody>
     </s-page>
   );
 }
@@ -42,17 +45,19 @@ export function PageError({
       : "Something went wrong loading this page.";
 
   return (
-    <s-page heading={heading}>
-      <s-section>
-        <s-banner tone="critical" heading="This page could not load">
-          <s-paragraph>{message}</s-paragraph>
-        </s-banner>
-        {onRetry ? (
-          <s-stack direction="inline">
-            <s-button onClick={onRetry}>Try again</s-button>
-          </s-stack>
-        ) : null}
-      </s-section>
+    <s-page inlineSize="large" heading={heading}>
+      <PageBody>
+        <s-section>
+          <s-banner tone="critical" heading="This page could not load">
+            <s-paragraph>{message}</s-paragraph>
+          </s-banner>
+          {onRetry ? (
+            <s-stack direction="inline">
+              <s-button onClick={onRetry}>Try again</s-button>
+            </s-stack>
+          ) : null}
+        </s-section>
+      </PageBody>
     </s-page>
   );
 }

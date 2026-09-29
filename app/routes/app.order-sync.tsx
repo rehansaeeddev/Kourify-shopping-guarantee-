@@ -8,6 +8,7 @@ import { useToast } from "../components/Toast";
 import { WorkspaceTabs } from "../components/WorkspaceTabs";
 import { useTablePagination } from "../hooks/useTablePagination";
 import { useOrderSync, useStartOrderSync } from "../lib/queries";
+import { PageBody } from "../components/PageBody";
 
 const SYNC_JOB_STATUS_LABEL: Record<string, string> = {
   queued: "Queued",
@@ -106,137 +107,147 @@ export default function OrderSync() {
     });
 
   return (
-    <s-page heading="Order sync">
+    <s-page inlineSize="large" heading="Order sync">
       <s-button slot="secondary-actions" href="/app" variant="secondary">
         Back to home
       </s-button>
-
-      {syncBanner ? (
-        <s-banner
-          tone={syncBanner.ok ? "success" : "critical"}
-          heading={syncBanner.ok ? "Order sync complete" : "Order sync failed"}
-          dismissible
-          onDismiss={() => setSyncBanner(null)}
-        >
-          {syncBanner.text}
-        </s-banner>
-      ) : null}
-
-      <WorkspaceTabs
-        active="order-sync"
-        counts={{
-          orders: workspaceCounts.ordersNeedingAction,
-          claims: workspaceCounts.openClaims,
-        }}
-      />
-
-      <MetricsCard
-        heading="Sync status"
-        description="Keep the order cache used for claim verification up to date."
-        metrics={[
-          {
-            // A configured sync mode is a neutral fact, not a warning.
-            icon: "check-circle",
-            label: "Sync mode",
-            value: orderSyncEnabled ? "Manual" : "Approval required",
-          },
-          { icon: "order", label: "Cached orders", value: String(orderCount) },
-          { icon: "clock", label: "Last cache update", value: lastUpdated },
-        ]}
-      />
-
-      <Card heading="Manual synchronization">
-        <s-stack gap="base">
-          {!orderSyncEnabled ? (
-            <s-banner heading="Protected Order access required" tone="warning">
-              Shopify is currently blocking this app from accessing orders.
-              Request protected customer data access in the Partner Dashboard,
-              then set ORDER_SYNC_ENABLED=true and restart the app.
-            </s-banner>
-          ) : (
-            <s-paragraph>
-              Import available existing orders now. Runs as a background job on
-              Shopify&apos;s side, so it&apos;s safe to use even with tens of
-              thousands of orders. Automatic order webhooks remain off, so use
-              this button whenever orders change.
-            </s-paragraph>
-          )}
-          {startSync.error ? (
-            <s-banner tone="critical">{startSync.error.message}</s-banner>
-          ) : null}
-          <s-stack direction="inline">
-            <s-button
-              variant="primary"
-              loading={syncing}
-              disabled={syncing || !orderSyncEnabled}
-              onClick={runSync}
-            >
-              {!orderSyncEnabled
-                ? "Order access required"
-                : syncing
-                  ? "Sync running…"
-                  : "Sync orders now"}
-            </s-button>
-          </s-stack>
-        </s-stack>
-      </Card>
-
-      <Card heading={`Sync jobs (${jobCount})`}>
-        {jobs.length === 0 ? (
-          <EmptyState
-            icon="clock"
-            heading="No sync jobs yet"
-            description="Run a manual sync and each job will appear here."
-          />
-        ) : (
-          <s-table
-            ref={jobPagination.ref as never}
-            variant="auto"
-            paginate={jobPagination.paginate}
-            hasPreviousPage={jobPagination.hasPreviousPage}
-            hasNextPage={jobPagination.hasNextPage}
+      <PageBody>
+        {syncBanner ? (
+          <s-banner
+            tone={syncBanner.ok ? "success" : "critical"}
+            heading={
+              syncBanner.ok ? "Order sync complete" : "Order sync failed"
+            }
+            dismissible
+            onDismiss={() => setSyncBanner(null)}
           >
-            <s-table-header-row>
-              <s-table-header listSlot="primary">Status</s-table-header>
-              <s-table-header listSlot="secondary">Date</s-table-header>
-              <s-table-header listSlot="labeled">Result</s-table-header>
-            </s-table-header-row>
-            <s-table-body>
-              {jobs.map((job) => (
-                <s-table-row key={job.id}>
-                  <s-table-cell>
-                    <s-badge
-                      tone={
-                        job.status === "completed"
-                          ? "success"
-                          : job.status === "failed"
-                            ? "critical"
-                            : // A running job is informational, not a warning.
-                              "info"
-                      }
-                    >
-                      {SYNC_JOB_STATUS_LABEL[job.status] ?? job.status}
-                    </s-badge>
-                  </s-table-cell>
-                  <s-table-cell>
-                    {new Intl.DateTimeFormat(undefined, {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    }).format(new Date(job.createdAt))}
-                  </s-table-cell>
-                  <s-table-cell>
-                    {job.status === "completed"
-                      ? `${job.objectCount ?? 0} orders`
-                      : job.status === "failed"
-                        ? (job.errorMessage ?? "Failed")
-                        : "In progress…"}
-                  </s-table-cell>
-                </s-table-row>
-              ))}
-            </s-table-body>
-          </s-table>
-        )}
-      </Card>
+            {syncBanner.text}
+          </s-banner>
+        ) : null}
+
+        <WorkspaceTabs
+          active="order-sync"
+          counts={{
+            orders: workspaceCounts.ordersNeedingAction,
+            claims: workspaceCounts.openClaims,
+          }}
+        />
+
+        <MetricsCard
+          heading="Sync status"
+          description="Keep the order cache used for claim verification up to date."
+          metrics={[
+            {
+              // A configured sync mode is a neutral fact, not a warning.
+              icon: "check-circle",
+              label: "Sync mode",
+              value: orderSyncEnabled ? "Manual" : "Approval required",
+            },
+            {
+              icon: "order",
+              label: "Cached orders",
+              value: String(orderCount),
+            },
+            { icon: "clock", label: "Last cache update", value: lastUpdated },
+          ]}
+        />
+
+        <Card heading="Manual synchronization">
+          <s-stack gap="base">
+            {!orderSyncEnabled ? (
+              <s-banner
+                heading="Protected Order access required"
+                tone="warning"
+              >
+                Shopify is currently blocking this app from accessing orders.
+                Request protected customer data access in the Partner Dashboard,
+                then set ORDER_SYNC_ENABLED=true and restart the app.
+              </s-banner>
+            ) : (
+              <s-paragraph>
+                Import available existing orders now. Runs as a background job
+                on Shopify&apos;s side, so it&apos;s safe to use even with tens
+                of thousands of orders. Automatic order webhooks remain off, so
+                use this button whenever orders change.
+              </s-paragraph>
+            )}
+            {startSync.error ? (
+              <s-banner tone="critical">{startSync.error.message}</s-banner>
+            ) : null}
+            <s-stack direction="inline">
+              <s-button
+                variant="primary"
+                loading={syncing}
+                disabled={syncing || !orderSyncEnabled}
+                onClick={runSync}
+              >
+                {!orderSyncEnabled
+                  ? "Order access required"
+                  : syncing
+                    ? "Sync running…"
+                    : "Sync orders now"}
+              </s-button>
+            </s-stack>
+          </s-stack>
+        </Card>
+
+        <Card heading={`Sync jobs (${jobCount})`}>
+          {jobs.length === 0 ? (
+            <EmptyState
+              icon="clock"
+              heading="No sync jobs yet"
+              description="Run a manual sync and each job will appear here."
+            />
+          ) : (
+            <s-table
+              ref={jobPagination.ref as never}
+              variant="auto"
+              paginate={jobPagination.paginate}
+              hasPreviousPage={jobPagination.hasPreviousPage}
+              hasNextPage={jobPagination.hasNextPage}
+            >
+              <s-table-header-row>
+                <s-table-header listSlot="primary">Status</s-table-header>
+                <s-table-header listSlot="secondary">Date</s-table-header>
+                <s-table-header listSlot="labeled">Result</s-table-header>
+              </s-table-header-row>
+              <s-table-body>
+                {jobs.map((job) => (
+                  <s-table-row key={job.id}>
+                    <s-table-cell>
+                      <s-badge
+                        tone={
+                          job.status === "completed"
+                            ? "success"
+                            : job.status === "failed"
+                              ? "critical"
+                              : // A running job is informational, not a warning.
+                                "info"
+                        }
+                      >
+                        {SYNC_JOB_STATUS_LABEL[job.status] ?? job.status}
+                      </s-badge>
+                    </s-table-cell>
+                    <s-table-cell>
+                      {new Intl.DateTimeFormat(undefined, {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      }).format(new Date(job.createdAt))}
+                    </s-table-cell>
+                    <s-table-cell>
+                      {job.status === "completed"
+                        ? `${job.objectCount ?? 0} orders`
+                        : job.status === "failed"
+                          ? (job.errorMessage ?? "Failed")
+                          : "In progress…"}
+                    </s-table-cell>
+                  </s-table-row>
+                ))}
+              </s-table-body>
+            </s-table>
+          )}
+        </Card>
+      </PageBody>
     </s-page>
   );
 }
