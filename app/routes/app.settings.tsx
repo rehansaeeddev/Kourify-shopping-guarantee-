@@ -1,31 +1,24 @@
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { useEffect, useRef, useState } from "react";
-import { useFetcher, useLoaderData } from "react-router";
-import { authenticate } from "../shopify.server";
-import db from "../db.server";
-import { Card } from "../components/Card";
+import { useState } from "react";
+
 import { AppButton } from "../components/AppButton";
+import { Card } from "../components/Card";
 import { InfoTip } from "../components/InfoTip";
+import { PageError, PageSkeleton } from "../components/PageState";
 import { TrustBadgePreview } from "../components/TrustBadgePreview";
-import { useFetcherToast } from "../hooks/useFetcherToast";
+import { useToast } from "../components/Toast";
 import { ALL_ISSUE_TYPES } from "../lib/claim-issue-type";
 import {
   CLAIM_ISSUE_TYPES,
-  DEFAULT_CLAIM_WINDOWS,
   parseClaimWindows,
   type ClaimWindows,
 } from "../lib/claim-window";
-import { syncProtectionProduct } from "../lib/protection-product.server";
-import { getBillingState } from "../lib/billing-state.server";
-import { detectPlanTier } from "../lib/plan-tier.server";
-import { syncDynamicFee } from "../lib/cart-transform.server";
-import { getProtectionQuota } from "../lib/plan-limits.server";
 import {
   BASIC_PROTECTED_ORDER_LIMIT,
   planAllowsCustomerPays,
   planProtectedOrderLimit,
   type PlanId,
 } from "../lib/plans";
+import { useSaveBadges, useSaveProtection, useSettings } from "../lib/queries";
 
 /** Merchant-facing plan names, so copy never says "basic" in lowercase. */
 const PLAN_LABELS: Record<PlanId, string> = {
@@ -34,12 +27,6 @@ const PLAN_LABELS: Record<PlanId, string> = {
   unlimited: "Unlimited",
   unlimited_annual: "Unlimited yearly",
 };
-
-// These persisted enums drive checkout/claim behaviour and (payer/feeType) the
-// Cart Transform, so never store an arbitrary client-supplied string — only a
-// value from the known set. Anything else falls back to the current setting.
-const PROTECTION_PAYERS = ["customer", "merchant"] as const;
-const PROTECTION_FEE_TYPES = ["flat", "percentage"] as const;
 
 // Storefront appearance, configured here in General so the merchant sets up
 // protection and how it looks in one place. These drive the storefront badge
@@ -72,258 +59,26 @@ const PROTECTION_STEPS = [
   "You approve or deny the claim",
 ];
 
-function pickEnum<T extends readonly string[]>(
-  allowed: T,
-  value: FormDataEntryValue | null,
-  fallback: string,
-): string {
-  const candidate = String(value ?? "");
-  return (allowed as readonly string[]).includes(candidate)
-    ? candidate
-    : fallback;
-}
-
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session, billing, admin } = await authenticate.admin(request);
-
-  const settings = await db.merchantSettings.upsert({
-    where: { shop: session.shop },
-    update: {},
-    create: {
-      shop: session.shop,
-      claimWindows: JSON.stringify(DEFAULT_CLAIM_WINDOWS),
-    },
-  });
-
-  const { activePlan } = await getBillingState(billing);
-  const currentSettings =
-    activePlan && settings.plan !== activePlan
-      ? await db.merchantSettings.update({
-          where: { shop: session.shop },
-          data: { plan: activePlan },
-        })
-      : settings;
-  const planTier = await detectPlanTier(admin, session.shop);
-  const quota = await getProtectionQuota(session.shop, activePlan);
-  return { settings: currentSettings, activePlan, planTier, quota };
-};
-
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const { session, admin, billing } = await authenticate.admin(request);
-  const formData = await request.formData();
-
-  // Storefront badge + guarantee-tab settings post here too, but they don't
-  // touch checkout, so they take a cheap branch that skips the protection
-  // product and Cart Transform sync the main save runs.
-  if (formData.get("intent") === "badges") {
-    const requestedBadgeStyle = String(formData.get("badgeStyle") ?? "classic");
-    const badgeStyle = BADGE_STYLES.includes(
-      requestedBadgeStyle as (typeof BADGE_STYLES)[number],
-    )
-      ? requestedBadgeStyle
-      : "classic";
-    const requestedTabPosition = String(
-      formData.get("guaranteeTabPosition") ?? "right",
-    );
-    const guaranteeTabPosition = TAB_POSITIONS.some(
-      (p) => p.value === requestedTabPosition,
-    )
-      ? requestedTabPosition
-      : "right";
-    const settings = await db.merchantSettings.update({
-      where: { shop: session.shop },
-      data: {
-        badgesEnabled: formData.get("badgesEnabled") === "true",
-        badgeStyle,
-        showOnProduct: formData.get("showOnProduct") === "true",
-        showOnCart: formData.get("showOnCart") === "true",
-        guaranteeTabPosition,
-      },
-    });
-    return { settings };
-  }
-
-  const current = await db.merchantSettings.findUniqueOrThrow({
-    where: { shop: session.shop },
-  });
-
-  const { activePlan } = await getBillingState(billing);
-  // Basic is a real (free) plan, so every shop can configure. This used to
-  // gate on a paid subscription, which now only decides entitlements.
-  const canConfigure = true;
-
-  // Charging the customer at checkout cleanly (Cart Transform price override)
-  // only works on Shopify Plus; on other plans it would surface as a separate
-  // product line. So customer-pays is Plus-only — a known non-Plus store is
-  // forced to merchant-pays server-side, regardless of what the form submits.
-  // "unknown" fails open so a detection hiccup can't lock a real Plus store out.
-  const planTier = await detectPlanTier(admin, session.shop);
-  // Customer-pays needs both a Plus store (clean checkout pricing) and a plan
-  // without a protected-order allowance — a capped plan can't promise the slot
-  // will still exist when Shopify charges the shopper.
-  const customerPaysAllowed =
-    (planTier === "plus" || planTier === "unknown") &&
-    planAllowsCustomerPays(activePlan);
-  const requestedPayer = pickEnum(
-    PROTECTION_PAYERS,
-    formData.get("protectionPayer"),
-    current.protectionPayer,
-  );
-  const protectionPayer = canConfigure
-    ? customerPaysAllowed
-      ? requestedPayer
-      : "merchant"
-    : current.protectionPayer;
-  // Keep only recognised claim types, in canonical form, so an unknown/garbage
-  // value can never reach the storefront claim form or downstream logic.
-  const enabledClaimTypes = canConfigure
-    ? String(formData.get("enabledClaimTypes") ?? "")
-        .split(",")
-        .map((type) => type.trim())
-        .filter((type) => CLAIM_ISSUE_TYPES.includes(type))
-        .join(",")
-    : current.enabledClaimTypes;
-  // Re-serialize through the validating parser (and clamp to non-negative,
-  // whole days) rather than persisting the raw client JSON.
-  const claimWindows = canConfigure
-    ? JSON.stringify(
-        Object.fromEntries(
-          Object.entries(
-            parseClaimWindows(String(formData.get("claimWindows") ?? "")),
-          ).map(([type, window]) => [
-            type,
-            {
-              minDays: Math.max(0, Math.round(window.minDays)),
-              maxDays: Math.max(0, Math.round(window.maxDays)),
-            },
-          ]),
-        ),
-      )
-    : current.claimWindows;
-  const protectionFeeType = canConfigure
-    ? pickEnum(
-        PROTECTION_FEE_TYPES,
-        formData.get("protectionFeeType"),
-        current.protectionFeeType,
-      )
-    : current.protectionFeeType;
-  const protectionFlatFeeCents = canConfigure
-    ? Math.max(
-        0,
-        Math.round(Number(formData.get("protectionFlatFeeCents")) || 0),
-      )
-    : current.protectionFlatFeeCents;
-  const protectionPercentBasisPoints = canConfigure
-    ? Math.min(
-        10000,
-        Math.max(
-          0,
-          Math.round(Number(formData.get("protectionPercentBasisPoints")) || 0),
-        ),
-      )
-    : current.protectionPercentBasisPoints;
-  const protectionMinFeeCents = canConfigure
-    ? Math.max(
-        0,
-        Math.round(Number(formData.get("protectionMinFeeCents")) || 0),
-      )
-    : current.protectionMinFeeCents;
-  const protectionMaxFeeCents = canConfigure
-    ? Math.max(
-        protectionMinFeeCents,
-        Math.round(Number(formData.get("protectionMaxFeeCents")) || 0),
-      )
-    : current.protectionMaxFeeCents;
-  // Coverage eligibility ceiling. An empty field clears it back to "no ceiling"
-  // rather than falling back to some implied amount — there is no default
-  // monetary threshold anywhere in this app.
-  const rawMaxEligible = formData.get("maxEligibleItemValueCents");
-  const maxEligibleItemValueCents = canConfigure
-    ? rawMaxEligible === null || String(rawMaxEligible).trim() === ""
-      ? null
-      : Math.max(0, Math.round(Number(rawMaxEligible) || 0)) || null
-    : current.maxEligibleItemValueCents;
-  // A plan whose protected-order allowance is spent can't have protection
-  // switched on. Enforced here as well as in the UI so the toggle can't be
-  // forced by a crafted request. The *stored* preference is left as-is, so
-  // upgrading restores protection without the merchant re-enabling it.
-  const quota = await getProtectionQuota(session.shop, activePlan);
-  const requestedEnabled = canConfigure
-    ? formData.get("protectionEnabled") === "true"
-    : current.protectionEnabled;
-  const protectionEnabled = quota.exhausted ? false : requestedEnabled;
-  // `plan` decides whether the $0.60 per-order usage fee is waived and what
-  // protected-order allowance applies, so it must never come from client
-  // input — it's taken from the verified subscription state.
-  const plan = activePlan;
-
-  const settings = await db.merchantSettings.update({
-    where: { shop: session.shop },
-    data: {
-      protectionPayer,
-      enabledClaimTypes,
-      claimWindows,
-      protectionFeeType,
-      protectionFlatFeeCents,
-      protectionPercentBasisPoints,
-      protectionMinFeeCents,
-      protectionMaxFeeCents,
-      maxEligibleItemValueCents,
-      protectionEnabled,
-      plan,
-    },
-  });
-
-  // On merchant-pays the variant must cost nothing. The variant id is public
-  // (the storefront needs it to add the line), so a shopper could POST it to
-  // /cart/add.js themselves. Pricing it at 0 makes "the customer is never
-  // charged on this payer mode" true by construction rather than by the
-  // storefront choosing not to offer it.
-  const effectiveVariantPriceCents =
-    protectionPayer === "merchant" ? 0 : protectionFlatFeeCents;
-
-  try {
-    const productSettings =
-      protectionEnabled &&
-      (!current.protectionEnabled ||
-        current.protectionFlatFeeCents !== protectionFlatFeeCents ||
-        current.protectionPayer !== protectionPayer ||
-        !current.protectionVariantId)
-        ? await syncProtectionProduct(
-            session.shop,
-            admin,
-            effectiveVariantPriceCents,
-          )
-        : settings;
-
-    // Reconcile the Plus/dev percentage-fee Cart Transform. No-op on standard
-    // plans or flat pricing; failures here must not break the settings save.
-    // Reuses the planTier detected above.
-    try {
-      await syncDynamicFee(admin, productSettings, planTier);
-    } catch (dynamicFeeError) {
-      console.error("[protection] dynamic fee sync failed", dynamicFeeError);
-    }
-
-    return { settings: productSettings };
-  } catch (error) {
-    await db.merchantSettings.update({
-      where: { shop: session.shop },
-      data: { protectionEnabled: false },
-    });
-    return {
-      settings: { ...settings, protectionEnabled: false },
-      error:
-        error instanceof Error
-          ? error.message
-          : "Could not configure the protection product.",
-    };
-  }
-};
-
 export default function Settings() {
-  const { settings, planTier, quota, activePlan } =
-    useLoaderData<typeof loader>();
+  const { data, isPending, error, refetch } = useSettings();
+  // Badges save on their own endpoint so a badge change never re-runs the
+  // protection product and Cart Transform reconciliation the main save does.
+  const badges = useSaveBadges();
+  const protection = useSaveProtection();
+  const { showToast } = useToast();
+
+  const [activeTab, setActiveTab] = useState<SettingsTab>("general");
+
+  // A dismissible banner on top, alongside the toast, so a save is confirmed
+  // both transiently and persistently.
+  const [savedNotice, setSavedNotice] = useState<string | null>(null);
+
+  if (isPending) return <PageSkeleton heading="Settings" />;
+  if (error)
+    return <PageError heading="Settings" error={error} onRetry={refetch} />;
+
+  const { settings, planTier, quota, activePlan, customerPaysAllowed } = data;
+
   // Allowance spent → protection reads off and can't be switched on.
   const quotaExhausted = quota.exhausted;
   // Percentage pricing at checkout runs via a Cart Transform price override,
@@ -333,72 +88,26 @@ export default function Settings() {
     planTier !== "plus" &&
     planTier !== "unknown" &&
     settings.protectionFeeType === "percentage";
-  // Customer-pays checkout pricing is Plus-only; hide it on known non-Plus.
-  // Customer-pays needs both a Plus store (clean checkout pricing) and a plan
-  // without a protected-order allowance — a capped plan can't promise the slot
-  // will still exist when Shopify charges the shopper.
-  const customerPaysAllowed =
-    (planTier === "plus" || planTier === "unknown") &&
-    planAllowsCustomerPays(activePlan);
-  const settingsFetcher = useFetcher<{
-    settings?: typeof settings;
-    error?: string;
-  }>();
 
-  // Trust badge + guarantee tab save on their own fetcher so a badge change
-  // never re-runs protection product sync or shows the protection toast.
-  const badgeFetcher = useFetcher<{ settings?: typeof settings }>();
+  // The backend answers with the saved row, so the page shows what was
+  // actually stored — clamped values included — without waiting for the
+  // refetch the mutation triggers.
+  const currentSettings = protection.data?.settings ?? settings;
+  const badgeState = badges.data?.settings ?? currentSettings;
 
-  // Each save names exactly what changed ("Flat fee set to $5.00", "Trust
-  // badge turned on"), set just before the submit and read back by both the
-  // toast and the top banner, so the merchant sees which setting was saved
-  // rather than a generic "Settings saved."
-  const pendingSettingsMessage = useRef("Settings saved.");
-  const pendingBadgeMessage = useRef("Badge settings saved.");
+  const plan = activePlan as PlanId;
 
-  useFetcherToast(
-    settingsFetcher,
-    (data) => data.error ?? pendingSettingsMessage.current,
-  );
-  useFetcherToast(badgeFetcher, () => pendingBadgeMessage.current);
+  /**
+   * Each save names exactly what changed — "Flat fee set to $5.00", "Trust
+   * badge turned on" — rather than a generic "Settings saved.", so the
+   * merchant can see which of a page of controls took effect.
+   */
+  const announce = (message: string) => {
+    showToast(message);
+    setSavedNotice(message);
+  };
 
-  const [activeTab, setActiveTab] = useState<SettingsTab>("general");
-  const currentSettings = settingsFetcher.data?.settings ?? settings;
-  const badgeState = badgeFetcher.data?.settings ?? currentSettings;
-
-  // A dismissible success banner on top, alongside the toast, so a save is
-  // confirmed both transiently and persistently. It's driven off the same
-  // submitting→idle transition the toast watches (see useFetcherToast), so it
-  // fires once per save, never on first load, and re-shows on the next save.
-  const [savedNotice, setSavedNotice] = useState<string | null>(null);
-  const settingsWasSaving = useRef(false);
-  const badgeWasSaving = useRef(false);
-
-  useEffect(() => {
-    if (settingsFetcher.state !== "idle") {
-      settingsWasSaving.current = true;
-      return;
-    }
-    if (
-      settingsWasSaving.current &&
-      settingsFetcher.data &&
-      !settingsFetcher.data.error
-    ) {
-      setSavedNotice(pendingSettingsMessage.current);
-    }
-    settingsWasSaving.current = false;
-  }, [settingsFetcher.state, settingsFetcher.data]);
-
-  useEffect(() => {
-    if (badgeFetcher.state !== "idle") {
-      badgeWasSaving.current = true;
-      return;
-    }
-    if (badgeWasSaving.current && badgeFetcher.data) {
-      setSavedNotice(pendingBadgeMessage.current);
-    }
-    badgeWasSaving.current = false;
-  }, [badgeFetcher.state, badgeFetcher.data]);
+  const failed = (cause: Error) => showToast(cause.message, { isError: true });
 
   const saveBadges = (overrides: {
     badgesEnabled?: boolean;
@@ -407,7 +116,7 @@ export default function Settings() {
     showOnCart?: boolean;
     guaranteeTabPosition?: string;
   }) => {
-    pendingBadgeMessage.current =
+    const message =
       overrides.badgesEnabled !== undefined
         ? `Trust badge turned ${overrides.badgesEnabled ? "on" : "off"}`
         : overrides.showOnProduct !== undefined
@@ -423,21 +132,17 @@ export default function Settings() {
                     )?.label ?? overrides.guaranteeTabPosition
                   }`
                 : "Badge settings saved.";
-    badgeFetcher.submit(
+
+    badges.mutate(
       {
-        intent: "badges",
-        badgesEnabled: String(
-          overrides.badgesEnabled ?? badgeState.badgesEnabled,
-        ),
+        badgesEnabled: overrides.badgesEnabled ?? badgeState.badgesEnabled,
         badgeStyle: overrides.badgeStyle ?? badgeState.badgeStyle,
-        showOnProduct: String(
-          overrides.showOnProduct ?? badgeState.showOnProduct,
-        ),
-        showOnCart: String(overrides.showOnCart ?? badgeState.showOnCart),
+        showOnProduct: overrides.showOnProduct ?? badgeState.showOnProduct,
+        showOnCart: overrides.showOnCart ?? badgeState.showOnCart,
         guaranteeTabPosition:
           overrides.guaranteeTabPosition ?? badgeState.guaranteeTabPosition,
       },
-      { method: "POST" },
+      { onSuccess: () => announce(message), onError: failed },
     );
   };
 
@@ -479,7 +184,6 @@ export default function Settings() {
       /** null clears the ceiling — no monetary default is substituted. */
       maxEligibleItemValueCents?: number | null;
       protectionEnabled?: boolean;
-      plan?: string;
     },
     // Claim-reason and filing-window changes can't be described from the
     // override alone (it's a whole set/map), so those callers pass the message
@@ -487,7 +191,7 @@ export default function Settings() {
     message?: string,
   ) => {
     const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
-    pendingSettingsMessage.current =
+    const notice =
       message ??
       (overrides.protectionEnabled !== undefined
         ? `Protection at checkout turned ${overrides.protectionEnabled ? "on" : "off"}`
@@ -508,46 +212,58 @@ export default function Settings() {
                         ? "Coverage limit removed"
                         : `Coverage limit set to ${money(overrides.maxEligibleItemValueCents)}`
                       : "Settings saved.");
-    const nextPayer =
-      overrides.protectionPayer ?? currentSettings.protectionPayer;
     const nextTypes = overrides.enabledClaimTypes ?? enabledTypes;
     const nextWindows = overrides.claimWindows ?? claimWindows;
-    settingsFetcher.submit(
+    const nextCeiling =
+      overrides.maxEligibleItemValueCents !== undefined
+        ? overrides.maxEligibleItemValueCents
+        : currentSettings.maxEligibleItemValueCents;
+
+    protection.mutate(
       {
-        protectionPayer: nextPayer,
+        protectionPayer:
+          overrides.protectionPayer ?? currentSettings.protectionPayer,
         enabledClaimTypes: Array.from(nextTypes).join(","),
+        // A string, not an object: the backend re-parses it through the same
+        // validating parser the storefront uses.
         claimWindows: JSON.stringify(nextWindows),
         protectionFeeType:
           overrides.protectionFeeType ?? currentSettings.protectionFeeType,
-        protectionFlatFeeCents: String(
+        protectionFlatFeeCents:
           overrides.protectionFlatFeeCents ??
-            currentSettings.protectionFlatFeeCents,
-        ),
-        protectionPercentBasisPoints: String(
+          currentSettings.protectionFlatFeeCents,
+        protectionPercentBasisPoints:
           overrides.protectionPercentBasisPoints ??
-            currentSettings.protectionPercentBasisPoints,
-        ),
-        protectionMinFeeCents: String(
+          currentSettings.protectionPercentBasisPoints,
+        protectionMinFeeCents:
           overrides.protectionMinFeeCents ??
-            currentSettings.protectionMinFeeCents,
-        ),
-        protectionMaxFeeCents: String(
+          currentSettings.protectionMinFeeCents,
+        protectionMaxFeeCents:
           overrides.protectionMaxFeeCents ??
-            currentSettings.protectionMaxFeeCents,
-        ),
-        maxEligibleItemValueCents: (() => {
-          const next =
-            overrides.maxEligibleItemValueCents !== undefined
-              ? overrides.maxEligibleItemValueCents
-              : currentSettings.maxEligibleItemValueCents;
-          return next == null ? "" : String(next);
-        })(),
-        protectionEnabled: String(
+          currentSettings.protectionMaxFeeCents,
+        // An empty string clears the ceiling; null would not survive the trip
+        // as "the merchant cleared this" rather than "absent".
+        maxEligibleItemValueCents: nextCeiling == null ? "" : nextCeiling,
+        protectionEnabled:
           overrides.protectionEnabled ?? currentSettings.protectionEnabled,
-        ),
-        plan: overrides.plan ?? currentSettings.plan,
       },
-      { method: "POST" },
+      {
+        onSuccess: (result) => {
+          /*
+           * The settings themselves always save. A non-null error means
+           * Shopify could not be brought in line — the protection product or
+           * the Cart Transform — which is a different thing from a failed
+           * write, and the banner below says so.
+           */
+          if (result.error) {
+            showToast(result.error, { isError: true });
+            return;
+          }
+
+          announce(notice);
+        },
+        onError: failed,
+      },
     );
   };
 
@@ -579,10 +295,7 @@ export default function Settings() {
           field === "maxDays" ? value : (claimWindows[type]?.maxDays ?? 30),
       },
     };
-    saveSettings(
-      { claimWindows: next },
-      `${label} filing window updated`,
-    );
+    saveSettings({ claimWindows: next }, `${label} filing window updated`);
   };
 
   return (
@@ -594,13 +307,13 @@ export default function Settings() {
         Back
       </s-button>
 
-      {settingsFetcher.data?.error && (
+      {protection.data?.error && (
         <s-banner tone="critical" heading="Protection could not be enabled">
-          {settingsFetcher.data.error}
+          {protection.data.error}
         </s-banner>
       )}
 
-      {savedNotice && !settingsFetcher.data?.error && (
+      {savedNotice && !protection.data?.error && (
         <s-banner
           tone="success"
           dismissible
@@ -638,11 +351,7 @@ export default function Settings() {
               justifyContent="space-between"
             >
               <s-stack direction="block" gap="small-200">
-                <s-stack
-                  direction="inline"
-                  gap="small-200"
-                  alignItems="center"
-                >
+                <s-stack direction="inline" gap="small-200" alignItems="center">
                   <s-text>Protection at checkout</s-text>
                   <s-badge
                     tone={
@@ -674,7 +383,7 @@ export default function Settings() {
                 // allowance is spent. The saved preference is untouched, so
                 // upgrading brings protection straight back.
                 checked={currentSettings.protectionEnabled && !quotaExhausted}
-                disabled={quotaExhausted || settingsFetcher.state !== "idle"}
+                disabled={quotaExhausted || protection.isPending}
                 onChange={(e) =>
                   saveSettings({
                     protectionEnabled: e.currentTarget.checked,
@@ -848,19 +557,18 @@ export default function Settings() {
               <s-choice value="customer" disabled={!customerPaysAllowed}>
                 {customerPaysAllowed
                   ? "Customer pays — the customer pays the protection fee at checkout."
-                  : planAllowsCustomerPays(activePlan)
+                  : planAllowsCustomerPays(plan)
                     ? "Customer pays — requires Shopify Plus."
                     : "Customer pays — not available on this plan."}
               </s-choice>
             </s-choice-list>
 
-            {!planAllowsCustomerPays(activePlan) && (
+            {!planAllowsCustomerPays(plan) && (
               <s-banner tone="info">
                 {/* Plan name and limit are derived, not written in, so the
                       copy stays true if either changes. */}
-                {`${PLAN_LABELS[activePlan]} includes up to ${
-                  planProtectedOrderLimit(activePlan) ??
-                  BASIC_PROTECTED_ORDER_LIMIT
+                {`${PLAN_LABELS[plan]} includes up to ${
+                  planProtectedOrderLimit(plan) ?? BASIC_PROTECTED_ORDER_LIMIT
                 } protected orders. Protection is merchant-funded on this plan.`}
               </s-banner>
             )}

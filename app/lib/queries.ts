@@ -422,7 +422,7 @@ export type BillingPayload = {
 };
 
 type Ok = { ok: boolean; message?: string; error?: string | null };
-type SaveResult = Ok & { settings: Record<string, unknown> };
+type SaveResult = Ok & { settings: MerchantSettings };
 type BulkResult = Ok & { changed: number; skipped: number };
 type SyncResult = Ok & { error?: string };
 type SubscribeResult = {
