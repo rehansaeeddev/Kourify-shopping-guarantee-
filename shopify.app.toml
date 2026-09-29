@@ -72,8 +72,14 @@ api_version = "2026-10"
   uri = "/webhooks/shop/redact"
   compliance_topics = [ "shop/redact" ]
 
-[auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+# No [auth] section, deliberately.
+#
+# This app installs through Shopify managed installation and authenticates by
+# token exchange: App Bridge mints a session token, the backend verifies it and
+# trades it for an access token. There is no OAuth authorize or callback route
+# anywhere — shopify/shopify-app-php does not provide one — so a redirect_urls
+# entry would name a URL the backend answers with a 404, and only ever show up
+# as a confusing failure if Shopify tried to fall back to it.
 
 [build]
 automatically_update_urls_on_dev = true
