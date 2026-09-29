@@ -1,19 +1,12 @@
-import db from "../db.server";
-
+/**
+ * The English reference copy the translation editor shows beside each field.
+ *
+ * Only that. Rendering the storefront claim page in a shopper's language —
+ * bundles, fallback resolution, RTL — is the backend's job now
+ * (App\Services\ClaimTranslations), and keeping a second implementation here
+ * would mean two answers to "what does this key say".
+ */
 export type TranslationStrings = Record<string, string>;
-
-/** Locales that render right-to-left. */
-export const RTL_LOCALES = new Set(["ar", "he", "fa", "ur"]);
-
-/** Suggested display names for the language switcher (merchant can override). */
-export const LOCALE_LABELS: Record<string, string> = {
-  en: "English",
-  fr: "Français",
-  ar: "العربية",
-  hi: "हिन्दी",
-  es: "Español",
-  de: "Deutsch",
-};
 
 /**
  * English is the canonical source of truth for the KEY set — every other
@@ -24,7 +17,7 @@ export const LOCALE_LABELS: Record<string, string> = {
 export const DEFAULT_TRANSLATIONS: Record<string, TranslationStrings> = {
   en: {
     "doc.title": "File a Claim · Kourify",
-    "brand": "Kourify",
+    brand: "Kourify",
     "lang.aria": "Language",
 
     "hero.title": "Protection That Follows Through.",
@@ -75,13 +68,13 @@ export const DEFAULT_TRANSLATIONS: Record<string, TranslationStrings> = {
     "step.review.title": "Review Your Claim",
     "step.review.copy":
       "Make sure these details are correct before submitting.",
-    "notice":
+    notice:
       "Submitting a claim does not guarantee approval or an automatic payout. Kourify reviews each claim under the merchant's configured protection terms.",
 
     "action.back": "Back",
     "action.continue": "Continue",
     "action.submit": "Submit claim",
-    "legal":
+    legal:
       "Your information is used only to verify and review this protection claim.",
 
     "issue.lost": "Never arrived (lost in transit)",
@@ -110,7 +103,7 @@ export const DEFAULT_TRANSLATIONS: Record<string, TranslationStrings> = {
   },
   fr: {
     "doc.title": "Déposer une réclamation · Kourify",
-    "brand": "Kourify",
+    brand: "Kourify",
     "lang.aria": "Langue",
 
     "hero.title": "Une protection qui tient ses promesses.",
@@ -164,13 +157,13 @@ export const DEFAULT_TRANSLATIONS: Record<string, TranslationStrings> = {
 
     "step.review.title": "Vérifiez votre réclamation",
     "step.review.copy": "Vérifiez ces informations avant l'envoi.",
-    "notice":
+    notice:
       "L'envoi d'une réclamation ne garantit ni son approbation ni un remboursement automatique. Kourify l'examine selon les conditions du marchand.",
 
     "action.back": "Retour",
     "action.continue": "Continuer",
     "action.submit": "Envoyer la réclamation",
-    "legal":
+    legal:
       "Vos informations servent uniquement à vérifier et examiner cette réclamation.",
 
     "issue.lost": "Jamais arrivé (perdu en transit)",
@@ -202,7 +195,7 @@ export const DEFAULT_TRANSLATIONS: Record<string, TranslationStrings> = {
   // review them before heavy production use. Merchants can edit any string.
   ar: {
     "doc.title": "تقديم مطالبة · Kourify",
-    "brand": "Kourify",
+    brand: "Kourify",
     "lang.aria": "اللغة",
     "hero.title": "حماية تفي بوعدها.",
     "hero.subtitle":
@@ -243,12 +236,12 @@ export const DEFAULT_TRANSLATIONS: Record<string, TranslationStrings> = {
       "مطلوب لمطالبات التلف أو التلف المخفي. الحد الأقصى 5 ميغابايت.",
     "step.review.title": "راجع مطالبتك",
     "step.review.copy": "تأكد من صحة هذه التفاصيل قبل الإرسال.",
-    "notice":
+    notice:
       "لا يضمن تقديم المطالبة الموافقة عليها أو صرف تعويض تلقائي. تراجع Kourify كل مطالبة وفقًا لشروط الحماية التي حددها التاجر.",
     "action.back": "رجوع",
     "action.continue": "متابعة",
     "action.submit": "إرسال المطالبة",
-    "legal": "تُستخدم معلوماتك فقط للتحقق من مطالبة الحماية هذه ومراجعتها.",
+    legal: "تُستخدم معلوماتك فقط للتحقق من مطالبة الحماية هذه ومراجعتها.",
     "issue.lost": "لم يصل أبدًا (مفقود أثناء الشحن)",
     "issue.damaged": "وصل تالفًا",
     "issue.stolen": "سُرق بعد التوصيل",
@@ -268,12 +261,11 @@ export const DEFAULT_TRANSLATIONS: Record<string, TranslationStrings> = {
     "error.generic": "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
     "state.submitting": "جارٍ الإرسال…",
     "success.title": "تم استلام المطالبة",
-    "success.body":
-      "شكرًا لك. سيراجع فريقنا مطالبتك ويتابع معك على {email}.",
+    "success.body": "شكرًا لك. سيراجع فريقنا مطالبتك ويتابع معك على {email}.",
   },
   hi: {
     "doc.title": "दावा दर्ज करें · Kourify",
-    "brand": "Kourify",
+    brand: "Kourify",
     "lang.aria": "भाषा",
     "hero.title": "सुरक्षा जो निभाती है।",
     "hero.subtitle":
@@ -314,13 +306,14 @@ export const DEFAULT_TRANSLATIONS: Record<string, TranslationStrings> = {
     "field.evidence.hint":
       "क्षतिग्रस्त या छिपी क्षति के दावों के लिए आवश्यक। अधिकतम 5 MB।",
     "step.review.title": "अपने दावे की समीक्षा करें",
-    "step.review.copy": "सबमिट करने से पहले सुनिश्चित करें कि ये विवरण सही हैं।",
-    "notice":
+    "step.review.copy":
+      "सबमिट करने से पहले सुनिश्चित करें कि ये विवरण सही हैं।",
+    notice:
       "दावा सबमिट करने से स्वीकृति या स्वचालित भुगतान की गारंटी नहीं मिलती। Kourify प्रत्येक दावे की समीक्षा व्यापारी द्वारा निर्धारित सुरक्षा शर्तों के अनुसार करता है।",
     "action.back": "वापस",
     "action.continue": "जारी रखें",
     "action.submit": "दावा सबमिट करें",
-    "legal":
+    legal:
       "आपकी जानकारी का उपयोग केवल इस सुरक्षा दावे को सत्यापित और समीक्षा करने के लिए किया जाता है।",
     "issue.lost": "कभी नहीं पहुँचा (पारगमन में खो गया)",
     "issue.damaged": "क्षतिग्रस्त पहुँचा",
@@ -346,90 +339,6 @@ export const DEFAULT_TRANSLATIONS: Record<string, TranslationStrings> = {
   },
 };
 
-/** Canonical list of translatable keys, derived from the English master. */
-export const CLAIM_KEYS = Object.keys(DEFAULT_TRANSLATIONS.en);
-
 export function normalizeLocale(locale: string): string {
   return locale.toLowerCase().split("-")[0];
-}
-
-export function isRtl(locale: string): boolean {
-  return RTL_LOCALES.has(normalizeLocale(locale));
-}
-
-export type LocaleBundle = {
-  label: string;
-  direction: "ltr" | "rtl";
-  strings: TranslationStrings;
-};
-
-/** Resolve one key within a bundle, falling back to the English master. */
-export function t(bundle: LocaleBundle | undefined, key: string): string {
-  return bundle?.strings[key] ?? DEFAULT_TRANSLATIONS.en[key] ?? key;
-}
-
-function buildBundle(
-  locale: string,
-  row?: { label: string; direction: string; strings: string },
-): LocaleBundle {
-  let dbStrings: TranslationStrings = {};
-  if (row) {
-    try {
-      dbStrings = JSON.parse(row.strings) as TranslationStrings;
-    } catch {
-      dbStrings = {};
-    }
-  }
-  return {
-    label: row?.label ?? LOCALE_LABELS[locale] ?? locale,
-    direction:
-      (row?.direction as "ltr" | "rtl") ?? (isRtl(locale) ? "rtl" : "ltr"),
-    // English base guarantees no missing keys; locale defaults override it;
-    // the merchant's DB values override last.
-    strings: {
-      ...DEFAULT_TRANSLATIONS.en,
-      ...(DEFAULT_TRANSLATIONS[locale] ?? {}),
-      ...dbStrings,
-    },
-  };
-}
-
-/**
- * Loads the languages a shop offers on the claim page, layering the
- * merchant's DB overrides over code defaults. English is always present as
- * the ultimate fallback, and so is the shop's configured fallback language.
- */
-export async function getClaimTranslations(shop: string): Promise<{
-  locales: Record<string, LocaleBundle>;
-  fallback: string;
-}> {
-  const [settings, rows] = await Promise.all([
-    db.merchantSettings.findUnique({ where: { shop } }),
-    db.storefrontTranslation.findMany({ where: { shop, enabled: true } }),
-  ]);
-
-  const fallback = normalizeLocale(settings?.storefrontFallbackLanguage ?? "en");
-  const byLocale = new Map(
-    rows.map((row) => [normalizeLocale(row.locale), row]),
-  );
-
-  // Which languages to expose: the merchant's saved rows if any, otherwise
-  // the configured storefrontLanguages list against code defaults.
-  const exposed = byLocale.size
-    ? [...byLocale.keys()]
-    : (settings?.storefrontLanguages ?? "en,fr")
-        .split(",")
-        .map((locale) => normalizeLocale(locale.trim()))
-        .filter(Boolean);
-
-  const locales: Record<string, LocaleBundle> = {};
-  for (const locale of exposed) {
-    locales[locale] = buildBundle(locale, byLocale.get(locale));
-  }
-
-  // Guarantee the fallback locale and English are always available.
-  if (!locales[fallback]) locales[fallback] = buildBundle(fallback);
-  if (!locales.en) locales.en = buildBundle("en");
-
-  return { locales, fallback: locales[fallback] ? fallback : "en" };
 }

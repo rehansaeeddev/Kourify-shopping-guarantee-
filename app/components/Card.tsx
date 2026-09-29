@@ -45,7 +45,6 @@ const TONE_TO_ICON_TONE: Record<
   critical: "critical",
 };
 
-
 /**
  * One metric, following App Home's metrics-card composition: a quiet caption
  * with a tone icon, then the figure itself as the prominent heading. Tiles are
@@ -110,10 +109,19 @@ export type Metric = StatTileProps;
  */
 export function MetricsCard({
   heading,
+  accessibilityLabel,
   description,
   metrics,
 }: {
   heading?: string;
+  /**
+   * What to call the region when it carries no visible heading.
+   *
+   * A top metrics row reads best with nothing above it, but s-section without
+   * a heading announces itself as an unnamed region — so one of the two has
+   * to be given.
+   */
+  accessibilityLabel?: string;
   description?: string;
   metrics: Metric[];
 }) {
@@ -125,7 +133,7 @@ export function MetricsCard({
   ].join(" ");
 
   return (
-    <s-section heading={heading}>
+    <s-section heading={heading} accessibilityLabel={accessibilityLabel}>
       {description ? (
         <s-paragraph color="subdued">{description}</s-paragraph>
       ) : null}

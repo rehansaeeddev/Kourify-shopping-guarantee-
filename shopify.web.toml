@@ -1,7 +1,11 @@
-name = "React Router"
-roles = ["frontend", "backend"]
-webhooks_path = "/webhooks/app/uninstalled"
+# The only thing the CLI runs from this repo.
+#
+# The backend is a separate Laravel repo (kourify-guarantee-backend) and is
+# started on its own with `php artisan serve`. It is deliberately not declared
+# here: the CLI only manages processes it can see, and a "backend" role with
+# nothing behind it makes `shopify app dev` report a server it never started.
+name = "admin"
+roles = ["frontend"]
 
 [commands]
-predev = "npx prisma generate"
-dev = "npx prisma migrate deploy && npm exec react-router dev"
+dev = "npm exec react-router dev"

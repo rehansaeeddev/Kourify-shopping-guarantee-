@@ -1,12 +1,10 @@
-import type { LoaderFunctionArgs } from "react-router";
-import { useState } from "react";
-import { useLoaderData, useSearchParams } from "react-router";
-import { authenticate } from "../shopify.server";
-import db from "../db.server";
-import { DEFAULT_CLAIM_WINDOWS } from "../lib/claim-window";
-import { getBillingState } from "../lib/billing-state.server";
-import { getProtectionQuota } from "../lib/plan-limits.server";
+import { useRef, useState } from "react";
+import { useSearchParams } from "react-router";
+import { PageError, PageSkeleton } from "../components/PageState";
+import { useBilling, useSubscribe } from "../lib/queries";
+import { useToast } from "../components/Toast";
 import { BASIC_PROTECTED_ORDER_LIMIT, type PlanId } from "../lib/plans";
+import { PageBody } from "../components/PageBody";
 
 /**
  * Per-order Kourify usage charge on the Usage plan. Billed to the *merchant*.
@@ -25,47 +23,6 @@ const PLAN_SUMMARY: Record<
   unlimited_annual: { name: "Unlimited", price: "$200.00", interval: "Annual" },
 };
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session, billing } = await authenticate.admin(request);
-
-  const settings = await db.merchantSettings.upsert({
-    where: { shop: session.shop },
-    update: {},
-    create: {
-      shop: session.shop,
-      claimWindows: JSON.stringify(DEFAULT_CLAIM_WINDOWS),
-    },
-  });
-
-  // Shopify is the billing authority. The local `plan` column is only a
-  // mirror, refreshed here from the verified subscription — never from the
-  // browser, form data or a URL parameter.
-  const { hasActiveBilling, activePlan } = await getBillingState(billing);
-  if (settings.plan !== activePlan) {
-    await db.merchantSettings.update({
-      where: { shop: session.shop },
-      data: { plan: activePlan },
-    });
-  }
-
-  const quota = await getProtectionQuota(session.shop, activePlan);
-  const protectedOrders = await db.protectedOrder.count({
-    where: { shop: session.shop, revokedAt: null },
-  });
-  // Only events actually charged — pending/waived/reversed would overstate it.
-  const billedUsage = await db.usageEvent.aggregate({
-    where: { shop: session.shop, status: "billed" },
-    _sum: { amountCents: true },
-  });
-
-  return {
-    activePlan,
-    hasActiveBilling,
-    quota,
-    protectedOrders,
-    billedUsageCents: billedUsage._sum.amountCents ?? 0,
-  };
-};
 function money(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
@@ -73,7 +30,7 @@ function money(cents: number): string {
 type BillingCycle = "monthly" | "annual";
 
 type PlanCard = {
-  /** Plan the CTA subscribes to — matches app.billing.start's `plan` param. */
+  /** Plan the CTA subscribes to — the `plan` body field on /billing/subscribe. */
   id: PlanId;
   name: string;
   /** null renders as "Free" rather than "$0". */
@@ -147,15 +104,36 @@ function planCards(cycle: BillingCycle): PlanCard[] {
 function PlanPicker({
   activePlan,
   hasActiveBilling,
+  onChoose,
+  pendingPlan,
+  errorMessage,
 }: {
   activePlan: PlanId;
   hasActiveBilling: boolean;
+  onChoose: (plan: PlanId) => void;
+  /** The plan whose subscribe call is in flight, if any. */
+  pendingPlan: PlanId | null;
+  errorMessage: string | null;
 }) {
-  const [cycle, setCycle] = useState<BillingCycle>("monthly");
+  /*
+   * Opened on the merchant's own cycle rather than always monthly. An annual
+   * subscriber landing on monthly sees no card carrying their plan — nothing
+   * is badged "Current plan", and the one obvious button on the Unlimited
+   * card would move them from $200 a year to $20 a month.
+   */
+  const [cycle, setCycle] = useState<BillingCycle>(
+    activePlan === "unlimited_annual" ? "annual" : "monthly",
+  );
   const cards = planCards(cycle);
 
   return (
     <s-stack direction="block" gap="base">
+      {errorMessage && (
+        <s-banner tone="critical" heading="Could not start this plan change">
+          <s-paragraph>{errorMessage}</s-paragraph>
+        </s-banner>
+      )}
+
       <s-choice-list
         label="Billing cycle"
         name="cycle"
@@ -181,12 +159,21 @@ function PlanPicker({
         {cards.map((card) => {
           const isCurrent = card.id === activePlan;
           return (
+            /*
+             * All three carry a surface, not just the current one.
+             * `undefined` here meant transparent, which on the admin's white
+             * page left the two plans a merchant might actually switch to as
+             * hairline outlines — the least visible thing on the page was the
+             * decision the page exists for. Which one is current is still
+             * said twice: a heavier edge, and the badge it already had.
+             */
             <s-box
               key={card.name}
               padding="base"
-              border="base"
+              background="subdued"
+              borderWidth="base"
+              borderColor={isCurrent ? "strong" : "base"}
               borderRadius="base"
-              background={isCurrent ? "subdued" : undefined}
             >
               <s-stack direction="block" gap="base">
                 <s-stack direction="inline" gap="small-200" alignItems="center">
@@ -231,7 +218,11 @@ function PlanPicker({
                   </s-button>
                 ) : (
                   <s-button
-                    href={`/app/billing/start?plan=${card.id}`}
+                    onClick={() => onChoose(card.id)}
+                    loading={pendingPlan === card.id}
+                    /* One approval at a time: a second click while Shopify is
+                       minting a confirmation URL would open the wrong one. */
+                    disabled={pendingPlan !== null}
                     variant={card.recommended ? "primary" : "secondary"}
                   >
                     {card.id === "basic"
@@ -253,10 +244,30 @@ function PlanPicker({
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+/**
+ * One figure, with the icon of what it counts.
+ *
+ * Four of these sit in a row, and as plain label-over-value they were four
+ * identical grey-then-black pairs — nothing to tell apart at a glance, and
+ * nothing to land on. The icon is the same device the dashboard's tiles use.
+ */
+function Stat({
+  label,
+  value,
+  icon,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string;
+  icon: string;
+  tone?: "neutral" | "success" | "warning" | "critical";
+}) {
   return (
     <s-stack direction="block" gap="small-500">
-      <s-text color="subdued">{label}</s-text>
+      <s-stack direction="inline" gap="small-200" alignItems="center">
+        <s-icon type={icon as never} tone={tone} size="small" />
+        <s-text color="subdued">{label}</s-text>
+      </s-stack>
       <s-text type="strong" fontVariantNumeric="tabular-nums">
         {value}
       </s-text>
@@ -265,16 +276,94 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 export default function Billing() {
+  const { data, isPending, error, refetch } = useBilling();
+  const subscribe = useSubscribe();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [chooseError, setChooseError] = useState<string | null>(null);
+  const { showToast } = useToast();
+
+  /*
+   * Only the downgrade is confirmed here. Every paid plan already passes
+   * through Shopify's own approval screen, which states the price and takes
+   * a deliberate second action — Basic is the one path with nothing between
+   * the click and a cancelled subscription.
+   */
+  const downgradeModalRef = useRef<{
+    showOverlay: () => void;
+    hideOverlay: () => void;
+  } | null>(null);
+
+  if (isPending) return <PageSkeleton heading="Billing" />;
+  if (error)
+    return <PageError heading="Billing" error={error} onRetry={refetch} />;
+
   const {
-    activePlan,
     hasActiveBilling,
     quota,
     protectedOrders,
     billedUsageCents,
-  } = useLoaderData<typeof loader>();
-  const [searchParams, setSearchParams] = useSearchParams();
+    testMode,
+  } = data;
 
-  const plan = PLAN_SUMMARY[activePlan];
+  // The backend types this as a string; only these four ever come back, and
+  // an unrecognised one falls back to Basic rather than rendering `undefined`.
+  const activePlan = (data.activePlan as PlanId) ?? "basic";
+  const plan = PLAN_SUMMARY[activePlan] ?? PLAN_SUMMARY.basic;
+
+  function requestPlan(next: PlanId) {
+    if (next === "basic") {
+      // Clear any banner from a previous attempt, so the modal is not opened
+      // over a stale "could not start this plan change".
+      setChooseError(null);
+      downgradeModalRef.current?.showOverlay();
+
+      return;
+    }
+
+    choosePlan(next);
+  }
+
+  function confirmDowngrade() {
+    downgradeModalRef.current?.hideOverlay();
+    choosePlan("basic");
+  }
+
+  function choosePlan(next: PlanId) {
+    setChooseError(null);
+
+    subscribe.mutate(
+      { plan: next },
+      {
+        onSuccess: (result) => {
+          /*
+           * Shopify's approval screen can't render inside the embedded
+           * iframe — it has to take over the top frame. App Bridge patches
+           * window.open so `_top` escapes the frame instead of being blocked.
+           */
+          if (result.confirmationUrl) {
+            window.open(result.confirmationUrl, "_top");
+            return;
+          }
+
+          /*
+           * Basic is free, so there is nothing to approve: the backend
+           * cancels the subscription and answers ok with an empty URL.
+           * Reading that empty string as a missing link told the merchant
+           * their downgrade had failed after it had already gone through.
+           */
+          if (result.ok) {
+            showToast("You're now on the Basic plan.");
+            return;
+          }
+
+          setChooseError(
+            result.error ??
+              "Shopify did not return an approval link. Try again in a moment.",
+          );
+        },
+      },
+    );
+  }
   const isUsage = activePlan === "usage";
   const isBasic = activePlan === "basic";
 
@@ -284,100 +373,194 @@ export default function Billing() {
   const showPlans = !hasActiveBilling || searchParams.get("plans") === "1";
 
   return (
-    <s-page heading="Billing">
+    <s-page inlineSize="large" heading="Billing">
       <s-button slot="secondary-actions" href="/app" variant="secondary">
         Back
       </s-button>
+      <PageBody>
+        {testMode && (
+          <s-banner tone="info" heading="Test billing is on">
+            <s-paragraph>
+              Subscriptions created here are Shopify test charges — nothing is
+              actually billed. This is set on the server, not from this page.
+            </s-paragraph>
+          </s-banner>
+        )}
 
-      {!showPlans && (
-        <s-section heading="Current plan">
+        {!showPlans && (
+          <s-section heading="Current plan">
+            <s-grid
+              gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
+              gap="base"
+            >
+              <Stat label="Plan" value={plan.name} icon="plan" />
+              <Stat label="Price" value={plan.price} icon="cash-dollar" />
+              <Stat
+                label="Billing interval"
+                value={plan.interval}
+                icon="calendar"
+              />
+              <s-stack direction="block" gap="small-500">
+                <s-text color="subdued">Status</s-text>
+                <s-stack direction="inline">
+                  <s-badge tone={hasActiveBilling ? "success" : "neutral"}>
+                    {hasActiveBilling ? "Active" : "Free plan"}
+                  </s-badge>
+                </s-stack>
+              </s-stack>
+            </s-grid>
+
+            <s-button
+              variant="secondary"
+              onClick={() => setSearchParams({ plans: "1" })}
+            >
+              Change plan
+            </s-button>
+          </s-section>
+        )}
+
+        <s-section heading="Usage this period">
           <s-grid
             gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
             gap="base"
           >
-            <Stat label="Plan" value={plan.name} />
-            <Stat label="Price" value={plan.price} />
-            <Stat label="Billing interval" value={plan.interval} />
-            <s-stack direction="block" gap="small-500">
-              <s-text color="subdued">Status</s-text>
-              <s-stack direction="inline">
-                <s-badge tone={hasActiveBilling ? "success" : "neutral"}>
-                  {hasActiveBilling ? "Active" : "Free plan"}
-                </s-badge>
-              </s-stack>
-            </s-stack>
+            <Stat
+              label="Protected orders"
+              value={String(protectedOrders)}
+              icon="shield-check-mark"
+              tone={protectedOrders > 0 ? "success" : "neutral"}
+            />
+            {isUsage && (
+              <Stat
+                label="Kourify usage fee"
+                value={`${money(USAGE_FEE_CENTS)} per order`}
+                icon="receipt-dollar"
+              />
+            )}
+            <Stat
+              label="Usage charges"
+              value={money(isUsage ? billedUsageCents : 0)}
+              icon="receipt"
+            />
+            {isBasic && quota.limit !== null && (
+              <Stat
+                label="Allowance used"
+                value={`${quota.used} of ${quota.limit}`}
+                icon="gauge"
+                // The allowance is the one figure here that turns into a
+                // problem, so it says so before the banner below does.
+                tone={
+                  quota.overAllowance
+                    ? "critical"
+                    : quota.exhausted
+                      ? "warning"
+                      : "neutral"
+                }
+              />
+            )}
           </s-grid>
 
-          <s-button
-            variant="secondary"
-            onClick={() => setSearchParams({ plans: "1" })}
-          >
-            Change plan
-          </s-button>
-        </s-section>
-      )}
+          {!isUsage && (
+            <s-paragraph color="subdued">
+              {isBasic
+                ? "No Kourify usage fee on Basic."
+                : "No per-order usage fee on Unlimited."}
+            </s-paragraph>
+          )}
 
-      <s-section heading="Usage this period">
-        <s-grid
-          gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
-          gap="base"
+          {quota.overAllowance && (
+            <s-banner tone="warning" heading="Over your plan allowance">
+              {`${quota.used} protected orders against a limit of ${quota.limit}. Protection a customer already paid for is always honoured, so orders that were mid-checkout when the limit was reached still went through. New merchant-paid coverage is paused until you upgrade.`}
+            </s-banner>
+          )}
+
+          {quota.exhausted && !quota.overAllowance && (
+            <s-banner tone="warning" heading="Allowance used up">
+              {`You've used all ${quota.limit} protected orders on Basic. Protection is switched off for new orders — existing protected orders keep their coverage and can still be claimed.`}
+            </s-banner>
+          )}
+        </s-section>
+
+        {showPlans ? (
+          <s-section heading="Plans">
+            <PlanPicker
+              activePlan={activePlan}
+              hasActiveBilling={hasActiveBilling}
+              onChoose={requestPlan}
+              pendingPlan={
+                subscribe.isPending
+                  ? ((subscribe.variables?.plan as PlanId) ?? null)
+                  : null
+              }
+              errorMessage={
+                chooseError ??
+                (subscribe.error ? subscribe.error.message : null)
+              }
+            />
+          </s-section>
+        ) : (
+          <s-section heading="Billing information">
+            <s-paragraph>
+              {`Shopify handles subscription billing and charges your store through Shopify. Kourify never sees or stores your payment details. The ${money(
+                USAGE_FEE_CENTS,
+              )} usage fee is billed to you per protected order on the Usage plan — it is not the protection price your customers pay, not coverage, and not a claim settlement.`}
+            </s-paragraph>
+          </s-section>
+        )}
+
+        <s-modal
+          ref={downgradeModalRef as never}
+          id="kourify-downgrade-confirm-modal"
+          heading="Downgrade to Basic?"
         >
-          <Stat label="Protected orders" value={String(protectedOrders)} />
-          {isUsage && (
-            <Stat
-              label="Kourify usage fee"
-              value={`${money(USAGE_FEE_CENTS)} per order`}
-            />
-          )}
-          <Stat
-            label="Usage charges"
-            value={money(isUsage ? billedUsageCents : 0)}
-          />
-          {isBasic && quota.limit !== null && (
-            <Stat
-              label="Allowance used"
-              value={`${quota.used} of ${quota.limit}`}
-            />
-          )}
-        </s-grid>
+          <s-stack direction="block" gap="base">
+            <s-paragraph>
+              {`Your ${plan.name} subscription is cancelled right away. Shopify credits you for the rest of the billing cycle.`}
+            </s-paragraph>
 
-        {!isUsage && (
-          <s-paragraph color="subdued">
-            {isBasic
-              ? "No Kourify usage fee on Basic."
-              : "No per-order usage fee on Unlimited."}
-          </s-paragraph>
-        )}
+            <s-unordered-list>
+              {/* The merchant's own number, not a generic warning. Past the
+                  allowance this is the difference between "you have room" and
+                  "protection stops the moment you confirm". */}
+              <s-list-item>
+                {protectedOrders > BASIC_PROTECTED_ORDER_LIMIT
+                  ? `Basic covers ${BASIC_PROTECTED_ORDER_LIMIT} protected orders. You have ${protectedOrders}, so protection switches off for new orders immediately.`
+                  : `Basic covers ${BASIC_PROTECTED_ORDER_LIMIT} protected orders. You have ${protectedOrders}, and protection pauses once you reach the limit.`}
+              </s-list-item>
+              <s-list-item>
+                Customers can no longer pay for protection. You cover it
+                yourself, or it stays off.
+              </s-list-item>
+              {/* The question merchants actually ask, and the answer is
+                  reassuring — so it belongs before the decision, not after. */}
+              <s-list-item>
+                Orders that are already protected keep their coverage and can
+                still be claimed.
+              </s-list-item>
+            </s-unordered-list>
 
-        {quota.overAllowance && (
-          <s-banner tone="warning" heading="Over your plan allowance">
-            {`${quota.used} protected orders against a limit of ${quota.limit}. Protection a customer already paid for is always honoured, so orders that were mid-checkout when the limit was reached still went through. New merchant-paid coverage is paused until you upgrade.`}
-          </s-banner>
-        )}
+            <s-paragraph color="subdued">
+              You can subscribe again at any time.
+            </s-paragraph>
+          </s-stack>
 
-        {quota.exhausted && !quota.overAllowance && (
-          <s-banner tone="warning" heading="Allowance used up">
-            {`You've used all ${quota.limit} protected orders on Basic. Protection is switched off for new orders — existing protected orders keep their coverage and can still be claimed.`}
-          </s-banner>
-        )}
-      </s-section>
-
-      {showPlans ? (
-        <s-section heading="Plans">
-          <PlanPicker
-            activePlan={activePlan}
-            hasActiveBilling={hasActiveBilling}
-          />
-        </s-section>
-      ) : (
-        <s-section heading="Billing information">
-          <s-paragraph>
-            {`Shopify handles subscription billing and charges your store through Shopify. Kourify never sees or stores your payment details. The ${money(
-              USAGE_FEE_CENTS,
-            )} usage fee is billed to you per protected order on the Usage plan — it is not the protection price your customers pay, not coverage, and not a claim settlement.`}
-          </s-paragraph>
-        </s-section>
-      )}
+          <s-button
+            slot="primary-action"
+            variant="primary"
+            tone="critical"
+            loading={subscribe.isPending}
+            onClick={confirmDowngrade}
+          >
+            Downgrade to Basic
+          </s-button>
+          <s-button
+            slot="secondary-actions"
+            onClick={() => downgradeModalRef.current?.hideOverlay()}
+          >
+            Keep my plan
+          </s-button>
+        </s-modal>
+      </PageBody>
     </s-page>
   );
 }

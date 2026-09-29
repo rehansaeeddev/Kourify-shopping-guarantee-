@@ -16,12 +16,39 @@
    * shoppers see; it must not leak onto the admin, which keeps Shopify's own
    * font. (This rule used to sit on `body`, overriding the whole admin.) */
   font-family:
-    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
-    Arial, sans-serif;
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
   font-size: 13px;
   padding: 8px 12px;
   border-radius: 6px;
   width: fit-content;
+}
+
+/* The three styles a merchant can pick, mirroring
+ * extensions/kourify-badges/assets/kourify-badge.css. These were missing, so
+ * every option previewed identically and the picker showed nothing. */
+.app-tb--classic {
+  background: #f4f6f8;
+  color: #202223;
+  border: 1px solid #c9cccf;
+}
+
+.app-tb--minimal {
+  background: transparent;
+  color: #202223;
+  border: none;
+}
+
+.app-tb--bold {
+  background: #008060;
+  color: #ffffff;
+  border: none;
 }
 
 .app-tb__icon {
@@ -62,7 +89,10 @@
   max-width: 620px;
   font-size: 14px;
   line-height: 1.5;
-  color: rgba(255, 255, 255, 0.88);
+  /* 0.95, not 0.88. The banner is a gradient, and against its lighter end
+   * 88% white measured 4.29:1 — under the 4.5:1 WCAG asks of body text. The
+   * title is large enough to pass either way; this line was the one failing. */
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .app-dashboard-header__actions {
@@ -70,4 +100,3 @@
   gap: 8px;
   flex-shrink: 0;
 }
-
