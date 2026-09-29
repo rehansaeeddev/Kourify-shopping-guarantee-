@@ -18,7 +18,12 @@ export function EmptyState({
   return (
     <s-box padding="large-100">
       <s-stack direction="block" gap="base" alignItems="center">
-        <s-icon type={icon as never} size="base" color="subdued" />
+        {/* The icon sits on its own tile rather than loose on the page. A
+          single grey glyph on white reads as something that failed to load;
+          the same glyph on a surface reads as a state someone designed. */}
+        <s-box padding="base" background="subdued" borderRadius="large">
+          <s-icon type={icon as never} size="base" color="subdued" />
+        </s-box>
         <s-heading>{heading}</s-heading>
         <s-paragraph color="subdued">{description}</s-paragraph>
         {action}

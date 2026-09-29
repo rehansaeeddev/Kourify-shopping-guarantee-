@@ -2,10 +2,20 @@ type Active = "orders" | "claims" | "order-sync";
 
 type Counts = { orders?: number; claims?: number };
 
-const TABS: Array<{ id: Active; label: string; href: string }> = [
-  { id: "orders", label: "Orders", href: "/app/orders" },
-  { id: "claims", label: "Claims", href: "/app/claims" },
-  { id: "order-sync", label: "Order sync", href: "/app/order-sync" },
+const TABS: Array<{ id: Active; label: string; href: string; icon: string }> = [
+  { id: "orders", label: "Orders", href: "/app/orders", icon: "order" },
+  {
+    id: "claims",
+    label: "Claims",
+    href: "/app/claims",
+    icon: "clipboard-checklist",
+  },
+  {
+    id: "order-sync",
+    label: "Order sync",
+    href: "/app/order-sync",
+    icon: "refresh",
+  },
 ];
 
 /**
@@ -42,6 +52,7 @@ export function WorkspaceTabs({
             <s-button
               key={tab.id}
               href={tab.href}
+              icon={tab.icon as never}
               variant={tab.id === active ? "primary" : "secondary"}
             >
               {count > 0
