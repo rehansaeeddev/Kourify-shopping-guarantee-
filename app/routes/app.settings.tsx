@@ -411,7 +411,14 @@ export default function Settings() {
                     onClick={() => setActiveTab(tab.id)}
                     padding="small-300"
                     borderRadius="base"
-                    background={isActive ? "subdued" : undefined}
+                    /*
+                     * base on a subdued rail, which is the inverse of what
+                     * this was. It read the other way round while the rail
+                     * itself was white; once the rail took a surface of its
+                     * own, a subdued pill on a subdued rail was no pill at
+                     * all and every section looked current.
+                     */
+                    background={isActive ? "base" : "transparent"}
                     /* The current section is shown by a background and a bolder
                      label, and neither reaches a screen reader — both are
                      presentation. Saying it is the only way it carries. */
@@ -570,7 +577,17 @@ export default function Settings() {
                         <s-text color="subdued">
                           Preview — what shoppers see
                         </s-text>
-                        <s-box padding="base" border="base" borderRadius="base">
+                        {/* The frame stays white on purpose — this shows the
+                          badge as a shopper sees it on a product page, and
+                          tinting behind it would change what is being
+                          previewed. Only the edge is strengthened, so the
+                          frame itself is visible. */}
+                        <s-box
+                          padding="base"
+                          borderWidth="base"
+                          borderColor="strong"
+                          borderRadius="base"
+                        >
                           <TrustBadgePreview
                             badgeStyle={badgeState.badgeStyle}
                           />
