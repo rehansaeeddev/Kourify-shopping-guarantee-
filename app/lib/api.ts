@@ -7,13 +7,6 @@
  * merchant makes rather than the one that cached it.
  */
 
-/** App Bridge installs this on the page; it is not an npm import. */
-declare global {
-  interface Window {
-    shopify?: { idToken: () => Promise<string> };
-  }
-}
-
 export class ApiError extends Error {
   constructor(
     readonly status: number,

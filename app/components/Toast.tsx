@@ -4,19 +4,6 @@ type ToastContextValue = {
   showToast: (message: string, options?: { isError?: boolean }) => void;
 };
 
-declare global {
-  interface Window {
-    shopify?: {
-      toast?: {
-        show: (
-          message: string,
-          options?: { isError?: boolean; duration?: number },
-        ) => void;
-      };
-    };
-  }
-}
-
 const ToastContext = createContext<ToastContextValue | null>(null);
 
 export function ToastProvider({ children }: { children: ReactNode }) {

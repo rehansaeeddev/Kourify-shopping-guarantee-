@@ -1,11 +1,7 @@
-import type { LoaderFunctionArgs } from "react-router";
 import { useState } from "react";
-import { useLoaderData, useSearchParams } from "react-router";
-import { authenticate } from "../shopify.server";
-import db from "../db.server";
-import { DEFAULT_CLAIM_WINDOWS } from "../lib/claim-window";
-import { getBillingState } from "../lib/billing-state.server";
-import { getProtectionQuota } from "../lib/plan-limits.server";
+import { useSearchParams } from "react-router";
+import { PageError, PageSkeleton } from "../components/PageState";
+import { useBilling, useSubscribe } from "../lib/queries";
 import { BASIC_PROTECTED_ORDER_LIMIT, type PlanId } from "../lib/plans";
 
 /**
@@ -25,47 +21,6 @@ const PLAN_SUMMARY: Record<
   unlimited_annual: { name: "Unlimited", price: "$200.00", interval: "Annual" },
 };
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session, billing } = await authenticate.admin(request);
-
-  const settings = await db.merchantSettings.upsert({
-    where: { shop: session.shop },
-    update: {},
-    create: {
-      shop: session.shop,
-      claimWindows: JSON.stringify(DEFAULT_CLAIM_WINDOWS),
-    },
-  });
-
-  // Shopify is the billing authority. The local `plan` column is only a
-  // mirror, refreshed here from the verified subscription — never from the
-  // browser, form data or a URL parameter.
-  const { hasActiveBilling, activePlan } = await getBillingState(billing);
-  if (settings.plan !== activePlan) {
-    await db.merchantSettings.update({
-      where: { shop: session.shop },
-      data: { plan: activePlan },
-    });
-  }
-
-  const quota = await getProtectionQuota(session.shop, activePlan);
-  const protectedOrders = await db.protectedOrder.count({
-    where: { shop: session.shop, revokedAt: null },
-  });
-  // Only events actually charged — pending/waived/reversed would overstate it.
-  const billedUsage = await db.usageEvent.aggregate({
-    where: { shop: session.shop, status: "billed" },
-    _sum: { amountCents: true },
-  });
-
-  return {
-    activePlan,
-    hasActiveBilling,
-    quota,
-    protectedOrders,
-    billedUsageCents: billedUsage._sum.amountCents ?? 0,
-  };
-};
 function money(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
@@ -73,7 +28,7 @@ function money(cents: number): string {
 type BillingCycle = "monthly" | "annual";
 
 type PlanCard = {
-  /** Plan the CTA subscribes to — matches app.billing.start's `plan` param. */
+  /** Plan the CTA subscribes to — the `plan` body field on /billing/subscribe. */
   id: PlanId;
   name: string;
   /** null renders as "Free" rather than "$0". */
@@ -147,15 +102,28 @@ function planCards(cycle: BillingCycle): PlanCard[] {
 function PlanPicker({
   activePlan,
   hasActiveBilling,
+  onChoose,
+  pendingPlan,
+  errorMessage,
 }: {
   activePlan: PlanId;
   hasActiveBilling: boolean;
+  onChoose: (plan: PlanId) => void;
+  /** The plan whose subscribe call is in flight, if any. */
+  pendingPlan: PlanId | null;
+  errorMessage: string | null;
 }) {
   const [cycle, setCycle] = useState<BillingCycle>("monthly");
   const cards = planCards(cycle);
 
   return (
     <s-stack direction="block" gap="base">
+      {errorMessage && (
+        <s-banner tone="critical" heading="Could not start this plan change">
+          <s-paragraph>{errorMessage}</s-paragraph>
+        </s-banner>
+      )}
+
       <s-choice-list
         label="Billing cycle"
         name="cycle"
@@ -231,7 +199,11 @@ function PlanPicker({
                   </s-button>
                 ) : (
                   <s-button
-                    href={`/app/billing/start?plan=${card.id}`}
+                    onClick={() => onChoose(card.id)}
+                    loading={pendingPlan === card.id}
+                    /* One approval at a time: a second click while Shopify is
+                       minting a confirmation URL would open the wrong one. */
+                    disabled={pendingPlan !== null}
                     variant={card.recommended ? "primary" : "secondary"}
                   >
                     {card.id === "basic"
@@ -265,16 +237,53 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 export default function Billing() {
+  const { data, isPending, error, refetch } = useBilling();
+  const subscribe = useSubscribe();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [chooseError, setChooseError] = useState<string | null>(null);
+
+  if (isPending) return <PageSkeleton heading="Billing" />;
+  if (error)
+    return <PageError heading="Billing" error={error} onRetry={refetch} />;
+
   const {
-    activePlan,
     hasActiveBilling,
     quota,
     protectedOrders,
     billedUsageCents,
-  } = useLoaderData<typeof loader>();
-  const [searchParams, setSearchParams] = useSearchParams();
+    testMode,
+  } = data;
 
-  const plan = PLAN_SUMMARY[activePlan];
+  // The backend types this as a string; only these four ever come back, and
+  // an unrecognised one falls back to Basic rather than rendering `undefined`.
+  const activePlan = (data.activePlan as PlanId) ?? "basic";
+  const plan = PLAN_SUMMARY[activePlan] ?? PLAN_SUMMARY.basic;
+
+  function choosePlan(next: PlanId) {
+    setChooseError(null);
+
+    subscribe.mutate(
+      { plan: next },
+      {
+        onSuccess: (result) => {
+          /*
+           * Shopify's approval screen can't render inside the embedded
+           * iframe — it has to take over the top frame. App Bridge patches
+           * window.open so `_top` escapes the frame instead of being blocked.
+           */
+          if (result.confirmationUrl) {
+            window.open(result.confirmationUrl, "_top");
+            return;
+          }
+
+          setChooseError(
+            result.error ??
+              "Shopify did not return an approval link. Try again in a moment.",
+          );
+        },
+      },
+    );
+  }
   const isUsage = activePlan === "usage";
   const isBasic = activePlan === "basic";
 
@@ -288,6 +297,15 @@ export default function Billing() {
       <s-button slot="secondary-actions" href="/app" variant="secondary">
         Back
       </s-button>
+
+      {testMode && (
+        <s-banner tone="info" heading="Test billing is on">
+          <s-paragraph>
+            Subscriptions created here are Shopify test charges — nothing is
+            actually billed. This is set on the server, not from this page.
+          </s-paragraph>
+        </s-banner>
+      )}
 
       {!showPlans && (
         <s-section heading="Current plan">
@@ -367,6 +385,15 @@ export default function Billing() {
           <PlanPicker
             activePlan={activePlan}
             hasActiveBilling={hasActiveBilling}
+            onChoose={choosePlan}
+            pendingPlan={
+              subscribe.isPending
+                ? ((subscribe.variables?.plan as PlanId) ?? null)
+                : null
+            }
+            errorMessage={
+              chooseError ?? (subscribe.error ? subscribe.error.message : null)
+            }
           />
         </s-section>
       ) : (
