@@ -86,12 +86,18 @@ function hasOpenOffer(order: OrderRow): boolean {
 }
 
 /**
- * An unprotected order is not one state, it is three, and they call for
+ * An unprotected order is not one state, it is four, and they call for
  * different things from the merchant: an offer is out and the clock is
- * running, the shopper has agreed and Shopify is collecting, or nothing has
- * happened yet. Grey text said all three the same way.
+ * running, the shopper has agreed and Shopify is collecting, the money has
+ * landed and only the webhook is outstanding, or nothing has happened yet.
+ * Grey text said all four the same way.
  */
-function offerTone(offerStatus: string | null): "info" | "warning" | "neutral" {
+function offerTone(
+  offerStatus: string | null,
+): "success" | "info" | "warning" | "neutral" {
+  // Paid already: `protected` only turns true once the webhook writes the
+  // row, so this is the one state that is good news while still sitting here.
+  if (offerStatus === "payment_confirmed") return "success";
   if (offerStatus === "awaiting_payment") return "warning";
   if (offerStatus === "offer_sent") return "info";
 
@@ -324,7 +330,7 @@ export default function Orders() {
           filter that vanishes the moment it matches nothing cannot be
           cleared. So they sit at the top of the section instead.
         */}
-        <Card>
+        <Card heading="Shopify orders">
           <s-grid
             gridTemplateColumns="@container (inline-size <= 640px) 1fr, 1fr auto auto"
             gap="base"
