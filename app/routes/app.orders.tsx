@@ -303,15 +303,23 @@ export default function Orders() {
           }}
         />
 
-        <Card heading="Shopify orders">
+        {/*
+          Filters and the table are one region, so they are one card.
+          They were two, and on the admin's white page that read as two
+          unrelated slabs for a single thing. s-table has a filters slot for
+          exactly this, but it is only rendered when there are rows -- and a
+          filter that vanishes the moment it matches nothing cannot be
+          cleared. So they sit at the top of the section instead.
+        */}
+        <Card>
           <s-grid
             gridTemplateColumns="@container (inline-size <= 640px) 1fr, 1fr auto auto"
             gap="base"
             alignItems="end"
           >
             {/* Search submits on Enter; the two dropdowns navigate on change.
-              filter + fulfillment ride along as hidden inputs so a search keeps
-              the active filters. */}
+            filter + fulfillment ride along as hidden inputs so a search keeps
+            the active filters. */}
             <Form method="get">
               {filter !== "all" ? (
                 <input type="hidden" name="filter" value={filter} />
@@ -372,9 +380,9 @@ export default function Orders() {
               </s-select>
             </s-box>
           </s-grid>
-        </Card>
 
-        <Card>
+          <s-divider />
+
           {rows.length === 0 ? (
             <EmptyState
               icon="order"
