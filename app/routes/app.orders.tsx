@@ -85,6 +85,19 @@ function hasOpenOffer(order: OrderRow): boolean {
   );
 }
 
+/**
+ * An unprotected order is not one state, it is three, and they call for
+ * different things from the merchant: an offer is out and the clock is
+ * running, the shopper has agreed and Shopify is collecting, or nothing has
+ * happened yet. Grey text said all three the same way.
+ */
+function offerTone(offerStatus: string | null): "info" | "warning" | "neutral" {
+  if (offerStatus === "awaiting_payment") return "warning";
+  if (offerStatus === "offer_sent") return "info";
+
+  return "neutral";
+}
+
 function protectionLabel(offerStatus: string | null): string {
   if (offerStatus === "awaiting_payment") return "Awaiting payment";
   if (offerStatus === "offer_sent") return "Offer sent";
@@ -530,24 +543,39 @@ export default function Orders() {
                         </s-table-cell>
                         <s-table-cell>
                           {order.protected ? (
-                            /* The fee itself carries the status — a protected
-                           order is the only one with money in this column. */
-                            <s-text
-                              type="strong"
-                              fontVariantNumeric="tabular-nums"
+                            /* The fee stays the content of this cell — a
+                           protected order is the only one with money in it —
+                           and the mark beside it is what makes protected rows
+                           findable when you are scanning a page of fifty. */
+                            <s-stack
+                              direction="inline"
+                              gap="small-200"
+                              alignItems="center"
                             >
-                              {order.protectionPriceCents
-                                ? formatMoney(
-                                    order.protectionPriceCents / 100,
-                                    order.protectionCurrency,
-                                  )
-                                : "Covered by you"}
-                            </s-text>
+                              <s-icon
+                                type="shield-check-mark"
+                                tone="success"
+                                size="small"
+                              />
+                              <s-text
+                                type="strong"
+                                fontVariantNumeric="tabular-nums"
+                              >
+                                {order.protectionPriceCents
+                                  ? formatMoney(
+                                      order.protectionPriceCents / 100,
+                                      order.protectionCurrency,
+                                    )
+                                  : "Covered by you"}
+                              </s-text>
+                            </s-stack>
                           ) : (
                             <s-stack direction="block" gap="small-100">
-                              <s-text color="subdued">
-                                {protectionLabel(order.offerStatus)}
-                              </s-text>
+                              <s-stack direction="inline">
+                                <s-badge tone={offerTone(order.offerStatus)}>
+                                  {protectionLabel(order.offerStatus)}
+                                </s-badge>
+                              </s-stack>
                               {order.offerStatus === "offer_sent" &&
                               order.offerExpiresAt ? (
                                 <s-text color="subdued">
