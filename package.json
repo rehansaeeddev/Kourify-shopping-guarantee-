@@ -3,6 +3,7 @@
     "private": true,
     "scripts": {
         "build": "react-router build",
+        "build:deploy": "react-router build && node scripts/copy-to-backend.mjs",
         "dev": "react-router dev",
         "preview": "vite preview",
         "test": "vitest run",
