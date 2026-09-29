@@ -15,6 +15,11 @@ database.sqlite
 
 .env
 .env.*
+# The example holds variable names and no values, and is the only record of
+# what this repo needs. .env.* had been swallowing it, so a fresh clone got
+# nothing — which is how the old Node stack's database and SMTP variables
+# survived in it unnoticed.
+!.env.example
 
 
 

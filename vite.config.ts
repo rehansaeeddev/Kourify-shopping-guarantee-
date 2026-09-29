@@ -18,6 +18,18 @@ if (
 const host = new URL(process.env.SHOPIFY_APP_URL || "http://localhost")
   .hostname;
 
+/**
+ * Where the Laravel backend is listening in development.
+ *
+ * The Shopify CLI tunnels to this dev server, so every path the backend owns
+ * has to be forwarded from here: webhook deliveries, App Proxy requests from
+ * the storefront, and the admin's own API calls. In production the same three
+ * are same-origin because Laravel serves the built SPA itself — which is what
+ * lets the API client use relative paths in both places.
+ */
+const BACKEND = process.env.KOURIFY_BACKEND_URL || "http://127.0.0.1:8000";
+const BACKEND_PATHS = ["/api", "/webhooks", "/proxy"];
+
 let hmrConfig;
 if (host === "localhost") {
   hmrConfig = {
@@ -47,6 +59,15 @@ export default defineConfig({
       // See https://vitejs.dev/config/server-options.html#server-fs-allow for more information
       allow: ["app", "node_modules"],
     },
+    proxy: Object.fromEntries(
+      BACKEND_PATHS.map((path) => [
+        path,
+        // changeOrigin stays off: the backend verifies Shopify's HMAC and the
+        // App Proxy signature against the request as it arrived, and rewriting
+        // the Host header is exactly the kind of edit that breaks one.
+        { target: BACKEND, changeOrigin: false },
+      ]),
+    ),
   },
   plugins: [reactRouter(), tsconfigPaths()],
   build: {
