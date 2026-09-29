@@ -1,29 +1,26 @@
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { useEffect, useRef, useState } from "react";
-import {
-  Form,
-  useFetcher,
-  useLoaderData,
-  useNavigate,
-  useSearchParams,
-} from "react-router";
-import { authenticate } from "../shopify.server";
-import db from "../db.server";
+import { Form, useNavigate, useSearchParams } from "react-router";
+
 import { Card } from "../components/Card";
-import { getResolvedClaimsTrend } from "../lib/protection-telemetry.server";
 import { EmptyState } from "../components/EmptyState";
+import { PageError, PageSkeleton } from "../components/PageState";
 import { StatusBadge } from "../components/StatusBadge";
+import { useToast } from "../components/Toast";
+import { WorkspaceTabs } from "../components/WorkspaceTabs";
+import { useTablePagination } from "../hooks/useTablePagination";
+import { api } from "../lib/api";
 import { issueTypeLabel } from "../lib/claim-issue-type";
 import { EVIDENCE_REQUIRED_TYPES } from "../lib/claim-window";
-import { notifyClaimStatusChanged } from "../lib/notify.server";
-import { isRateLimited } from "../lib/rate-limit.server";
-import { useTablePagination } from "../hooks/useTablePagination";
-import { WorkspaceTabs } from "../components/WorkspaceTabs";
-import { getWorkspaceCounts } from "../lib/workspace-counts.server";
+import { useBulkUpdateClaims, useClaims, useUpdateClaim } from "../lib/queries";
 
 const STATUS_CONFIRM_MODAL_ID = "kourify-status-confirm-modal";
 const STATUSES = ["submitted", "reviewing", "resolved", "denied"] as const;
 const TERMINAL_STATUSES = ["resolved", "denied"];
+
+/** The tab a URL asks for, or "all" when it names one that does not exist. */
+function pickTab(value: string | null): string {
+  return TABS.some((tab) => tab.value === value) ? (value as string) : "all";
+}
 
 const TABS = [
   { value: "all", label: "All" },
@@ -42,293 +39,21 @@ function ordinal(n: number): string {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
-const PAGE_SIZE = 25;
-
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
-  const url = new URL(request.url);
-  const tab = url.searchParams.get("tab") ?? "all";
-  // Cap the search term's length; it's only ever used in parameterized
-  // `contains` filters (never string-interpolated), so it can't inject.
-  const q = (url.searchParams.get("q") ?? "").trim().slice(0, 100);
-  const page = Math.max(
-    1,
-    Math.floor(Number(url.searchParams.get("page")) || 1),
-  );
-
-  const where: Record<string, unknown> = { shop: session.shop };
-  if (tab === "requires_evidence") {
-    where.issueType = { in: EVIDENCE_REQUIRED_TYPES };
-  } else if (tab === "high_risk") {
-    where.orderRiskLevel = { not: null, notIn: ["LOW"] };
-  } else if (tab === "resolved_today") {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    where.status = { in: TERMINAL_STATUSES };
-    where.resolvedAt = { gte: startOfToday };
-  }
-  if (q) {
-    where.OR = [
-      { orderNumber: { contains: q } },
-      { shopifyOrderName: { contains: q } },
-      { email: { contains: q } },
-      { fullName: { contains: q } },
-    ];
-  }
-
-  const [
-    filteredCount,
-    claims,
-    emailCounts,
-    totalClaims,
-    openClaims,
-    resolvedClaims,
-    resolvedTrend,
-  ] = await Promise.all([
-    db.protectionClaim.count({ where }),
-    db.protectionClaim.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-    }),
-    // Per-email totals via groupBy instead of loading every claim row into
-    // memory just to tally them (which would OOM a high-volume shop).
-    db.protectionClaim.groupBy({
-      by: ["email"],
-      where: { shop: session.shop },
-      _count: { _all: true },
-    }),
-    db.protectionClaim.count({ where: { shop: session.shop } }),
-    db.protectionClaim.count({
-      where: {
-        shop: session.shop,
-        status: { in: ["submitted", "reviewing"] },
-      },
-    }),
-    db.protectionClaim.count({
-      where: { shop: session.shop, status: "resolved" },
-    }),
-    getResolvedClaimsTrend(session.shop),
-  ]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredCount / PAGE_SIZE));
-  const workspaceCounts = await getWorkspaceCounts(session.shop);
-
-  // Claimed item titles for this page. protectedItemId is a plain nullable
-  // column rather than a Prisma relation — claims filed before item-level
-  // coverage have none — so this is one scoped follow-up read, not an include.
-  const itemIds = claims
-    .map((claim) => claim.protectedItemId)
-    .filter((id): id is string => Boolean(id));
-  const itemsById = new Map(
-    itemIds.length
-      ? (
-          await db.protectedOrderItem.findMany({
-            where: { shop: session.shop, id: { in: itemIds } },
-            select: { id: true, title: true, sku: true },
-          })
-        ).map((item) => [item.id, item])
-      : [],
-  );
-  const claimsWithItems = claims.map((claim) => ({
-    ...claim,
-    protectedItem: claim.protectedItemId
-      ? (itemsById.get(claim.protectedItemId) ?? null)
-      : null,
-  }));
-
-  return {
-    claims: claimsWithItems,
-    openClaims,
-    resolvedClaims,
-    resolvedTrend,
-    totalClaims,
-    filteredCount,
-    tab,
-    q,
-    page,
-    totalPages,
-    workspaceCounts,
-    emailClaimNumbers: Object.fromEntries(
-      emailCounts.map((group) => [group.email, group._count._all]),
-    ),
-  };
-};
-
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
-
-  // Each status change can email the customer, so cap how fast one shop can
-  // fire updates to prevent a runaway loop or abusive client from flooding.
-  if (await isRateLimited(`claim-update:${session.shop}`, 120, 60 * 1000)) {
-    return { ok: false, error: "Too many updates. Please slow down." };
-  }
-
-  const formData = await request.formData();
-
-  // Apply one status change: persist it, record the audit trail, and email the
-  // customer. Shared by the single-row update and the bulk update so the
-  // money-and-email-sensitive path exists in exactly one place. `existing` is
-  // the claim as it was before the change (null if it no longer exists).
-  const applyStatusChange = async (
-    claimId: string,
-    existing: NonNullable<
-      Awaited<ReturnType<typeof db.protectionClaim.findFirst>>
-    > | null,
-    status: string,
-    settlementCents: number | null | undefined,
-    decisionNote: string | undefined,
-  ) => {
-    const isDecision = TERMINAL_STATUSES.includes(status);
-    const actor = session.onlineAccessInfo?.associated_user;
-    const decidedByUserId = actor?.id != null ? String(actor.id) : null;
-    const decidedByName =
-      [actor?.first_name, actor?.last_name].filter(Boolean).join(" ") ||
-      actor?.email ||
-      null;
-
-    await db.protectionClaim.updateMany({
-      where: { id: claimId, shop: session.shop },
-      data: {
-        status,
-        ...(settlementCents !== undefined ? { settlementCents } : {}),
-        ...(decisionNote !== undefined ? { decisionNote } : {}),
-        ...(isDecision ? { decidedByUserId, decidedByName } : {}),
-        resolvedAt:
-          isDecision && !existing?.resolvedAt ? new Date() : undefined,
-      },
-    });
-
-    if (existing && existing.status !== status) {
-      await db.auditLog.create({
-        data: {
-          shop: session.shop,
-          action: isDecision ? "claim_decision" : "claim_status_updated",
-          userId: decidedByUserId,
-          resource: `claim:${claimId}`,
-          oldValue: {
-            status: existing.status,
-            settlementCents: existing.settlementCents,
-          },
-          newValue: {
-            status,
-            settlementCents:
-              settlementCents !== undefined
-                ? settlementCents
-                : existing.settlementCents,
-            eligibleLossCents: existing.eligibleLossCents,
-            decidedByName,
-            ...(decisionNote !== undefined ? { decisionNote } : {}),
-          },
-        },
-      });
-      await notifyClaimStatusChanged({
-        email: existing.email,
-        fullName: existing.fullName,
-        orderNumber: existing.shopifyOrderName ?? existing.orderNumber,
-        status,
-      });
-    }
-  };
-
-  // Bulk status change: only the non-destructive transitions are allowed here
-  // (a denial always goes through the single-row flow), and each one still
-  // emails its customer, so the client confirms before submitting.
-  const bulkClaimIds = String(formData.get("claimIds") ?? "")
-    .split(",")
-    .map((id) => id.trim())
-    .filter(Boolean);
-  if (bulkClaimIds.length) {
-    const status = String(formData.get("status"));
-    if (!["reviewing", "resolved"].includes(status)) {
-      return { ok: false, error: "That status can't be set in bulk." };
-    }
-    if (bulkClaimIds.length > 50) {
-      return { ok: false, error: "Update at most 50 claims at a time." };
-    }
-    const claims = await db.protectionClaim.findMany({
-      where: { id: { in: bulkClaimIds }, shop: session.shop },
-    });
-    let changed = 0;
-    let skipped = bulkClaimIds.length - claims.length; // ids that no longer exist
-    for (const existing of claims) {
-      // Already in the target status — nothing to change, nothing to email.
-      if (existing.status === status) {
-        skipped += 1;
-        continue;
-      }
-      await applyStatusChange(existing.id, existing, status, undefined, undefined);
-      changed += 1;
-    }
-    const parts = [`Updated ${changed} claim${changed === 1 ? "" : "s"}`];
-    if (skipped) parts.push(`skipped ${skipped}`);
-    return { ok: changed > 0, message: parts.join(" · ") };
-  }
-
-  const claimId = String(formData.get("claimId"));
-  const status = String(formData.get("status"));
-  // Only accept known statuses — this value is persisted and emailed to the
-  // customer, so never trust an arbitrary form value.
-  if (!STATUSES.includes(status as (typeof STATUSES)[number])) {
-    return { ok: false, error: "Invalid status" };
-  }
-
-  const existing = await db.protectionClaim.findFirst({
-    where: { id: claimId, shop: session.shop },
-  });
-
-  // Settlement amount — what the merchant approves and funds. Only meaningful
-  // on approval, and capped at the eligible loss Kourify calculated so an
-  // approval can't quietly exceed the item's own covered value. Kourify never
-  // sets this itself; absent merchant input it stays null.
-  let settlementCents: number | null | undefined;
-  if (status === "resolved") {
-    const raw = formData.get("settlementCents");
-    if (raw !== null && String(raw).trim() !== "") {
-      const parsed = Math.max(0, Math.round(Number(raw) || 0));
-      const ceiling = existing?.eligibleLossCents ?? null;
-      if (ceiling != null && parsed > ceiling) {
-        return {
-          ok: false,
-          error: `Settlement can't exceed the eligible loss of $${(ceiling / 100).toFixed(2)}.`,
-        };
-      }
-      settlementCents = parsed;
-    }
-  } else if (status === "denied") {
-    // A denial settles nothing.
-    settlementCents = null;
-  }
-
-  const note = formData.get("decisionNote");
-  const decisionNote =
-    note !== null && String(note).trim() !== ""
-      ? String(note).trim().slice(0, 2000)
-      : undefined;
-
-  await applyStatusChange(claimId, existing, status, settlementCents, decisionNote);
-
-  return { ok: true };
-};
-
 export default function Claims() {
-  const {
-    claims,
-    openClaims,
-    resolvedClaims,
-    totalClaims,
-    tab,
-    q,
-    page,
-    totalPages,
-    filteredCount,
-    workspaceCounts,
-    emailClaimNumbers,
-  } = useLoaderData<typeof loader>();
-  const claimFetcher = useFetcher();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { showToast } = useToast();
+
+  const params = {
+    tab: pickTab(searchParams.get("tab")),
+    q: searchParams.get("q") ?? "",
+    page: Math.max(1, Math.floor(Number(searchParams.get("page")) || 1)),
+  };
+
+  const { data, isPending, error, refetch } = useClaims(params);
+  const updateClaim = useUpdateClaim();
+  const bulkUpdate = useBulkUpdateClaims();
+
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   // Bulk status changes ride their own fetcher. A confirmation modal (not a raw
@@ -336,7 +61,6 @@ export default function Claims() {
   // the send, and the outcome lands in a dismissible banner at the top of the
   // page, matching the single-claim decision flow. Selection is scoped to the
   // claims visible on this page and clears whenever the list changes.
-  const bulkFetcher = useFetcher<typeof action>();
   const bulkConfirmRef = useRef<{
     showOverlay: () => void;
     hideOverlay: () => void;
@@ -349,28 +73,29 @@ export default function Claims() {
     text: string;
     ok: boolean;
   } | null>(null);
-  const bulkWasActive = useRef(false);
-  useEffect(() => {
-    if (bulkFetcher.state !== "idle") {
-      bulkWasActive.current = true;
-      return;
-    }
-    if (bulkWasActive.current && bulkFetcher.data) {
-      const data = bulkFetcher.data;
-      setBulkBanner({
-        text: data.message ?? data.error ?? "Claims updated.",
-        ok: Boolean(data.ok),
-      });
-    }
-    bulkWasActive.current = false;
-  }, [bulkFetcher.state, bulkFetcher.data]);
-
   const [selectedClaimIds, setSelectedClaimIds] = useState<Set<string>>(
     new Set(),
   );
   useEffect(() => {
     setSelectedClaimIds(new Set());
-  }, [tab, q, page]);
+  }, [params.tab, params.q, params.page]);
+
+  if (isPending) return <PageSkeleton heading="Claims" />;
+  if (error)
+    return <PageError heading="Claims" error={error} onRetry={refetch} />;
+
+  const {
+    claims,
+    openClaims,
+    resolvedClaims,
+    totalClaims,
+    totalPages,
+    pageSize,
+    filteredCount,
+    workspaceCounts,
+    emailClaimNumbers,
+  } = data;
+  const { tab, q, page } = params;
 
   const pageClaimIds = claims.map((claim) => claim.id);
   const allClaimsSelected =
@@ -399,12 +124,20 @@ export default function Claims() {
 
   const confirmBulkStatus = () => {
     if (!pendingBulk) return;
-    bulkFetcher.submit(
+
+    bulkUpdate.mutate(
       {
-        claimIds: Array.from(selectedClaimIds).join(","),
+        claimIds: Array.from(selectedClaimIds),
         status: pendingBulk.status,
       },
-      { method: "POST" },
+      {
+        onSuccess: (result) =>
+          setBulkBanner({
+            text: result.message ?? "Claims updated.",
+            ok: result.ok,
+          }),
+        onError: (cause) => setBulkBanner({ text: cause.message, ok: false }),
+      },
     );
     setSelectedClaimIds(new Set());
     setPendingBulk(null);
@@ -416,9 +149,6 @@ export default function Claims() {
     bulkConfirmRef.current?.hideOverlay();
   };
 
-  // Remembers which row was just submitted so the decision banner can name it
-  // before the loader revalidates and the row's status flips.
-  const submittedClaimId = useRef<string | null>(null);
   const [pendingStatus, setPendingStatus] = useState<{
     claimId: string;
     status: string;
@@ -435,47 +165,36 @@ export default function Claims() {
     orderName: string;
     shopifyOrderId: string | null;
   };
-  const submittedOutcome = useRef<StatusOutcome | null>(null);
   const [statusBanner, setStatusBanner] = useState<StatusOutcome | null>(null);
-
-  useEffect(() => {
-    if (claimFetcher.state !== "idle" || !claimFetcher.data) return;
-    if (!submittedClaimId.current) return;
-
-    submittedClaimId.current = null;
-
-    // Resolve/deny emails the customer, so it gets a persistent banner.
-    if (submittedOutcome.current) {
-      setStatusBanner(submittedOutcome.current);
-      submittedOutcome.current = null;
-    }
-  }, [claimFetcher.state, claimFetcher.data]);
 
   const submitStatus = (
     claimId: string,
     status: string,
     settlementCents?: number | null,
   ) => {
-    submittedClaimId.current = claimId;
-    // Capture the row now: once the action lands the loader revalidates and
-    // this claim's status flips, so the banner couldn't tell what changed.
+    // Captured before the call: the refetch that follows flips this claim's
+    // status, and the banner would have nothing left to name.
     const claim = claims.find((row) => row.id === claimId);
-    submittedOutcome.current = TERMINAL_STATUSES.includes(status)
+    const outcome: StatusOutcome | null = TERMINAL_STATUSES.includes(status)
       ? {
           status,
           orderName: claim?.shopifyOrderName ?? claim?.orderNumber ?? "",
           shopifyOrderId: claim?.shopifyOrderId ?? null,
         }
       : null;
-    claimFetcher.submit(
+
+    updateClaim.mutate(
       {
-        claimId,
+        id: claimId,
         status,
-        ...(settlementCents != null
-          ? { settlementCents: String(settlementCents) }
-          : {}),
+        ...(settlementCents != null ? { settlementCents } : {}),
       },
-      { method: "POST" },
+      {
+        // Resolving or denying emails the customer, so it gets a banner that
+        // stays; moving a claim to "reviewing" tells nobody and needs none.
+        onSuccess: () => outcome && setStatusBanner(outcome),
+        onError: (cause) => showToast(cause.message, { isError: true }),
+      },
     );
   };
 
@@ -530,7 +249,13 @@ export default function Claims() {
 
   const pagination = useTablePagination(page, totalPages, pageHref);
 
-  const exportParams = new URLSearchParams(searchParams);
+  const exportCsv = () =>
+    api
+      .download(
+        `/claims/export?${new URLSearchParams(searchParams).toString()}`,
+        "kourify-claims.csv",
+      )
+      .catch((cause: Error) => showToast(cause.message, { isError: true }));
 
   return (
     <s-page heading="Claims">
@@ -597,63 +322,58 @@ export default function Claims() {
             filters, search and table each get even breathing room instead of
             butting up against one another. */}
         <s-stack direction="block" gap="base">
-        {/* A compact count line, not a whole metrics card — two numbers don't
+          {/* A compact count line, not a whole metrics card — two numbers don't
             earn their own section, and the open count already rides on the
             workspace tab. */}
-        <s-stack direction="inline" gap="small-200" alignItems="center">
-          <s-badge tone={openClaims > 0 ? "warning" : "neutral"}>
-            {`${openClaims} open`}
-          </s-badge>
-          <s-badge tone="neutral">{`${resolvedClaims} resolved`}</s-badge>
-        </s-stack>
-        {/* Search submits on Enter; the Status dropdown navigates on change,
+          <s-stack direction="inline" gap="small-200" alignItems="center">
+            <s-badge tone={openClaims > 0 ? "warning" : "neutral"}>
+              {`${openClaims} open`}
+            </s-badge>
+            <s-badge tone="neutral">{`${resolvedClaims} resolved`}</s-badge>
+          </s-stack>
+          {/* Search submits on Enter; the Status dropdown navigates on change,
             keeping the current search. */}
-        <s-grid
-          gridTemplateColumns="@container (inline-size <= 640px) 1fr, 1fr auto auto"
-          gap="base"
-          alignItems="end"
-        >
-          <Form method="get">
-            {tab !== "all" ? (
-              <input type="hidden" name="tab" value={tab} />
-            ) : null}
-            <s-search-field
-              label="Search claims"
-              labelAccessibilityVisibility="exclusive"
-              name="q"
-              value={q}
-              placeholder="Search order, name, or email"
-            />
-          </Form>
-          <s-box minInlineSize="180px">
-            <s-select
-              label="Status"
-              value={tab}
-              onChange={(e) => {
-                const value = e.currentTarget.value ?? "all";
-                const params = new URLSearchParams();
-                if (value !== "all") params.set("tab", value);
-                if (q) params.set("q", q);
-                const search = params.toString();
-                navigate(search ? `/app/claims?${search}` : "/app/claims");
-              }}
-            >
-              {TABS.map((t) => (
-                <s-option key={t.value} value={t.value}>
-                  {t.label}
-                </s-option>
-              ))}
-            </s-select>
-          </s-box>
-          <s-button
-            href={`/app/claims/export?${exportParams.toString()}`}
-            variant="secondary"
-            download=""
-            target="_blank"
+          <s-grid
+            gridTemplateColumns="@container (inline-size <= 640px) 1fr, 1fr auto auto"
+            gap="base"
+            alignItems="end"
           >
-            Export CSV
-          </s-button>
-        </s-grid>
+            <Form method="get">
+              {tab !== "all" ? (
+                <input type="hidden" name="tab" value={tab} />
+              ) : null}
+              <s-search-field
+                label="Search claims"
+                labelAccessibilityVisibility="exclusive"
+                name="q"
+                value={q}
+                placeholder="Search order, name, or email"
+              />
+            </Form>
+            <s-box minInlineSize="180px">
+              <s-select
+                label="Status"
+                value={tab}
+                onChange={(e) => {
+                  const value = e.currentTarget.value ?? "all";
+                  const params = new URLSearchParams();
+                  if (value !== "all") params.set("tab", value);
+                  if (q) params.set("q", q);
+                  const search = params.toString();
+                  navigate(search ? `/app/claims?${search}` : "/app/claims");
+                }}
+              >
+                {TABS.map((t) => (
+                  <s-option key={t.value} value={t.value}>
+                    {t.label}
+                  </s-option>
+                ))}
+              </s-select>
+            </s-box>
+            <s-button variant="secondary" onClick={exportCsv}>
+              Export CSV
+            </s-button>
+          </s-grid>
         </s-stack>
       </Card>
 
@@ -681,11 +401,7 @@ export default function Claims() {
                 alignItems="center"
                 justifyContent="space-between"
               >
-                <s-stack
-                  direction="inline"
-                  gap="small-200"
-                  alignItems="center"
-                >
+                <s-stack direction="inline" gap="small-200" alignItems="center">
                   <s-checkbox
                     checked={allClaimsSelected}
                     accessibilityLabel="Select all claims on this page"
@@ -697,8 +413,8 @@ export default function Claims() {
                     </s-text>
                   ) : (
                     <s-text color="subdued">
-                      {`Showing ${(page - 1) * PAGE_SIZE + 1}–${
-                        (page - 1) * PAGE_SIZE + claims.length
+                      {`Showing ${(page - 1) * pageSize + 1}–${
+                        (page - 1) * pageSize + claims.length
                       } of ${filteredCount} claim${filteredCount === 1 ? "" : "s"}`}
                     </s-text>
                   )}
@@ -717,16 +433,16 @@ export default function Claims() {
                     </s-button>
                     <s-button
                       variant="secondary"
-                      loading={bulkFetcher.state !== "idle"}
-                      disabled={bulkFetcher.state !== "idle"}
+                      loading={bulkUpdate.isPending}
+                      disabled={bulkUpdate.isPending}
                       onClick={() => openBulkConfirm("reviewing")}
                     >
                       Mark reviewing
                     </s-button>
                     <s-button
                       variant="primary"
-                      loading={bulkFetcher.state !== "idle"}
-                      disabled={bulkFetcher.state !== "idle"}
+                      loading={bulkUpdate.isPending}
+                      disabled={bulkUpdate.isPending}
                       onClick={() => openBulkConfirm("resolved")}
                     >
                       Approve
@@ -966,8 +682,8 @@ export default function Claims() {
         <s-button
           slot="primary-action"
           variant="primary"
-          loading={bulkFetcher.state !== "idle"}
-          disabled={bulkFetcher.state !== "idle"}
+          loading={bulkUpdate.isPending}
+          disabled={bulkUpdate.isPending}
           onClick={confirmBulkStatus}
         >
           {pendingBulk?.status === "resolved"

@@ -290,6 +290,7 @@ export type Claim = {
   id: string;
   orderNumber: string;
   shopifyOrderName: string | null;
+  shopifyOrderId: string | null;
   fullName: string;
   email: string;
   issueType: string;
@@ -344,6 +345,8 @@ export type ClaimsPage = {
   tab: string;
   q: string;
   page: number;
+  /** The backend's own page size, so the range label is never a guess. */
+  pageSize: number;
   filteredCount: number;
   totalPages: number;
   totalClaims: number;

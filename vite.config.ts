@@ -48,14 +48,8 @@ export default defineConfig({
       allow: ["app", "node_modules"],
     },
   },
-  plugins: [
-    reactRouter(),
-    tsconfigPaths(),
-  ],
+  plugins: [reactRouter(), tsconfigPaths()],
   build: {
     assetsInlineLimit: 0,
-  },
-  optimizeDeps: {
-    include: ["@shopify/app-bridge-react"],
   },
 }) satisfies UserConfig;

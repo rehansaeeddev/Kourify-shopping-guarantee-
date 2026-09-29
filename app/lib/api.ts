@@ -71,7 +71,38 @@ async function request<T>(
   return response.status === 204 ? (undefined as T) : response.json();
 }
 
+/**
+ * Fetches a file the backend streams, and hands the browser the download.
+ *
+ * A plain <a href> cannot do this: the endpoint is behind the same session
+ * token every other call carries, and a link sends no Authorization header —
+ * the merchant would get a 401 page instead of their spreadsheet.
+ */
+async function download(path: string, filename: string): Promise<void> {
+  const response = await fetch(`/api${path}`, {
+    headers: { Authorization: `Bearer ${await sessionToken()}` },
+  });
+
+  if (!response.ok) {
+    throw new ApiError(response.status, `Download failed (${response.status})`);
+  }
+
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+
+  // Revoked on the next tick rather than immediately: the click is handled
+  // asynchronously, and freeing the blob first cancels the download.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
 export const api = {
+  download,
   get: <T>(path: string) => request<T>("GET", path),
   post: <T>(path: string, body?: unknown) => request<T>("POST", path, body),
   put: <T>(path: string, body?: unknown) => request<T>("PUT", path, body),
