@@ -30,6 +30,27 @@
   width: fit-content;
 }
 
+/* The three styles a merchant can pick, mirroring
+ * extensions/kourify-badges/assets/kourify-badge.css. These were missing, so
+ * every option previewed identically and the picker showed nothing. */
+.app-tb--classic {
+  background: #f4f6f8;
+  color: #202223;
+  border: 1px solid #c9cccf;
+}
+
+.app-tb--minimal {
+  background: transparent;
+  color: #202223;
+  border: none;
+}
+
+.app-tb--bold {
+  background: #008060;
+  color: #ffffff;
+  border: none;
+}
+
 .app-tb__icon {
   flex-shrink: 0;
   display: block;
