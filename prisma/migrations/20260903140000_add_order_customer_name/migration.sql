@@ -1,1 +1,0 @@
-ALTER TABLE `Order` ADD COLUMN `customerName` VARCHAR(191) NULL;

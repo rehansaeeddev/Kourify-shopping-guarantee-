@@ -1,10 +1,13 @@
 import type { Config } from "@react-router/dev/config";
 
 export default {
-  // React Router's built-in action CSRF check compares the request's `Origin`
-  // header against the host in `request.url`. Behind the Cloudflare/ngrok dev
-  // tunnel and Shopify's embedded admin iframe, the browser's `Origin` is the
-  // tunnel/admin host while the server sees an internal host, so they never
-  // match without this allowlist.
-  allowedActionOrigins: ["admin.shopify.com", "*.myshopify.com", "*.trycloudflare.com"],
+  /**
+   * Single-page app: there is no Node server here any more.
+   *
+   * Rendering moved to Laravel, which owns the data, the Shopify session and
+   * every write. This build produces static assets that Laravel serves, and
+   * the two talk over the admin API — so keeping an SSR pass would mean a
+   * second runtime rendering pages it can no longer fetch data for.
+   */
+  ssr: false,
 } satisfies Config;
