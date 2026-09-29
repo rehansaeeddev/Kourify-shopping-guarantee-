@@ -359,6 +359,13 @@ export default function Claims() {
           }}
         />
 
+        {/*
+          One card for one region.
+          The count, the filters, the search and the rows are all the same
+          thing -- a list of claims and the controls for it -- and splitting
+          them across two hairlined surfaces made them read as two unrelated
+          panels once the admin page turned white.
+        */}
         <Card heading={`Claims (${totalClaims})`}>
           {/* One block stack owns the card's vertical rhythm so the count line,
             filters, search and table each get even breathing room instead of
@@ -417,9 +424,9 @@ export default function Claims() {
               </s-button>
             </s-grid>
           </s-stack>
-        </Card>
 
-        <Card>
+          <s-divider />
+
           {claims.length === 0 ? (
             <EmptyState
               icon="clipboard-checklist"
