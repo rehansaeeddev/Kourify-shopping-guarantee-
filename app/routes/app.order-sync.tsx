@@ -155,13 +155,18 @@ export default function OrderSync() {
         <Card heading="Manual synchronization">
           <s-stack gap="base">
             {!orderSyncEnabled ? (
-              <s-banner
-                heading="Protected Order access required"
-                tone="warning"
-              >
-                Shopify is currently blocking this app from accessing orders.
-                Request protected customer data access in the Partner Dashboard,
-                then set ORDER_SYNC_ENABLED=true and restart the app.
+              /* Says what is true.
+                Shopify is not blocking anything at this moment — this app has
+                the feature switched off, and ORDER_SYNC_ENABLED defaults to
+                false. Telling a merchant that Shopify is refusing them sends
+                them looking in the wrong place for a setting they cannot
+                reach anyway. */
+              <s-banner heading="Order sync is turned off" tone="warning">
+                The import reads customer email addresses, which Shopify gates
+                behind Protected Customer Data approval, so it stays off until
+                that approval is granted for this app. Request it under App
+                setup → Protected customer data in the Partner Dashboard, then
+                set ORDER_SYNC_ENABLED=true on the server.
               </s-banner>
             ) : (
               <s-paragraph>
