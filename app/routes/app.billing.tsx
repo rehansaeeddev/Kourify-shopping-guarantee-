@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useSearchParams } from "react-router";
 import { PageError, PageSkeleton } from "../components/PageState";
 import { useBilling, useSubscribe } from "../lib/queries";
+import { useToast } from "../components/Toast";
 import { BASIC_PROTECTED_ORDER_LIMIT, type PlanId } from "../lib/plans";
 import { PageBody } from "../components/PageBody";
 
@@ -114,7 +115,15 @@ function PlanPicker({
   pendingPlan: PlanId | null;
   errorMessage: string | null;
 }) {
-  const [cycle, setCycle] = useState<BillingCycle>("monthly");
+  /*
+   * Opened on the merchant's own cycle rather than always monthly. An annual
+   * subscriber landing on monthly sees no card carrying their plan — nothing
+   * is badged "Current plan", and the one obvious button on the Unlimited
+   * card would move them from $200 a year to $20 a month.
+   */
+  const [cycle, setCycle] = useState<BillingCycle>(
+    activePlan === "unlimited_annual" ? "annual" : "monthly",
+  );
   const cards = planCards(cycle);
 
   return (
@@ -242,6 +251,7 @@ export default function Billing() {
   const subscribe = useSubscribe();
   const [searchParams, setSearchParams] = useSearchParams();
   const [chooseError, setChooseError] = useState<string | null>(null);
+  const { showToast } = useToast();
 
   if (isPending) return <PageSkeleton heading="Billing" />;
   if (error)
@@ -274,6 +284,17 @@ export default function Billing() {
            */
           if (result.confirmationUrl) {
             window.open(result.confirmationUrl, "_top");
+            return;
+          }
+
+          /*
+           * Basic is free, so there is nothing to approve: the backend
+           * cancels the subscription and answers ok with an empty URL.
+           * Reading that empty string as a missing link told the merchant
+           * their downgrade had failed after it had already gone through.
+           */
+          if (result.ok) {
+            showToast("You're now on the Basic plan.");
             return;
           }
 
