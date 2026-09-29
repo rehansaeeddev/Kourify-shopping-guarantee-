@@ -14,12 +14,22 @@ import {
   useSendOffer,
   useSendOffers,
 } from "../lib/queries";
+import type { OrderRow } from "../lib/queries";
 import { PageBody } from "../components/PageBody";
 
 const FILTERS = ["all", "protected", "unprotected"] as const;
 const FULFILLMENTS = ["all", "fulfilled", "unfulfilled"] as const;
 const PAGE_SIZES = [10, 20, 50] as const;
 const DEFAULT_PAGE_SIZE = 10;
+
+/**
+ * How many orders one bulk send may carry.
+ *
+ * Mirrors OrderActionsController::MAX_BULK, which answers 422 above it. The
+ * page can show 50 rows, so "select all" reaches that ceiling on its own —
+ * better to say so beside the button than to let the click fail.
+ */
+const MAX_BULK = 25;
 
 /**
  * The first allowed value, or the first entry as the default.
@@ -49,6 +59,30 @@ function fulfillmentLabel(status: string): string {
   return status
     .replaceAll("_", " ")
     .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+/**
+ * Whether an offer already out on this order rules out sending another.
+ *
+ * Mirrors ProtectionOffers::hasOpenOffer, deliberately: the two states after
+ * offer_sent mean the charge is already on the order, so they block whatever
+ * the expiry says, while an expired offer_sent can no longer be redeemed and
+ * a fresh offer is the right answer. Getting this wrong in the strict
+ * direction would leave a merchant no way to re-send an offer that lapsed.
+ */
+function hasOpenOffer(order: OrderRow): boolean {
+  if (
+    order.offerStatus === "awaiting_payment" ||
+    order.offerStatus === "payment_confirmed"
+  ) {
+    return true;
+  }
+
+  return (
+    order.offerStatus === "offer_sent" &&
+    order.offerExpiresAt !== null &&
+    new Date(order.offerExpiresAt).getTime() > Date.now()
+  );
 }
 
 function protectionLabel(offerStatus: string | null): string {
@@ -196,9 +230,29 @@ export default function Orders() {
         : new Set(pageOrderIds),
     );
 
+  const tooManySelected = selectedIds.size > MAX_BULK;
+
   const submitBulkOffer = () => {
-    sendOffers.mutate({ orderIds: Array.from(selectedIds) }, notify);
-    setSelectedIds(new Set());
+    sendOffers.mutate(
+      { orderIds: Array.from(selectedIds) },
+      {
+        ...notify,
+        onSuccess: (result) => {
+          /*
+           * A bulk send answers 200 even when every order was skipped — an
+           * offer already open, no email, already fulfilled. "Sent 0 offers"
+           * in the green toast would read as success, which it is not.
+           */
+          showToast(result.message ?? "Order updated.", {
+            isError: result.sent === 0,
+          });
+
+          // Kept when nothing went out, so the merchant can act on what the
+          // message just told them without rebuilding the selection by hand.
+          if (result.sent > 0) setSelectedIds(new Set());
+        },
+      },
+    );
   };
 
   // Build an /app/orders URL from the current filter/search state, overriding
@@ -257,6 +311,10 @@ export default function Orders() {
               ) : null}
               {fulfillment !== "all" ? (
                 <input type="hidden" name="fulfillment" value={fulfillment} />
+              ) : null}
+              {/* Without this a search drops the merchant back to 10 rows. */}
+              {pageSize !== DEFAULT_PAGE_SIZE ? (
+                <input type="hidden" name="pageSize" value={String(pageSize)} />
               ) : null}
               <s-search-field
                 label="Search orders"
@@ -348,7 +406,14 @@ export default function Orders() {
                       onChange={toggleAll}
                     />
                     {selectedIds.size > 0 ? (
-                      <s-text type="strong">{`${selectedIds.size} selected`}</s-text>
+                      <>
+                        <s-text type="strong">{`${selectedIds.size} selected`}</s-text>
+                        {tooManySelected ? (
+                          <s-text tone="critical">
+                            {`Select ${MAX_BULK} or fewer to send offers`}
+                          </s-text>
+                        ) : null}
+                      </>
                     ) : (
                       <s-text color="subdued">
                         {`Showing ${(page - 1) * pageSize + 1}–${
@@ -372,7 +437,7 @@ export default function Orders() {
                       <AppButton
                         variant="primary"
                         loading={sendOffers.isPending}
-                        disabled={busy}
+                        disabled={busy || tooManySelected}
                         onClick={submitBulkOffer}
                       >
                         Send protection offer
@@ -498,9 +563,7 @@ export default function Orders() {
                             {!order.protected &&
                             !isFulfilled &&
                             order.email &&
-                            !["offer_sent", "awaiting_payment"].includes(
-                              order.offerStatus ?? "",
-                            ) ? (
+                            !hasOpenOffer(order) ? (
                               <s-button
                                 variant="tertiary"
                                 onClick={() =>
