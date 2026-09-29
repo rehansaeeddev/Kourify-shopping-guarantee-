@@ -230,8 +230,12 @@ export default function Translations() {
                       </s-table-cell>
                       <s-table-cell>
                         <s-stack direction="inline" gap="small-200">
+                          {/* Every row repeats these five words, so on their
+                              own they read as "Edit, Edit, Edit". The label
+                              names the language; the visible text stays short. */}
                           <s-button
                             variant="secondary"
+                            accessibilityLabel={`Edit ${lang.label}`}
                             onClick={() =>
                               setSearchParams({ edit: lang.locale })
                             }
@@ -240,6 +244,7 @@ export default function Translations() {
                           </s-button>
                           <s-button
                             variant="secondary"
+                            accessibilityLabel={`Rename ${lang.label}`}
                             onClick={() => setRenaming(lang.locale)}
                           >
                             Rename
@@ -247,6 +252,7 @@ export default function Translations() {
                           <s-button
                             variant="secondary"
                             disabled={busy}
+                            accessibilityLabel={`${lang.enabled ? "Hide" : "Show"} ${lang.label}`}
                             onClick={() =>
                               mutations.update.mutate(
                                 { locale: lang.locale, enabled: !lang.enabled },
@@ -260,6 +266,7 @@ export default function Translations() {
                             <s-button
                               variant="secondary"
                               disabled={busy}
+                              accessibilityLabel={`Make ${lang.label} the default language`}
                               onClick={() =>
                                 mutations.setDefault.mutate(lang.locale, notify)
                               }
@@ -271,6 +278,7 @@ export default function Translations() {
                             <s-button
                               variant="secondary"
                               disabled={busy}
+                              accessibilityLabel={`Remove ${lang.label}`}
                               onClick={() => {
                                 setPendingRemove({
                                   locale: lang.locale,
@@ -599,6 +607,13 @@ function LanguageEditor({
                             size="base"
                           />
                         ) : null}
+                        {/* s-icon takes no accessible name — Polaris treats
+                            icons as decorative — so the state is said here
+                            instead, visually hidden. Before this, "translated"
+                            was carried by a green tick and nothing else. */}
+                        <s-text accessibilityVisibility="exclusive">
+                          {filled[key] ? "Translated" : "Not translated"}
+                        </s-text>
                       </s-stack>
                       {/* Source on the left as read-only reference, the field to
                         translate on the right — the two-column shape of
