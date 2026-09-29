@@ -207,6 +207,44 @@ export const useTranslationMutations = () => ({
 
 // ----------------------------------------------------------------- shapes
 
+/**
+ * The MerchantSettings row exactly as the backend serialises it.
+ *
+ * claimWindows stays a JSON string here — it lives in a text column, and the
+ * settings payload hands back its own decoded copy alongside the row rather
+ * than parsing it at every call site.
+ */
+export type MerchantSettings = {
+  id: string;
+  shop: string;
+  badgesEnabled: boolean;
+  badgeStyle: string;
+  showOnProduct: boolean;
+  showOnCart: boolean;
+  guaranteeTabPosition: string;
+  protectionPayer: string;
+  enabledClaimTypes: string;
+  claimWindows: string;
+  protectionFeeType: string;
+  protectionFlatFeeCents: number;
+  protectionPercentBasisPoints: number;
+  protectionMinFeeCents: number;
+  protectionMaxFeeCents: number;
+  /** null means no ceiling was set, which is not the same as zero. */
+  maxEligibleItemValueCents: number | null;
+  protectionEnabled: boolean;
+  plan: string;
+  currency: string;
+  storefrontFallbackLanguage: string;
+  storefrontLanguages: string;
+  protectionProductId: string | null;
+  protectionVariantId: string | null;
+  planTier: string;
+  cartTransformId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type Quota = {
   limit: number | null;
   used: number;
@@ -243,7 +281,7 @@ export type WorkspaceCounts = {
 
 export type Dashboard = {
   shop: string;
-  settings: Record<string, unknown>;
+  settings: MerchantSettings;
   openClaims: number;
   ordersNeedingAction: number;
   totalClaims: number;
@@ -323,7 +361,7 @@ export type OrdersPage = {
 };
 
 export type SettingsPayload = {
-  settings: Record<string, any>;
+  settings: MerchantSettings;
   claimWindows: Record<string, { minDays: number; maxDays: number }>;
   enabledClaimTypes: string[];
   issueTypes: { value: string; label: string }[];
