@@ -9,7 +9,7 @@ import { ApiError } from "../lib/api";
  */
 export function PageSkeleton({ heading }: { heading: string }) {
   return (
-    <s-page inlineSize="large" heading={heading}>
+    <s-page heading={heading}>
       <s-section>
         <s-stack direction="inline" gap="small-300" alignItems="center">
           <s-spinner accessibilityLabel="Loading" />
@@ -42,7 +42,7 @@ export function PageError({
       : "Something went wrong loading this page.";
 
   return (
-    <s-page inlineSize="large" heading={heading}>
+    <s-page heading={heading}>
       <s-section>
         <s-banner tone="critical" heading="This page could not load">
           <s-paragraph>{message}</s-paragraph>

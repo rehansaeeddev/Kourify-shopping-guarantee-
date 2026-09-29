@@ -24,7 +24,7 @@ export function clientLoader({ request }: { request: Request }) {
 
 export default function Index() {
   return (
-    <s-page inlineSize="large" heading="Kourify">
+    <s-page heading="Kourify">
       <s-section>
         <s-banner heading="Open this app from your Shopify admin">
           <s-paragraph>

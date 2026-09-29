@@ -295,7 +295,7 @@ export default function Settings() {
   };
 
   return (
-    <s-page inlineSize="large" heading="Settings">
+    <s-page heading="Settings">
       <s-button slot="secondary-actions" href="/app/claims" variant="secondary">
         View claims
       </s-button>

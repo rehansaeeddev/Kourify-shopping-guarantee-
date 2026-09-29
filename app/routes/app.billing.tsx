@@ -293,7 +293,7 @@ export default function Billing() {
   const showPlans = !hasActiveBilling || searchParams.get("plans") === "1";
 
   return (
-    <s-page inlineSize="large" heading="Billing">
+    <s-page heading="Billing">
       <s-button slot="secondary-actions" href="/app" variant="secondary">
         Back
       </s-button>

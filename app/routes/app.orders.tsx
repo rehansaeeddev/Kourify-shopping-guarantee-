@@ -231,7 +231,7 @@ export default function Orders() {
   };
 
   return (
-    <s-page inlineSize="large" heading="Orders">
+    <s-page heading="Orders">
       <WorkspaceTabs
         active="orders"
         counts={{

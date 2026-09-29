@@ -74,7 +74,7 @@ export default function Guide() {
       : "setup";
 
   return (
-    <s-page inlineSize="large" heading="Help &amp; getting started">
+    <s-page heading="Help &amp; getting started">
       <s-stack direction="block" gap="large">
         {/* Branded header, matching the dashboard's (see theme.css). Back stays
             a real s-button so embedded navigation works. */}
