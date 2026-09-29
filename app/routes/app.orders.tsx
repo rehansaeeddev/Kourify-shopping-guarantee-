@@ -88,6 +88,13 @@ function hasOpenOffer(order: OrderRow): boolean {
 function protectionLabel(offerStatus: string | null): string {
   if (offerStatus === "awaiting_payment") return "Awaiting payment";
   if (offerStatus === "offer_sent") return "Offer sent";
+  /*
+   * Paid, but the ProtectedOrder row this page reads `protected` from is
+   * written by the orders/paid webhook and can lag a moment behind. Saying
+   * "Unprotected" in that gap contradicts the row's own missing Send offer
+   * button, and the merchant is left with no reason for either.
+   */
+  if (offerStatus === "payment_confirmed") return "Payment confirmed";
   return "Unprotected";
 }
 
