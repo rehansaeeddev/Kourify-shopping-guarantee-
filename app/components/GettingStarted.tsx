@@ -66,7 +66,7 @@ export function GettingStarted({
 
         <s-box
           borderWidth="base"
-          borderColor="base"
+          borderColor="strong"
           borderRadius="base"
           display={collapsed ? "none" : "auto"}
         >

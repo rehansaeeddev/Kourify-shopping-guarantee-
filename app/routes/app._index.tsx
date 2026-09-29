@@ -165,12 +165,20 @@ export default function Index() {
               },
             ] as const
           ).map((stat) => (
+            /*
+             * subdued, not base. `base` is the same white the admin now
+             * paints the page in, so these four read as one flat sheet with
+             * hairlines on it — the figures that matter most on the page were
+             * the hardest things on it to see. A surface the pattern owns is
+             * what the migration guide allows; a border drawn to fake a card
+             * is what it does not.
+             */
             <s-box
               key={stat.label}
               padding="base"
-              background="base"
+              background="subdued"
               borderWidth="base"
-              borderColor="base"
+              borderColor="strong"
               borderRadius="base"
             >
               <s-stack direction="inline" gap="base" alignItems="center">

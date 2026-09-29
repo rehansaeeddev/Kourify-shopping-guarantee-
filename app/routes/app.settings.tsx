@@ -392,9 +392,9 @@ export default function Settings() {
         >
           <s-box
             padding="small-300"
-            background="base"
+            background="subdued"
             borderWidth="base"
-            borderColor="base"
+            borderColor="strong"
             borderRadius="base"
           >
             <s-stack
