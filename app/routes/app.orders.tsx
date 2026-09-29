@@ -1,525 +1,40 @@
-import { createHash, randomBytes } from "node:crypto";
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { useEffect, useRef, useState } from "react";
-import { Form, useFetcher, useLoaderData, useNavigate } from "react-router";
+import { Form, useNavigate, useSearchParams } from "react-router";
 
 import { AppButton } from "../components/AppButton";
 import { Card } from "../components/Card";
 import { EmptyState } from "../components/EmptyState";
-import db from "../db.server";
-import { sendProtectionOffer } from "../lib/notify.server";
-import { isRateLimited } from "../lib/rate-limit.server";
-import { authenticate } from "../shopify.server";
+import { PageError, PageSkeleton } from "../components/PageState";
+import { useToast } from "../components/Toast";
 import { WorkspaceTabs } from "../components/WorkspaceTabs";
-import { getWorkspaceCounts } from "../lib/workspace-counts.server";
-import { useFetcherToast } from "../hooks/useFetcherToast";
+import {
+  useDeliverOrder,
+  useFulfillOrder,
+  useOrders,
+  useSendOffer,
+  useSendOffers,
+} from "../lib/queries";
 
 const FILTERS = ["all", "protected", "unprotected"] as const;
 const FULFILLMENTS = ["all", "fulfilled", "unfulfilled"] as const;
 const PAGE_SIZES = [10, 20, 50] as const;
 const DEFAULT_PAGE_SIZE = 10;
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
-  const url = new URL(request.url);
-  const requestedFilter = url.searchParams.get("filter");
-  const filter: (typeof FILTERS)[number] = FILTERS.includes(
-    requestedFilter as (typeof FILTERS)[number],
-  )
-    ? (requestedFilter as (typeof FILTERS)[number])
-    : "all";
-  const page = Math.max(
-    1,
-    Math.floor(Number(url.searchParams.get("page")) || 1),
-  );
-  const requestedPageSize = Number(url.searchParams.get("pageSize"));
-  const pageSize = PAGE_SIZES.includes(
-    requestedPageSize as (typeof PAGE_SIZES)[number],
-  )
-    ? requestedPageSize
-    : DEFAULT_PAGE_SIZE;
-
-  // Free-text search over the fields we cache. Capped and only ever used in
-  // parameterized `contains` filters (never string-interpolated), so it can't
-  // inject.
-  const q = (url.searchParams.get("q") ?? "").trim().slice(0, 100);
-  const requestedFulfillment = url.searchParams.get("fulfillment");
-  const fulfillment: (typeof FULFILLMENTS)[number] = FULFILLMENTS.includes(
-    requestedFulfillment as (typeof FULFILLMENTS)[number],
-  )
-    ? (requestedFulfillment as (typeof FULFILLMENTS)[number])
-    : "all";
-
-  // ProtectedOrder has no FK/relation to Order (just a shared shopifyOrderId),
-  // so "protected"/"unprotected" filtering goes through an id list rather
-  // than a join. This full scan is bounded by protected-order count, not
-  // total order count, so it stays cheap even for large stores.
-  const protectedOrders = await db.protectedOrder.findMany({
-    where: { shop: session.shop },
-    select: {
-      shopifyOrderId: true,
-      protectionPriceCents: true,
-      currency: true,
-    },
-  });
-  const protectedById = new Map(
-    protectedOrders.map((order) => [order.shopifyOrderId, order]),
-  );
-  const protectedIds = protectedOrders.map((order) => order.shopifyOrderId);
-
-  const filterWhere =
-    filter === "protected"
-      ? { id: { in: protectedIds } }
-      : filter === "unprotected"
-        ? { id: { notIn: protectedIds } }
-        : {};
-
-  const searchWhere = q
-    ? {
-        OR: [
-          { name: { contains: q } },
-          { customerName: { contains: q } },
-          { email: { contains: q } },
-        ],
-      }
-    : {};
-  // status stores Shopify's displayFulfillmentStatus lowercased, so "fulfilled"
-  // is exact and everything else (unfulfilled, partially_fulfilled, pending) is
-  // "not fulfilled".
-  const fulfillmentWhere =
-    fulfillment === "fulfilled"
-      ? { status: "fulfilled" }
-      : fulfillment === "unfulfilled"
-        ? { status: { not: "fulfilled" } }
-        : {};
-
-  const listWhere = {
-    shop: session.shop,
-    ...filterWhere,
-    ...searchWhere,
-    ...fulfillmentWhere,
-  };
-
-  const [filteredCount, orders, totalCount, protectedCount, offers, settings] =
-    await Promise.all([
-      db.order.count({ where: listWhere }),
-      db.order.findMany({
-        where: listWhere,
-        // Newest orders first by when the customer placed them. createdAt is
-        // only the cache-write time — a backfill stamps every row "now" — so it
-        // serves purely as a fallback for rows cached before placedAt existed.
-        orderBy: [{ placedAt: "desc" }, { createdAt: "desc" }],
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-      db.order.count({ where: { shop: session.shop } }),
-      db.order.count({
-        where: { shop: session.shop, id: { in: protectedIds } },
-      }),
-      db.protectionOffer.findMany({
-        where: { shop: session.shop },
-        orderBy: { createdAt: "desc" },
-      }),
-      db.merchantSettings.findUnique({ where: { shop: session.shop } }),
-    ]);
-  const currency = settings?.currency ?? "USD";
-  const latestOffers = new Map<string, (typeof offers)[number]>();
-  for (const offer of offers) {
-    if (!latestOffers.has(offer.originalOrderId))
-      latestOffers.set(offer.originalOrderId, offer);
-  }
-  const rows = orders.map((order) => {
-    const protectedOrder = protectedById.get(order.id) ?? null;
-    const offer = latestOffers.get(order.id) ?? null;
-    return {
-      ...order,
-      protected: Boolean(protectedOrder),
-      protectionPriceCents: protectedOrder?.protectionPriceCents ?? null,
-      protectionCurrency: protectedOrder?.currency ?? currency,
-      offerStatus: offer?.status ?? null,
-      offerExpiresAt: offer?.expiresAt?.toISOString() ?? null,
-    };
-  });
-
-  const totalPages = Math.max(1, Math.ceil(filteredCount / pageSize));
-  const workspaceCounts = await getWorkspaceCounts(session.shop);
-
-  return {
-    rows,
-    filter,
-    q,
-    fulfillment,
-    currency,
-    workspaceCounts,
-    page,
-    pageSize,
-    totalPages,
-    filteredCount,
-    counts: {
-      all: totalCount,
-      protected: protectedCount,
-      unprotected: totalCount - protectedCount,
-    },
-  };
-};
-
-type OrderRecord = NonNullable<Awaited<ReturnType<typeof db.order.findFirst>>>;
-type SettingsRecord = NonNullable<
-  Awaited<ReturnType<typeof db.merchantSettings.findUnique>>
->;
-
 /**
- * Create a protection offer for one order and email the customer. Shared by the
- * single-row "Send offer" action and the bulk send. An eligibility problem
- * (no email, already fulfilled, already protected) comes back as a plain
- * failure; a failed email is flagged `failed` so the bulk summary can tell
- * "not eligible" apart from "couldn't send".
+ * The first allowed value, or the first entry as the default.
+ *
+ * Used on every query parameter this page reads, so a hand-edited URL can
+ * never reach the query key — the list would be cached under a filter the
+ * backend does not apply.
  */
-async function createAndSendOffer(
-  order: OrderRecord,
-  settings: SettingsRecord,
-  shop: string,
-): Promise<{ ok: true } | { ok: false; error: string; failed?: boolean }> {
-  if (!order.email)
-    return { ok: false, error: "This order has no customer email." };
-  if (isOrderFulfilled(order.status))
-    return {
-      ok: false,
-      error: "Protection offers are only available before fulfillment.",
-    };
-  const alreadyProtected = await db.protectedOrder.findUnique({
-    where: { shop_shopifyOrderId: { shop, shopifyOrderId: order.id } },
-  });
-  if (alreadyProtected)
-    return { ok: false, error: "This order is already protected." };
-
-  const orderCents = Math.round(Number(order.totalPrice ?? 0) * 100);
-  const priceCents =
-    settings.protectionFeeType === "percentage"
-      ? Math.min(
-          Math.max(
-            Math.round(
-              (orderCents * settings.protectionPercentBasisPoints) / 10_000,
-            ),
-            settings.protectionMinFeeCents,
-          ),
-          settings.protectionMaxFeeCents,
-        )
-      : settings.protectionFlatFeeCents;
-  const rawToken = randomBytes(32).toString("base64url");
-  const tokenHash = createHash("sha256").update(rawToken).digest("hex");
-  const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
-  const offer = await db.protectionOffer.create({
-    data: {
-      shop,
-      originalOrderId: order.id,
-      originalOrderName: order.name,
-      customerEmail: order.email,
-      tokenHash,
-      status: "offer_sent",
-      protectionPriceCents: priceCents,
-      currency: settings.currency,
-      expiresAt,
-    },
-  });
-
-  try {
-    await sendProtectionOffer({
-      email: order.email,
-      orderName: order.name,
-      price: new Intl.NumberFormat("en", {
-        style: "currency",
-        currency: settings.currency,
-      }).format(priceCents / 100),
-      expiresAt,
-      offerUrl: `https://${shop}/apps/kourify/offer?token=${encodeURIComponent(rawToken)}`,
-    });
-  } catch (error) {
-    await db.protectionOffer.delete({ where: { id: offer.id } });
-    return {
-      ok: false,
-      failed: true,
-      error:
-        error instanceof Error
-          ? error.message
-          : "The offer email could not be sent.",
-    };
-  }
-
-  return { ok: true };
+function pick<T extends readonly (string | number)[]>(
+  allowed: T,
+  value: string | number | null,
+): T[number] {
+  return allowed.includes(value as T[number])
+    ? (value as T[number])
+    : allowed[0];
 }
-
-const handleAction = async ({ request }: ActionFunctionArgs) => {
-  const { session, admin } = await authenticate.admin(request);
-  const formData = await request.formData();
-  const intent = String(formData.get("intent") ?? "");
-  if (
-    !["send_offer", "bulk_send_offer", "fulfill", "deliver"].includes(intent)
-  ) {
-    return { ok: false, error: "Unknown action." };
-  }
-
-  // Per-shop throttle. The offer intents are the tightest since each one emails
-  // customers; fulfill/deliver fan out to the Shopify API. A bulk send is one
-  // request, so it shares the offer bucket and is capped by size below.
-  const [maxRequests, windowMs] =
-    intent === "send_offer" || intent === "bulk_send_offer"
-      ? [30, 10 * 60 * 1000]
-      : [60, 60 * 1000];
-  if (
-    await isRateLimited(
-      `orders:${intent}:${session.shop}`,
-      maxRequests,
-      windowMs,
-    )
-  ) {
-    return {
-      ok: false,
-      error: "Too many requests. Please wait a moment and try again.",
-    };
-  }
-
-  if (intent === "bulk_send_offer") {
-    const orderIds = String(formData.get("orderIds") ?? "")
-      .split(",")
-      .map((id) => id.trim())
-      .filter(Boolean);
-    if (!orderIds.length)
-      return { ok: false, error: "Select at least one order first." };
-    // Cap the batch: each id emails a customer, and one request shouldn't fan
-    // out unbounded past the per-shop throttle.
-    if (orderIds.length > 25)
-      return {
-        ok: false,
-        error: "Send offers to at most 25 orders at a time.",
-      };
-    const settings = await db.merchantSettings.findUnique({
-      where: { shop: session.shop },
-    });
-    if (!settings?.protectionEnabled || !settings.protectionVariantId) {
-      return {
-        ok: false,
-        error:
-          "Enable protection and create its product before sending offers.",
-      };
-    }
-    const orders = await db.order.findMany({
-      where: { id: { in: orderIds }, shop: session.shop },
-    });
-    // Skip orders that already carry a live offer, so a bulk send never
-    // double-emails a customer who was already offered protection.
-    const liveOffers = await db.protectionOffer.findMany({
-      where: {
-        shop: session.shop,
-        originalOrderId: { in: orderIds },
-        status: { in: ["offer_sent", "awaiting_payment"] },
-      },
-      select: { originalOrderId: true },
-    });
-    const alreadyOffered = new Set(
-      liveOffers.map((offer) => offer.originalOrderId),
-    );
-    let sent = 0;
-    let skipped = orderIds.length - orders.length; // ids that no longer exist
-    let failed = 0;
-    for (const order of orders) {
-      if (alreadyOffered.has(order.id)) {
-        skipped += 1;
-        continue;
-      }
-      const result = await createAndSendOffer(order, settings, session.shop);
-      if (result.ok) sent += 1;
-      else if (result.failed) failed += 1;
-      else skipped += 1;
-    }
-    const parts = [`Sent ${sent} offer${sent === 1 ? "" : "s"}`];
-    if (skipped) parts.push(`skipped ${skipped}`);
-    if (failed) parts.push(`${failed} failed to send`);
-    return { ok: sent > 0, message: parts.join(" · ") };
-  }
-
-  const orderId = String(formData.get("orderId") ?? "");
-  const order = await db.order.findFirst({
-    where: { id: orderId, shop: session.shop },
-  });
-  if (!order) return { ok: false, error: "Order not found." };
-
-  if (intent === "fulfill") {
-    if (formData.get("confirmed") !== "true") {
-      return { ok: false, error: "Confirm fulfillment before continuing." };
-    }
-    const protectedOrder = await db.protectedOrder.findUnique({
-      where: {
-        shop_shopifyOrderId: { shop: session.shop, shopifyOrderId: order.id },
-      },
-    });
-    if (!protectedOrder)
-      return { ok: false, error: "Payment-confirmed protection is required." };
-    const response = await admin.graphql(
-      `#graphql
-        query kourifyFulfillmentOrders($id: ID!) {
-          order(id: $id) {
-            fulfillmentOrders(first: 20) {
-              nodes { id status assignedLocation { location { id } } }
-            }
-          }
-        }`,
-      { variables: { id: order.id } },
-    );
-    const json = await response.json();
-    const fulfillmentOrders = (
-      json.data?.order?.fulfillmentOrders?.nodes ?? []
-    ).filter(
-      (item: { status?: string }) =>
-        !["CLOSED", "CANCELLED"].includes(item.status ?? ""),
-    );
-    if (!fulfillmentOrders.length)
-      return { ok: false, error: "No fulfillable items remain." };
-    const groups = new Map<string, string[]>();
-    for (const item of fulfillmentOrders as Array<{
-      id: string;
-      assignedLocation?: { location?: { id?: string } };
-    }>) {
-      const locationId = item.assignedLocation?.location?.id ?? item.id;
-      groups.set(locationId, [...(groups.get(locationId) ?? []), item.id]);
-    }
-    const trackingNumber = String(formData.get("trackingNumber") ?? "").trim();
-    const trackingCompany = String(
-      formData.get("trackingCompany") ?? "",
-    ).trim();
-    const trackingUrl = String(formData.get("trackingUrl") ?? "").trim();
-    for (const fulfillmentOrderIds of groups.values()) {
-      const mutationResponse = await admin.graphql(
-        `#graphql
-          mutation kourifyFulfill($fulfillment: FulfillmentInput!) {
-            fulfillmentCreate(fulfillment: $fulfillment) {
-              fulfillment { id status }
-              userErrors { field message }
-            }
-          }`,
-        {
-          variables: {
-            fulfillment: {
-              notifyCustomer: formData.get("notifyCustomer") === "true",
-              lineItemsByFulfillmentOrder: fulfillmentOrderIds.map(
-                (fulfillmentOrderId) => ({
-                  fulfillmentOrderId,
-                }),
-              ),
-              ...(trackingNumber
-                ? {
-                    trackingInfo: {
-                      number: trackingNumber,
-                      ...(trackingCompany ? { company: trackingCompany } : {}),
-                      ...(trackingUrl ? { url: trackingUrl } : {}),
-                    },
-                  }
-                : {}),
-            },
-          },
-        },
-      );
-      const mutationJson = await mutationResponse.json();
-      const errors = mutationJson.data?.fulfillmentCreate?.userErrors ?? [];
-      if (errors.length)
-        throw new Error(
-          errors.map((error: { message: string }) => error.message).join("; "),
-        );
-    }
-    await db.order.update({
-      where: { id: order.id },
-      data: { status: "fulfilled" },
-    });
-    return { ok: true, message: `${order.name} was fulfilled.` };
-  }
-
-  if (intent === "deliver") {
-    if (formData.get("confirmed") !== "true") {
-      return { ok: false, error: "Confirm actual delivery before continuing." };
-    }
-    const response = await admin.graphql(
-      `#graphql
-        query kourifyOrderFulfillments($id: ID!) {
-          order(id: $id) { fulfillments(first: 20) { id status } }
-        }`,
-      { variables: { id: order.id } },
-    );
-    const json = await response.json();
-    const fulfillments = json.data?.order?.fulfillments ?? [];
-    if (!fulfillments.length)
-      return { ok: false, error: "Create a fulfillment first." };
-    for (const fulfillment of fulfillments as Array<{ id: string }>) {
-      const eventResponse = await admin.graphql(
-        `#graphql
-          mutation kourifyDelivered($event: FulfillmentEventInput!) {
-            fulfillmentEventCreate(fulfillmentEvent: $event) {
-              fulfillmentEvent { id status }
-              userErrors { field message }
-            }
-          }`,
-        {
-          variables: {
-            event: { fulfillmentId: fulfillment.id, status: "DELIVERED" },
-          },
-        },
-      );
-      const eventJson = await eventResponse.json();
-      const errors = eventJson.data?.fulfillmentEventCreate?.userErrors ?? [];
-      if (errors.length)
-        throw new Error(
-          errors.map((error: { message: string }) => error.message).join("; "),
-        );
-    }
-    await db.order.update({
-      where: { id: order.id },
-      data: { deliveredAt: new Date() },
-    });
-    return { ok: true, message: `${order.name} was marked delivered.` };
-  }
-
-  const settings = await db.merchantSettings.findUnique({
-    where: { shop: session.shop },
-  });
-  if (!settings?.protectionEnabled || !settings.protectionVariantId) {
-    return {
-      ok: false,
-      error: "Enable protection and create its product before sending offers.",
-    };
-  }
-  const result = await createAndSendOffer(order, settings, session.shop);
-  if (!result.ok) return { ok: false, error: result.error };
-  return { ok: true, message: `Protection offer sent for ${order.name}.` };
-};
-
-export const action = async (args: ActionFunctionArgs) => {
-  try {
-    return await handleAction(args);
-  } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Shopify could not complete this action.";
-    if (
-      message.includes("fulfillmentEventCreate") ||
-      message.includes("write_fulfillments")
-    ) {
-      return {
-        ok: false,
-        error:
-          "Delivery could not be updated. Reapprove the app's write_fulfillments scope and make sure your Shopify staff account has the Fulfill and ship orders permission.",
-      };
-    }
-    if (message.toLowerCase().includes("access denied")) {
-      return {
-        ok: false,
-        error:
-          "Shopify denied this action. Reapprove the app permissions and check your staff permissions.",
-      };
-    }
-    console.error("[orders action] failed", error);
-    return { ok: false, error: message };
-  }
-};
 
 function isOrderFulfilled(status: string): boolean {
   // Guard against the substring trap: "unfulfilled" contains "fulfilled".
@@ -566,29 +81,34 @@ function offerExpiryLabel(iso: string | null): string | null {
 }
 
 export default function Orders() {
-  const {
-    rows,
-    filter,
-    q,
-    fulfillment,
-    counts,
-    currency,
-    workspaceCounts,
-    page,
-    pageSize,
-    totalPages,
-    filteredCount,
-  } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
-  const offerFetcher = useFetcher<typeof action>();
+  const [searchParams] = useSearchParams();
+  const { showToast } = useToast();
+
+  /*
+   * The URL is the source of truth for what is listed, and it is normalised
+   * here rather than trusted: an arbitrary ?filter=whatever would otherwise
+   * become its own cache entry for a list the backend serves unfiltered.
+   */
+  const params = {
+    filter: pick(FILTERS, searchParams.get("filter")),
+    fulfillment: pick(FULFILLMENTS, searchParams.get("fulfillment")),
+    q: searchParams.get("q") ?? "",
+    page: Math.max(1, Math.floor(Number(searchParams.get("page")) || 1)),
+    pageSize: pick(PAGE_SIZES, Number(searchParams.get("pageSize"))),
+  };
+
+  const { data, isPending, error, refetch } = useOrders(params);
+
+  const sendOffer = useSendOffer();
+  const sendOffers = useSendOffers();
+  const fulfillOrder = useFulfillOrder();
+  const deliverOrder = useDeliverOrder();
+
   const [fulfillmentOrder, setFulfillmentOrder] = useState<{
     id: string;
     name: string;
   } | null>(null);
-  useFetcherToast(
-    offerFetcher,
-    (data) => data.message ?? data.error ?? "Offer updated.",
-  );
 
   // Marking an order delivered is irreversible (it stamps the delivery date and
   // opens post-delivery claim windows), so it's confirmed in a native modal
@@ -604,9 +124,9 @@ export default function Orders() {
 
   const confirmDeliver = () => {
     if (pendingDeliver) {
-      offerFetcher.submit(
-        { intent: "deliver", orderId: pendingDeliver.id, confirmed: "true" },
-        { method: "POST" },
+      deliverOrder.mutate(
+        { orderId: pendingDeliver.id, confirmed: true },
+        notify,
       );
     }
     setPendingDeliver(null);
@@ -623,7 +143,38 @@ export default function Orders() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [filter, fulfillment, q, page, pageSize]);
+  }, [
+    params.filter,
+    params.fulfillment,
+    params.q,
+    params.page,
+    params.pageSize,
+  ]);
+
+  /*
+   * Every action here either emails a shopper or calls Shopify, and both
+   * report in the backend's own words — "Sent 3 offers · skipped 1" carries
+   * more than any sentence this page could compose from a status code.
+   */
+  const notify = {
+    onSuccess: (result: { message?: string }) =>
+      showToast(result.message ?? "Order updated."),
+    onError: (cause: Error) => showToast(cause.message, { isError: true }),
+  };
+
+  const busy =
+    sendOffer.isPending ||
+    sendOffers.isPending ||
+    fulfillOrder.isPending ||
+    deliverOrder.isPending;
+
+  if (isPending) return <PageSkeleton heading="Orders" />;
+  if (error)
+    return <PageError heading="Orders" error={error} onRetry={refetch} />;
+
+  const { rows, counts, currency, workspaceCounts, totalPages, filteredCount } =
+    data;
+  const { filter, fulfillment, q, page, pageSize } = params;
 
   const pageOrderIds = rows.map((order) => order.id);
   const allSelected =
@@ -645,13 +196,7 @@ export default function Orders() {
     );
 
   const submitBulkOffer = () => {
-    offerFetcher.submit(
-      {
-        intent: "bulk_send_offer",
-        orderIds: Array.from(selectedIds).join(","),
-      },
-      { method: "POST" },
-    );
+    sendOffers.mutate({ orderIds: Array.from(selectedIds) }, notify);
     setSelectedIds(new Set());
   };
 
@@ -725,7 +270,10 @@ export default function Orders() {
               value={filter}
               onChange={(e) =>
                 navigate(
-                  ordersHref({ filter: e.currentTarget.value ?? "all", page: 1 }),
+                  ordersHref({
+                    filter: e.currentTarget.value ?? "all",
+                    page: 1,
+                  }),
                 )
               }
             >
@@ -787,11 +335,7 @@ export default function Orders() {
                 alignItems="center"
                 justifyContent="space-between"
               >
-                <s-stack
-                  direction="inline"
-                  gap="small-200"
-                  alignItems="center"
-                >
+                <s-stack direction="inline" gap="small-200" alignItems="center">
                   <s-checkbox
                     checked={allSelected}
                     accessibilityLabel="Select all orders on this page"
@@ -821,8 +365,8 @@ export default function Orders() {
                     </AppButton>
                     <AppButton
                       variant="primary"
-                      loading={offerFetcher.state !== "idle"}
-                      disabled={offerFetcher.state !== "idle"}
+                      loading={sendOffers.isPending}
+                      disabled={busy}
                       onClick={submitBulkOffer}
                     >
                       Send protection offer
@@ -952,10 +496,7 @@ export default function Orders() {
                             <s-button
                               variant="tertiary"
                               onClick={() =>
-                                offerFetcher.submit(
-                                  { intent: "send_offer", orderId: order.id },
-                                  { method: "POST" },
-                                )
+                                sendOffer.mutate({ orderId: order.id }, notify)
                               }
                             >
                               Send offer
@@ -1049,10 +590,32 @@ export default function Orders() {
       </Card>
       {fulfillmentOrder ? (
         <Card heading={`Fulfill ${fulfillmentOrder.name}`}>
-          <offerFetcher.Form method="post">
-            <input type="hidden" name="intent" value="fulfill" />
-            <input type="hidden" name="orderId" value={fulfillmentOrder.id} />
-            <input type="hidden" name="confirmed" value="true" />
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              const form = new FormData(event.currentTarget);
+
+              fulfillOrder.mutate(
+                {
+                  orderId: fulfillmentOrder.id,
+                  // The server asks for this too: fulfilling is not something
+                  // to trigger from a stray request.
+                  confirmed: true,
+                  trackingNumber: String(form.get("trackingNumber") ?? ""),
+                  trackingCompany: String(form.get("trackingCompany") ?? ""),
+                  trackingUrl: String(form.get("trackingUrl") ?? ""),
+                  notifyCustomer: form.get("notifyCustomer") === "true",
+                },
+                {
+                  ...notify,
+                  onSuccess: (result) => {
+                    notify.onSuccess(result);
+                    setFulfillmentOrder(null);
+                  },
+                },
+              );
+            }}
+          >
             <s-stack gap="base">
               <s-box maxInlineSize="360px">
                 <s-text-field label="Tracking number" name="trackingNumber" />
@@ -1077,8 +640,8 @@ export default function Orders() {
                 <AppButton
                   type="submit"
                   variant="primary"
-                  loading={offerFetcher.state !== "idle"}
-                  disabled={offerFetcher.state !== "idle"}
+                  loading={fulfillOrder.isPending}
+                  disabled={busy}
                 >
                   Confirm fulfillment
                 </AppButton>
@@ -1090,7 +653,7 @@ export default function Orders() {
                 </AppButton>
               </s-stack>
             </s-stack>
-          </offerFetcher.Form>
+          </form>
         </Card>
       ) : null}
 
@@ -1107,8 +670,8 @@ export default function Orders() {
         <s-button
           slot="primary-action"
           variant="primary"
-          loading={offerFetcher.state !== "idle"}
-          disabled={offerFetcher.state !== "idle"}
+          loading={deliverOrder.isPending}
+          disabled={busy}
           onClick={confirmDeliver}
         >
           Mark as delivered

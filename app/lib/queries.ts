@@ -160,6 +160,39 @@ export const useSaveProtection = () =>
     [keys.settings, keys.dashboard, keys.billing],
   );
 
+/*
+ * Every order action changes what the orders list and the dashboard show —
+ * an offer sent, an order fulfilled, a delivery recorded — so all four
+ * refresh the same pair.
+ */
+const ORDER_KEYS = [["orders"], keys.dashboard] as const;
+
+export const useSendOffer = () =>
+  useInvalidating(
+    (body: { orderId: string }) => api.post<Ok>("/orders/offer", body),
+    ORDER_KEYS,
+  );
+
+export const useSendOffers = () =>
+  useInvalidating(
+    (body: { orderIds: string[] }) =>
+      api.post<BulkOfferResult>("/orders/offers", body),
+    ORDER_KEYS,
+  );
+
+export const useFulfillOrder = () =>
+  useInvalidating(
+    (body: FulfillOrder) => api.post<Ok>("/orders/fulfill", body),
+    ORDER_KEYS,
+  );
+
+export const useDeliverOrder = () =>
+  useInvalidating(
+    (body: { orderId: string; confirmed: true }) =>
+      api.post<Ok>("/orders/deliver", body),
+    ORDER_KEYS,
+  );
+
 export const useStartOrderSync = () =>
   useInvalidating(() => api.post<SyncResult>("/order-sync"), [["order-sync"]]);
 
@@ -342,6 +375,7 @@ export type OrderRow = {
   protected: boolean;
   protectionPriceCents: number | null;
   protectionCurrency: string;
+  deliveredAt: string | null;
   offerStatus: string | null;
   offerExpiresAt: string | null;
 };
@@ -429,6 +463,16 @@ type SubscribeResult = {
   ok: boolean;
   confirmationUrl?: string;
   error?: string;
+};
+type BulkOfferResult = Ok & { sent: number; skipped: number; failed: number };
+
+export type FulfillOrder = {
+  orderId: string;
+  confirmed: true;
+  trackingNumber?: string;
+  trackingCompany?: string;
+  trackingUrl?: string;
+  notifyCustomer?: boolean;
 };
 
 export type UpdateClaim = {
