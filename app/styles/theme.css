@@ -1,11 +1,16 @@
-/* The only styling this app owns.
+/* The only styling this app owns, and none of it styles the admin.
  *
- * Everything in the admin is a Polaris web component styling itself — no
- * classes, no colours, no spacing of ours. What survives here is the
- * storefront trust badge preview, which has to look like the badge shoppers
- * actually see rather than like admin chrome: these rules mirror
- * extensions/kourify-badges, so the preview can't quietly drift from the real
- * thing. The body rule only sets a font for that preview.
+ * Every admin surface is a Polaris web component styling itself — no classes,
+ * no colours, no spacing of ours. What is left here is the storefront trust
+ * badge preview, which has to look like the badge shoppers actually see
+ * rather than like admin chrome: these rules mirror extensions/kourify-badges
+ * so the preview cannot quietly drift from the real thing.
+ *
+ * The dashboard and guide headers used to live here too — a green gradient
+ * banner carrying its own title, subtitle and buttons. Polaris 2 gave the
+ * admin a new appearance those colours were never chosen against, and both
+ * pages already had a title from s-page above them. They are gone, and with
+ * them the last piece of admin styling this app owned.
  */
 
 .app-tb {
@@ -60,43 +65,4 @@
   background: #ffffff;
   border-radius: 999px;
   padding: 2px;
-}
-
-/* Dashboard header — the one deliberately custom-styled piece of admin chrome,
- * added on request to give the home page a branded banner. Everything else in
- * the admin stays Polaris web components. */
-.app-dashboard-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding: 24px 28px;
-  border-radius: 16px;
-  background: linear-gradient(120deg, #0a5c4d 0%, #0f7d67 100%);
-  color: #ffffff;
-}
-
-.app-dashboard-header__title {
-  margin: 0 0 6px;
-  font-size: 22px;
-  font-weight: 700;
-  color: #ffffff;
-}
-
-.app-dashboard-header__subtitle {
-  margin: 0;
-  max-width: 620px;
-  font-size: 14px;
-  line-height: 1.5;
-  /* 0.95, not 0.88. The banner is a gradient, and against its lighter end
-   * 88% white measured 4.29:1 — under the 4.5:1 WCAG asks of body text. The
-   * title is large enough to pass either way; this line was the one failing. */
-  color: rgba(255, 255, 255, 0.95);
-}
-
-.app-dashboard-header__actions {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
 }
