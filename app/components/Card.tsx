@@ -145,7 +145,10 @@ export function MetricsCard({
 
   const grid = (
     <s-grid
-      gridTemplateColumns={`@container (inline-size <= 640px) 1fr, @container (inline-size <= 960px) 1fr 1fr, ${columns}`}
+      /* One query, then the default. A second @container clause is not
+        supported here -- with two in the list nothing matched the default and
+        every card dropped onto its own row. */
+      gridTemplateColumns={`@container (inline-size <= 640px) 1fr, ${columns}`}
       gap="base"
       alignItems="stretch"
     >
