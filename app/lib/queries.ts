@@ -293,12 +293,8 @@ export type MerchantSettings = {
   brandLogoUrl: string | null;
   brandColor: string | null;
   brandSurface: string | null;
-  /**
-   * Three axes rather than a list of layouts, so their combinations are the
-   * arrangements and none of them had to be enumerated.
-   */
+  /** Where the introduction sits, and whether the promises show with it. */
   claimStoryPosition: string;
-  claimStoryAlign: string;
   claimShowPromises: boolean;
   plan: string;
   currency: string;

@@ -8,25 +8,13 @@ import {
   type MerchantSettings,
 } from "../lib/queries";
 
-/**
- * The three axes the page's arrangement is made of, named as a merchant sees
- * them rather than as the stylesheet does.
- *
- * Their combinations are the layouts -- thirty of them -- and not one had to
- * be thought of and written down.
- */
+/** Where the introduction can sit, named as a merchant sees it. */
 const POSITIONS = [
   { value: "start", label: "Beside the form, on the left" },
   { value: "end", label: "Beside the form, on the right" },
   { value: "above", label: "Above the form" },
   { value: "below", label: "Below the form" },
   { value: "hidden", label: "Don't show it" },
-] as const;
-
-const ALIGNMENTS = [
-  { value: "start", label: "Left" },
-  { value: "center", label: "Centre" },
-  { value: "end", label: "Right" },
 ] as const;
 
 /**
@@ -252,11 +240,11 @@ export function BrandingPanel({ settings }: { settings: MerchantSettings }) {
         />
       </s-grid>
 
-      {/* Three choices, not a list of arrangements. Each is safe on its
-        own -- hiding something cannot widen a page, text-align cannot
-        either, and the column count only applies above 900px where the two
-        columns exist at all -- so no combination of them can break what the
-        merchant's customers see. */}
+      {/* Where it sits, and whether the promises come with it. Alignment
+        was a third choice here and is gone: left and centre read fine, but
+        right put the copy against the edge the page clips at narrow widths,
+        and three ways to align a block of marketing text was not worth the
+        surface it added. */}
       <s-select
         label="Introduction"
         name="claimStoryPosition"
@@ -284,31 +272,6 @@ export function BrandingPanel({ settings }: { settings: MerchantSettings }) {
 
       {settings.claimStoryPosition !== "hidden" ? (
         <>
-          <s-select
-            label="Introduction alignment"
-            name="claimStoryAlign"
-            value={settings.claimStoryAlign}
-            disabled={busy}
-            onChange={(event) => {
-              const next = event.currentTarget.value ?? "";
-
-              save(
-                { claimStoryAlign: next },
-                `Introduction aligned ${
-                  ALIGNMENTS.find(
-                    (o) => o.value === next,
-                  )?.label.toLowerCase() ?? next
-                }`,
-              );
-            }}
-          >
-            {ALIGNMENTS.map((option) => (
-              <s-option key={option.value} value={option.value}>
-                {option.label}
-              </s-option>
-            ))}
-          </s-select>
-
           <s-checkbox
             label="Show the three promises"
             name="claimShowPromises"
