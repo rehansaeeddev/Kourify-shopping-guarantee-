@@ -271,26 +271,6 @@ export default function Index() {
                     )}
                   </s-text>
                 </s-stack>
-                <s-divider direction="inline" />
-                <s-stack
-                  direction="inline"
-                  justifyContent="space-between"
-                  alignItems="center"
-                >
-                  <s-text color="subdued">Average protection fee</s-text>
-                  {/* An em dash, not $0.00: with nothing protected there is no
-                    average to state, and a zero would read as a fee that was
-                    charged and came to nothing. */}
-                  <s-text>
-                    {analytics.protectedOrders > 0
-                      ? `$${(
-                          analytics.protectionRevenueCents /
-                          100 /
-                          analytics.protectedOrders
-                        ).toFixed(2)}`
-                      : "—"}
-                  </s-text>
-                </s-stack>
               </s-stack>
             </s-stack>
           </Card>
