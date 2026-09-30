@@ -2,6 +2,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Outlet, isRouteErrorResponse, useRouteError } from "react-router";
 
 import { ApiError } from "../lib/api";
+import { usePrefetchNav } from "../lib/prefetch";
 import { queryClient } from "../lib/query-client";
 import { ToastProvider } from "../components/Toast";
 import { PageBody } from "../components/PageBody";
@@ -20,6 +21,10 @@ import { PageBody } from "../components/PageBody";
 const HOME_REL = { rel: "home" } as Record<string, string>;
 
 export default function App() {
+  // Warms the nav's queries once the page you asked for has painted, so the
+  // next click renders from cache instead of showing a loading card.
+  usePrefetchNav();
+
   return (
     <QueryClientProvider client={queryClient}>
       <s-app-nav>
