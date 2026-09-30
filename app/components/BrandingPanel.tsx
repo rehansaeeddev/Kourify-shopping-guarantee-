@@ -441,12 +441,16 @@ export function BrandingPanel({
                 value={own[titleKey] ?? ""}
                 maxLength={TITLE_MAX}
                 details={block.details}
-                onInput={(event) =>
-                  setOwn((current) => ({
-                    ...current,
-                    [titleKey]: event.currentTarget.value ?? "",
-                  }))
-                }
+                onInput={(event) => {
+                  // Read now, not inside the updater: React defers that
+                  // function, and the DOM has reset currentTarget to null by
+                  // the time it runs. Every other handler here reads the
+                  // value straight out of the event, which is why only these
+                  // two threw.
+                  const next = event.currentTarget.value ?? "";
+
+                  setOwn((current) => ({ ...current, [titleKey]: next }));
+                }}
                 onBlur={() => saveText(titleKey, own[titleKey] ?? "")}
               />
               <s-text-area
@@ -455,12 +459,16 @@ export function BrandingPanel({
                 rows={3}
                 value={own[bodyKey] ?? ""}
                 maxLength={BODY_MAX}
-                onInput={(event) =>
-                  setOwn((current) => ({
-                    ...current,
-                    [bodyKey]: event.currentTarget.value ?? "",
-                  }))
-                }
+                onInput={(event) => {
+                  // Read now, not inside the updater: React defers that
+                  // function, and the DOM has reset currentTarget to null by
+                  // the time it runs. Every other handler here reads the
+                  // value straight out of the event, which is why only these
+                  // two threw.
+                  const next = event.currentTarget.value ?? "";
+
+                  setOwn((current) => ({ ...current, [bodyKey]: next }));
+                }}
                 onBlur={() => saveText(bodyKey, own[bodyKey] ?? "")}
               />
             </s-stack>
