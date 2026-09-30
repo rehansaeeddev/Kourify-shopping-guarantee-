@@ -4,12 +4,33 @@
   data-logo-url="{{ 'kourify-logo.png' | asset_url }}"
 >
   {% render 'protection-translations' %}
-  {%- capture kourify_guarantee -%}{%- render 'kourify-brand-label' -%}{%- endcapture -%}
-  {%- capture kourify_brand_logo -%}{%- render 'kourify-brand-logo' -%}{%- endcapture -%}
-  {%- assign kourify_brand_logo = kourify_brand_logo | strip -%}
-  {%- if kourify_brand_logo == blank -%}
-    {%- assign kourify_brand_logo = 'kourify-logo.png' | asset_url -%}
-  {%- endif -%}
+  {%- liquid
+    # The merchant's name and logo, read straight from the app-data
+    # metafields the admin publishes.
+    #
+    # Deliberately not a shared snippet, though the same lines also sit in
+    # snippets/protection-translations.liquid: Shopify wraps every app
+    # snippet's output in "BEGIN app snippet" comments, so capturing a
+    # render put that comment into the tab's own text and into the logo's
+    # src. Keep the two copies in step.
+    #
+    # Interpolated rather than concatenated -- English puts the name first,
+    # French and Arabic second -- and a shop that has set no name falls
+    # through to the wording this tab has always used, as does one that has
+    # set no logo.
+    assign kourify_brand = app.metafields.kourify.brand_name.value | default: '' | strip
+    assign kourify_brand_logo = app.metafields.kourify.brand_logo.value | default: '' | strip
+
+    if kourify_brand == blank
+      assign kourify_guarantee = 'protection.guarantee' | t
+    else
+      assign kourify_guarantee = 'protection.guarantee_branded' | t: name: kourify_brand
+    endif
+
+    if kourify_brand_logo == blank
+      assign kourify_brand_logo = 'kourify-logo.png' | asset_url
+    endif
+  -%}
   <button type="button" class="kourify-guarantee-tab__button" data-kourify-learn-more>
     {%- comment -%}
       alt is empty on purpose: the shop's name is spelled out in the very
@@ -18,7 +39,7 @@
     {%- endcomment -%}
     <img src="{{ kourify_brand_logo | escape }}" width="14" height="14" alt="" style="display:block;object-fit:contain;" />
     {%- comment -%} Escaped: this is the merchant's own text, on every page of their store. {%- endcomment -%}
-    <span>{{ kourify_guarantee | strip | escape }}</span>
+    <span>{{ kourify_guarantee | escape }}</span>
   </button>
 </div>
 

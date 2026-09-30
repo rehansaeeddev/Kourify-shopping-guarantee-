@@ -2,8 +2,25 @@
 Provides localized strings and the active storefront locale to the protection JavaScript.
 {% enddoc %}
 
-{%- capture kourify_guarantee -%}{%- render 'kourify-brand-label' -%}{%- endcapture -%}
-{%- capture kourify_brand_logo -%}{%- render 'kourify-brand-logo' -%}{%- endcapture -%}
+{%- liquid
+  # The merchant's name and logo, read straight from the app-data metafields
+  # the admin publishes. Deliberately not a shared snippet: Shopify wraps
+  # every app snippet's output in "BEGIN app snippet" comments, so capturing
+  # a render put that comment into the tab's text and into the logo's src.
+  # The same lines live in blocks/guarantee-tab.liquid; keep the two in step.
+  #
+  # Interpolated rather than concatenated -- English puts the name first,
+  # French and Arabic second -- and a shop that has set no name falls through
+  # to the wording the tab has always used.
+  assign kourify_brand = app.metafields.kourify.brand_name.value | default: '' | strip
+  assign kourify_brand_logo = app.metafields.kourify.brand_logo.value | default: '' | strip
+
+  if kourify_brand == blank
+    assign kourify_guarantee = 'protection.guarantee' | t
+  else
+    assign kourify_guarantee = 'protection.guarantee_branded' | t: name: kourify_brand
+  endif
+-%}
 <span
   hidden
   data-kourify-i18n
@@ -12,13 +29,13 @@ Provides localized strings and the active storefront locale to the protection Ja
     Also read by the tab the script injects when the merchant has not added
     the block, so both routes to the tab say the same thing.
   {%- endcomment -%}
-  data-guarantee="{{ kourify_guarantee | strip | escape }}"
+  data-guarantee="{{ kourify_guarantee | escape }}"
   {%- comment -%}
     Separate from data-logo-url, which every block carries and which the
     modal and the badges also read. This one is the merchant's own mark and
     only the tab uses it, so the two do not have to agree.
   {%- endcomment -%}
-  data-brand-logo="{{ kourify_brand_logo | strip | escape }}"
+  data-brand-logo="{{ kourify_brand_logo | escape }}"
   data-managed="{{ 'protection.managed' | t | escape }}"
   data-learn-more="{{ 'protection.learn_more' | t | escape }}"
   data-file-claim="{{ 'protection.file_claim' | t | escape }}"
