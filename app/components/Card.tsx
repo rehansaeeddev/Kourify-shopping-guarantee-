@@ -62,14 +62,18 @@ export function Card({ heading, locked, fill, children }: CardProps) {
 type StatTileProps = {
   label: string;
   value: string;
-  icon: string;
+  /**
+   * No longer rendered. Kept optional so the metric lists that still name one
+   * keep type-checking; drop it from those lists and then from here.
+   */
+  icon?: string;
   tone?: "default" | "success" | "warning" | "critical";
   href?: string;
   /** Small text under the value — e.g. a trend delta ("2 fewer than last week"). */
   sub?: ReactNode;
 };
 
-const TONE_TO_ICON_TONE: Record<
+const TONE_TO_TEXT_TONE: Record<
   string,
   "neutral" | "success" | "warning" | "critical"
 > = {
@@ -82,33 +86,33 @@ const TONE_TO_ICON_TONE: Record<
 /**
  * One metric, as its own card.
  *
- * These used to be borderless tiles sharing a single section, separated by
- * vertical rules -- the composition Shopify's own Orders page uses. Read on
- * the page it turned out to be four figures inside one slab rather than four
- * things, so each now carries its own surface and the rules are gone.
+ * Label and figure sit on one line, label left and figure right, which is the
+ * same shape the status rows on this page already use.
  *
- * Tone colours the icon only, never the figure, so colour is never the one
- * thing carrying a metric's meaning.
+ * The label is the heading and the figure is text, not the other way round --
+ * that is App Home's own metrics-card composition, and it is why the figures
+ * used to sit at a size of their own instead of matching every other card
+ * title on the page. Tone moved onto the figure when the icons came off, so a
+ * metric that means something still says so without one.
  */
 export function StatTile({
   label,
   value,
-  icon,
   tone = "default",
   href,
   sub,
 }: StatTileProps) {
   const body = (
     <s-stack direction="block" gap="small-200">
-      <s-stack direction="inline" gap="small-200" alignItems="center">
-        <s-icon type={icon as never} tone={TONE_TO_ICON_TONE[tone]} size="base" />
-        <s-text color="subdued">{label}</s-text>
+      <s-stack
+        direction="inline"
+        justifyContent="space-between"
+        alignItems="center"
+        gap="base"
+      >
+        <s-heading>{label}</s-heading>
+        <s-text tone={TONE_TO_TEXT_TONE[tone]}>{value}</s-text>
       </s-stack>
-      <s-heading>{value}</s-heading>
-      {/* The sub-line rides as a neutral badge, not caption text, so each
-        metric ends on a crisp grey pill. Colour is never spent here -- the
-        tone icon already carries the metric's signal, so a badge never
-        dresses a plain descriptor up as a status. */}
       {sub ? (
         <s-stack direction="inline">
           <s-badge tone="neutral">{sub}</s-badge>
