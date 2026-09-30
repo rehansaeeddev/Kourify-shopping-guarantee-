@@ -151,6 +151,24 @@ export const useSaveBadges = () =>
     [keys.settings],
   );
 
+export const useSaveBranding = () =>
+  useInvalidating(
+    (body: Record<string, unknown>) =>
+      api.put<SaveResult>("/settings/branding", body),
+    [keys.settings],
+  );
+
+/**
+ * The logo, as a data URL. Sent on its own so a five-megabyte image and a
+ * three-field form do not fail together — and so a slow upload does not hold
+ * up a colour change.
+ */
+export const useSaveBrandLogo = () =>
+  useInvalidating(
+    (logo: string) => api.put<SaveResult>("/settings/branding/logo", { logo }),
+    [keys.settings],
+  );
+
 export const useSaveProtection = () =>
   useInvalidating(
     (body: Record<string, unknown>) =>
@@ -266,6 +284,15 @@ export type MerchantSettings = {
   /** null means no ceiling was set, which is not the same as zero. */
   maxEligibleItemValueCents: number | null;
   protectionEnabled: boolean;
+  /**
+   * What the merchant chose for the storefront claim page. Null on all four
+   * means they have chosen nothing, and the page keeps its own design --
+   * which is not the same as having chosen its colours.
+   */
+  brandName: string | null;
+  brandLogoUrl: string | null;
+  brandColor: string | null;
+  brandSurface: string | null;
   plan: string;
   currency: string;
   storefrontFallbackLanguage: string;

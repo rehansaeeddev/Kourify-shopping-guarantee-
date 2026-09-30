@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { AppButton } from "../components/AppButton";
+import { BrandingPanel } from "../components/BrandingPanel";
 import { Card } from "../components/Card";
 import { LanguagesPanel } from "./app.translations";
 import { InfoTip } from "../components/InfoTip";
@@ -45,6 +46,7 @@ const SETTINGS_TABS = [
   { id: "pricing", label: "Pricing", icon: "cash-dollar" },
   { id: "coverage", label: "Coverage", icon: "shield-check-mark" },
   { id: "claims", label: "Claims", icon: "clipboard-checklist" },
+  { id: "branding", label: "Branding", icon: "color" },
   { id: "languages", label: "Languages", icon: "globe" },
 ] as const;
 
@@ -1134,6 +1136,10 @@ export default function Settings() {
                   })}
                 </s-stack>
               </Card>
+            )}
+
+            {activeTab === "branding" && (
+              <BrandingPanel settings={currentSettings} />
             )}
 
             {activeTab === "languages" && <LanguagesPanel />}
