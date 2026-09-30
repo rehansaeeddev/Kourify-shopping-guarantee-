@@ -539,7 +539,7 @@ function LanguageEditor({
           onSave(strings);
         }}
       >
-        <Card heading="Translations">
+        <Card heading="Translations" boxed>
           <s-paragraph color="subdued">
             {`Blank fields fall back to English automatically.`}
           </s-paragraph>
