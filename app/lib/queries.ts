@@ -169,6 +169,20 @@ export const useSaveBrandLogo = () =>
     [keys.settings],
   );
 
+/**
+ * The merchant's own blocks, written into the default language.
+ *
+ * Its own endpoint rather than a four-key call to the translations PUT: that
+ * one replaces a language's whole string set by design, so a partial payload
+ * would delete every other translation the shop had written.
+ */
+export const useSaveClaimText = () =>
+  useInvalidating(
+    (text: Record<string, string>) =>
+      api.put<Ok>("/settings/branding/text", { text }),
+    [keys.settings, keys.translations],
+  );
+
 export const useSaveProtection = () =>
   useInvalidating(
     (body: Record<string, unknown>) =>
@@ -296,6 +310,8 @@ export type MerchantSettings = {
   /** Where the introduction sits, and whether the promises show with it. */
   claimStoryPosition: string;
   claimShowPromises: boolean;
+  /** Where the logo and shop name sit, which is its own choice. */
+  claimBrandPosition: string;
   plan: string;
   currency: string;
   storefrontFallbackLanguage: string;
@@ -437,6 +453,13 @@ export type SettingsPayload = {
   hasActiveBilling: boolean;
   quota: Quota;
   customerPaysAllowed: boolean;
+  /**
+   * The merchant's own blocks on the claim page, as saved in the default
+   * language. Keyed by the translation key, dots and all -- they live in a
+   * translation row rather than a settings column so they can be translated
+   * like every other word on that page.
+   */
+  claimText: Record<string, string>;
 };
 
 export type Language = {
@@ -452,6 +475,12 @@ export type Language = {
 export type TranslationsPayload = {
   languages: Language[];
   keys: string[];
+  /**
+   * Keys a shop is not expected to fill in -- the merchant's own blocks,
+   * which ship empty by design. Left in the denominator, no shop would ever
+   * read as fully translated.
+   */
+  optionalKeys: string[];
   suggestedLabels: Record<string, string>;
   defaultLocale: string;
 };

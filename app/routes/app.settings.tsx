@@ -1139,7 +1139,7 @@ export default function Settings() {
             )}
 
             {activeTab === "branding" && (
-              <BrandingPanel settings={currentSettings} />
+              <BrandingPanel settings={currentSettings} text={data.claimText} />
             )}
 
             {activeTab === "languages" && <LanguagesPanel />}

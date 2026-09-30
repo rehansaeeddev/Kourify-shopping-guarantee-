@@ -70,7 +70,7 @@ export function LanguagesPanel() {
   if (error)
     return <InlineError heading="Languages" error={error} onRetry={refetch} />;
 
-  const { languages, keys } = data;
+  const { languages, keys, optionalKeys } = data;
   const fallback = data.defaultLocale;
 
   const editing = editingLocale
@@ -99,6 +99,7 @@ export function LanguagesPanel() {
       <LanguageEditor
         editing={editing}
         keys={keys}
+        optionalKeys={optionalKeys}
         referenceEn={DEFAULT_TRANSLATIONS.en}
         busy={mutations.saveStrings.isPending}
         onSave={(strings) =>
@@ -435,6 +436,10 @@ const TRANSLATION_GROUPS: {
     title: "Review & actions",
     prefixes: ["review.", "notice", "legal", "action."],
   },
+  // Not copy the app wrote and the merchant may replace -- blocks the app
+  // writes nothing in. They belong in a group of their own, and they are the
+  // one group a complete translation can leave empty.
+  { id: "own", title: "Your own text", prefixes: ["custom."] },
   {
     id: "messages",
     title: "Messages",
@@ -464,6 +469,7 @@ const EDITOR_HEADING_SIZE = { size: "large-200" } as Record<string, string>;
 function LanguageEditor({
   editing,
   keys,
+  optionalKeys,
   referenceEn,
   busy,
   onSave,
@@ -471,6 +477,7 @@ function LanguageEditor({
 }: {
   editing: Language;
   keys: string[];
+  optionalKeys: string[];
   referenceEn: TranslationStrings;
   busy: boolean;
   onSave: (strings: TranslationStrings) => void;
@@ -490,8 +497,21 @@ function LanguageEditor({
   );
   const [tab, setTab] = useState(groups[0]?.id ?? "general");
 
-  const doneCount = keys.filter((key) => filled[key]).length;
-  const pct = keys.length ? Math.round((doneCount / keys.length) * 100) : 0;
+  /*
+   * The merchant's own blocks ship empty by design, so they are not part of
+   * how far along a translation is. Counted, no shop would ever reach
+   * complete -- it would sit at 64 of 68 with nothing left to write.
+   */
+  const optional = useMemo(() => new Set(optionalKeys), [optionalKeys]);
+  const counted = useMemo(
+    () => keys.filter((key) => !optional.has(key)),
+    [keys, optional],
+  );
+
+  const doneCount = counted.filter((key) => filled[key]).length;
+  const pct = counted.length
+    ? Math.round((doneCount / counted.length) * 100)
+    : 0;
 
   return (
     <>
@@ -542,7 +562,7 @@ function LanguageEditor({
               {groups.map((group) => {
                 const groupKeys = buckets.get(group.id) ?? [];
                 const remaining = groupKeys.filter(
-                  (key) => !filled[key],
+                  (key) => !filled[key] && !optional.has(key),
                 ).length;
                 return (
                   <s-button
@@ -571,9 +591,9 @@ function LanguageEditor({
             <s-stack direction="inline" gap="small-200" alignItems="center">
               <s-text color="subdued">Translated</s-text>
               <s-text type="strong" fontVariantNumeric="tabular-nums">
-                {`${doneCount} of ${keys.length}`}
+                {`${doneCount} of ${counted.length}`}
               </s-text>
-              {doneCount === keys.length ? (
+              {doneCount === counted.length ? (
                 <s-badge tone="success" icon="check">
                   Complete
                 </s-badge>
