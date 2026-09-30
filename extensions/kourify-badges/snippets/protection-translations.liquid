@@ -3,6 +3,7 @@ Provides localized strings and the active storefront locale to the protection Ja
 {% enddoc %}
 
 {%- capture kourify_guarantee -%}{%- render 'kourify-brand-label' -%}{%- endcapture -%}
+{%- capture kourify_brand_logo -%}{%- render 'kourify-brand-logo' -%}{%- endcapture -%}
 <span
   hidden
   data-kourify-i18n
@@ -12,6 +13,12 @@ Provides localized strings and the active storefront locale to the protection Ja
     the block, so both routes to the tab say the same thing.
   {%- endcomment -%}
   data-guarantee="{{ kourify_guarantee | strip | escape }}"
+  {%- comment -%}
+    Separate from data-logo-url, which every block carries and which the
+    modal and the badges also read. This one is the merchant's own mark and
+    only the tab uses it, so the two do not have to agree.
+  {%- endcomment -%}
+  data-brand-logo="{{ kourify_brand_logo | strip | escape }}"
   data-managed="{{ 'protection.managed' | t | escape }}"
   data-learn-more="{{ 'protection.learn_more' | t | escape }}"
   data-file-claim="{{ 'protection.file_claim' | t | escape }}"

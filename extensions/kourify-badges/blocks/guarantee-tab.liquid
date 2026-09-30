@@ -5,8 +5,18 @@
 >
   {% render 'protection-translations' %}
   {%- capture kourify_guarantee -%}{%- render 'kourify-brand-label' -%}{%- endcapture -%}
+  {%- capture kourify_brand_logo -%}{%- render 'kourify-brand-logo' -%}{%- endcapture -%}
+  {%- assign kourify_brand_logo = kourify_brand_logo | strip -%}
+  {%- if kourify_brand_logo == blank -%}
+    {%- assign kourify_brand_logo = 'kourify-logo.png' | asset_url -%}
+  {%- endif -%}
   <button type="button" class="kourify-guarantee-tab__button" data-kourify-learn-more>
-    <img src="{{ 'kourify-logo.png' | asset_url }}" width="14" height="14" alt="" style="display:block;object-fit:contain;" />
+    {%- comment -%}
+      alt is empty on purpose: the shop's name is spelled out in the very
+      next element, and a reader hearing it twice is worse than not
+      describing a mark that carries nothing the name does not.
+    {%- endcomment -%}
+    <img src="{{ kourify_brand_logo | escape }}" width="14" height="14" alt="" style="display:block;object-fit:contain;" />
     {%- comment -%} Escaped: this is the merchant's own text, on every page of their store. {%- endcomment -%}
     <span>{{ kourify_guarantee | strip | escape }}</span>
   </button>

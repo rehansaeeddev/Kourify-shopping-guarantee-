@@ -11,9 +11,19 @@
   // this plain JS file can't call that, so it reads the URL off whichever
   // Kourify block Liquid already rendered it into (see data-logo-url on
   // protection-cart.liquid, protection-product.liquid, guarantee-tab.liquid).
-  function logoImgHtml(size) {
-    var host = document.querySelector("[data-logo-url]");
-    var url = host && host.getAttribute("data-logo-url");
+  // `brand` asks for the merchant's own mark, which only the guarantee tab
+  // wants: the modal and the badges stay ours. It falls through to the theme
+  // asset when the merchant has set no logo.
+  function logoImgHtml(size, brand) {
+    var url = "";
+    if (brand) {
+      var brandHost = document.querySelector("[data-brand-logo]");
+      url = (brandHost && brandHost.getAttribute("data-brand-logo")) || "";
+    }
+    if (!url) {
+      var host = document.querySelector("[data-logo-url]");
+      url = (host && host.getAttribute("data-logo-url")) || "";
+    }
     if (url) {
       return (
         '<img src="' +
@@ -111,7 +121,7 @@
     tab.setAttribute("data-kourify-guarantee-tab", "true");
     tab.innerHTML =
       '<button type="button" class="kourify-guarantee-tab__button" data-kourify-learn-more>' +
-      logoImgHtml(14) +
+      logoImgHtml(14, true) +
       "<span>" +
       translation("guarantee", "Kourify Guarantee") +
       "</span>" +
