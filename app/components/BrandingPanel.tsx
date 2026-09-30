@@ -8,6 +8,13 @@ import {
   type MerchantSettings,
 } from "../lib/queries";
 
+/** The arrangements the claim page draws, named as a merchant sees them. */
+const LAYOUTS = [
+  { value: "story-start", label: "Introduction on the left" },
+  { value: "story-end", label: "Introduction on the right" },
+  { value: "centered", label: "Centred, introduction above" },
+] as const;
+
 /**
  * The two members of s-drop-zone this reads.
  *
@@ -230,6 +237,34 @@ export function BrandingPanel({ settings }: { settings: MerchantSettings }) {
           }}
         />
       </s-grid>
+
+      {/* The arrangement, not a stylesheet. Three the page knows how to
+        draw, each of which it still draws correctly at every width: below
+        900px the page stacks as it always has, and these only apply above
+        that, so no choice here can break the phone layout. */}
+      <s-select
+        label="Page layout"
+        name="claimPageLayout"
+        value={settings.claimPageLayout}
+        details="Where the introduction sits next to the claim form."
+        disabled={busy}
+        onChange={(event) => {
+          const next = event.currentTarget.value ?? "";
+
+          save(
+            { claimPageLayout: next },
+            `Layout set to ${
+              LAYOUTS.find((option) => option.value === next)?.label ?? next
+            }`,
+          );
+        }}
+      >
+        {LAYOUTS.map((option) => (
+          <s-option key={option.value} value={option.value}>
+            {option.label}
+          </s-option>
+        ))}
+      </s-select>
 
       <s-paragraph color="subdued">
         <s-link href={claimPage} target="_blank">
