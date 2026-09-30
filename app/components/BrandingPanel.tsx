@@ -344,8 +344,11 @@ export function BrandingPanel({
         one ended. Nothing is stretched to match anything, so no card is
         padded out around content it does not have.
 
-        Split for height rather than by subject: the two tall cards would
-        otherwise sit in the same column and leave the other one short. */}
+        Split for height, measured rather than guessed. Identity plus Layout
+        on the left comes out within about fifty pixels of Colours plus the
+        merchant's text on the right; every other arrangement of these four
+        leaves one column running hundreds of pixels past the other before
+        the preview starts. Three against one was worse, not better. */}
       <s-grid
         gridTemplateColumns="@container (inline-size <= 720px) 1fr, 1fr 1fr"
         gap="base"
@@ -645,7 +648,7 @@ export function BrandingPanel({
                     <s-text-area
                       label="Text"
                       name={bodyKey}
-                      rows={3}
+                      rows={2}
                       value={own[bodyKey] ?? ""}
                       maxLength={BODY_MAX}
                       onInput={(event) => {
