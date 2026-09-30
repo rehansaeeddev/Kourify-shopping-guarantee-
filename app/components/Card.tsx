@@ -1,5 +1,19 @@
 import { type ReactNode } from "react";
 
+/**
+ * The size a section draws its own heading at.
+ *
+ * s-section renders its heading inside its header, where a scoped rule puts
+ * it on display-small (1.125rem). A bare s-heading has no such rule and falls
+ * to heading-medium (.8125rem), so any card that draws its own title -- the
+ * fill variant below, and every metric tile -- looks a size down from the
+ * sections beside it unless it asks for this.
+ *
+ * Spread rather than written as a prop: Polaris reads `size` off the element
+ * at runtime, but the published v1.0 types for s-heading do not declare it.
+ */
+const SECTION_HEADING_SIZE = { size: "large-200" } as Record<string, string>;
+
 type CardProps = {
   heading?: string;
   locked?: boolean;
@@ -43,7 +57,9 @@ export function Card({ heading, locked, fill, children }: CardProps) {
         borderRadius="large"
       >
         <s-stack direction="block" gap="base">
-          {heading ? <s-heading>{heading}</s-heading> : null}
+          {heading ? (
+            <s-heading {...SECTION_HEADING_SIZE}>{heading}</s-heading>
+          ) : null}
           {lockedBadge}
           {children}
         </s-stack>
@@ -110,11 +126,11 @@ export function StatTile({
         alignItems="center"
         gap="base"
       >
-        <s-heading>{label}</s-heading>
+        <s-heading {...SECTION_HEADING_SIZE}>{label}</s-heading>
         {/* A heading too, so both halves of the row sit at the size every
           other card title on the page uses. s-heading takes no size prop,
           so which element is used is the only control there is. */}
-        <s-heading>{value}</s-heading>
+        <s-heading {...SECTION_HEADING_SIZE}>{value}</s-heading>
       </s-stack>
       {/* s-heading takes no tone either, so the figure cannot carry one. The
         sub-line does instead -- that is what keeps "2 open claims" reading
