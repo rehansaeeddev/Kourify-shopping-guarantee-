@@ -13,13 +13,28 @@ import { PageBody } from "../components/PageBody";
  * document itself, and the shop's identity comes from the session token each
  * API call carries — so nothing has to be fetched before the nav can render.
  */
+/**
+ * Spread rather than written as a prop: App Bridge reads `rel` off the link,
+ * but the published v1.0 types for s-link do not declare it.
+ */
+const HOME_REL = { rel: "home" } as Record<string, string>;
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <s-app-nav>
-        <s-link href="/app">Home</s-link>
+        {/*
+          rel="home" is what tells the admin this is the app's landing route.
+          Without it /app was registered as an ordinary item, so it sat in the
+          sidebar as a second copy of the app-name row above it -- and, being
+          the prefix of every other route here, stayed highlighted while the
+          page open was Settings or Billing. Marked this way it is hidden from
+          the menu and the app name becomes the link to it.
+        */}
+        <s-link href="/app" {...HOME_REL}>
+          Home
+        </s-link>
         <s-link href="/app/orders">Orders</s-link>
-        <s-link href="/app/translations">Languages</s-link>
         <s-link href="/app/settings">Settings</s-link>
         <s-link href="/app/billing">Billing</s-link>
         <s-link href="/app/guide">Help</s-link>

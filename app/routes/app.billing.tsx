@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { useSearchParams } from "react-router";
+import { Card } from "../components/Card";
 import { PageError, PageSkeleton } from "../components/PageState";
 import { useBilling, useSubscribe } from "../lib/queries";
 import { useToast } from "../components/Toast";
@@ -419,7 +420,7 @@ export default function Billing() {
           </s-section>
         )}
 
-        <s-section heading="Usage this period">
+        <Card heading="Usage this period" boxed>
           <s-grid
             gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))"
             gap="base"
@@ -479,7 +480,7 @@ export default function Billing() {
               {`You've used all ${quota.limit} protected orders on Basic. Protection is switched off for new orders — existing protected orders keep their coverage and can still be claimed.`}
             </s-banner>
           )}
-        </s-section>
+        </Card>
 
         {showPlans ? (
           <s-section heading="Plans">

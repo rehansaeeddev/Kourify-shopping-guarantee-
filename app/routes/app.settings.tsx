@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { AppButton } from "../components/AppButton";
 import { Card } from "../components/Card";
+import { LanguagesPanel } from "./app.translations";
 import { InfoTip } from "../components/InfoTip";
 import { PageError, PageSkeleton } from "../components/PageState";
 import { TrustBadgePreview } from "../components/TrustBadgePreview";
@@ -44,6 +45,7 @@ const SETTINGS_TABS = [
   { id: "pricing", label: "Pricing", icon: "cash-dollar" },
   { id: "coverage", label: "Coverage", icon: "shield-check-mark" },
   { id: "claims", label: "Claims", icon: "clipboard-checklist" },
+  { id: "languages", label: "Languages", icon: "globe" },
 ] as const;
 
 type SettingsTab = (typeof SETTINGS_TABS)[number]["id"];
@@ -390,12 +392,14 @@ export default function Settings() {
           gap="large"
           alignItems="start"
         >
+          {/* large, matching the cards it sits beside -- at base the rail
+            was visibly squarer than every panel to the right of it. */}
           <s-box
-            padding="small-300"
+            padding="small-200"
             background="subdued"
             borderWidth="base"
             borderColor="strong"
-            borderRadius="base"
+            borderRadius="large"
           >
             <s-stack
               direction="block"
@@ -410,7 +414,10 @@ export default function Settings() {
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     padding="small-300"
-                    borderRadius="base"
+                    /* large, like the rail around it: at base the active
+                      pill was the one square-cornered thing inside a
+                      rounded box. */
+                    borderRadius="large"
                     /*
                      * base on a subdued rail, which is the inverse of what
                      * this was. It read the other way round while the rail
@@ -419,6 +426,17 @@ export default function Settings() {
                      * all and every section looked current.
                      */
                     background={isActive ? "base" : "transparent"}
+                    /*
+                     * The outline, not the fill, is what says "this one".
+                     * Polaris has three surface colours and they are #fff,
+                     * #f7f7f7 and #f2f2f2 -- five shades apart at the widest
+                     * -- so a white pill on a subdued rail is as far as
+                     * background alone can carry this. Every item keeps a
+                     * border so the row does not shift by a pixel when the
+                     * current one changes; only its colour does.
+                     */
+                    borderWidth="base"
+                    borderColor={isActive ? "strong" : "subdued"}
                     /* The current section is shown by a background and a bolder
                      label, and neither reaches a screen reader — both are
                      presentation. Saying it is the only way it carries. */
@@ -449,7 +467,7 @@ export default function Settings() {
           <s-stack direction="block" gap="base">
             {activeTab === "general" && (
               <>
-                <Card heading="Shopping Guarantee">
+                <Card heading="Shopping Guarantee" boxed>
                   <s-stack
                     direction="inline"
                     gap="base"
@@ -663,7 +681,7 @@ export default function Settings() {
             )}
 
             {activeTab === "pricing" && (
-              <Card heading="Pricing">
+              <Card heading="Pricing" boxed>
                 <s-paragraph>
                   Who pays for protection, and — when the customer pays — how
                   that fee is calculated.
@@ -905,7 +923,7 @@ export default function Settings() {
             )}
 
             {activeTab === "coverage" && (
-              <Card heading="Coverage eligibility">
+              <Card heading="Coverage eligibility" boxed>
                 <s-paragraph>
                   The most a single item can be worth and still be covered.
                   Items priced above this are not protected and cannot be
@@ -1018,7 +1036,7 @@ export default function Settings() {
             )}
 
             {activeTab === "claims" && (
-              <Card heading="Claim reasons & filing windows">
+              <Card heading="Claim reasons & filing windows" boxed>
                 <s-paragraph>
                   Which reasons customers can choose in the storefront claim
                   form, and how many days after an order ships each one can
@@ -1117,6 +1135,8 @@ export default function Settings() {
                 </s-stack>
               </Card>
             )}
+
+            {activeTab === "languages" && <LanguagesPanel />}
           </s-stack>
         </s-grid>
       </PageBody>

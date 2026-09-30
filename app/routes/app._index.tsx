@@ -65,30 +65,30 @@ export default function Index() {
       ? { tone: "default" as const, value: "Off", sub: null }
       : { tone: "success" as const, value: "Live", sub: feeSummary };
 
+  // One definition for the share, printed in two places: the Protected
+  // metric's sub-line and the Protection mix heading. They were drifting
+  // apart as separate expressions waiting to happen.
+  const protectedShare =
+    totalOrders > 0
+      ? Math.round((analytics.protectedOrders / totalOrders) * 100)
+      : 0;
+
   return (
     <s-page inlineSize="large" heading={greeting}>
+      {/*
+        The page's own title bar, not a banner of ours. This used to be a
+        custom green slab with its own heading and subtitle -- a second title
+        competing with the one the admin already draws above it, styled
+        against an admin appearance Shopify has since replaced. These slots put
+        the same two actions where every other admin page keeps them.
+      */}
+      <s-button slot="primary-action" variant="primary" href="/app/order-sync">
+        Order sync
+      </s-button>
+      <s-button slot="secondary-actions" href="/app/guide">
+        Help
+      </s-button>
       <PageBody>
-        {/* The one deliberately custom-styled banner (see theme.css), added on
-            request. Its buttons stay real s-buttons so navigation still works
-            inside the embedded admin. */}
-        <div className="app-dashboard-header">
-          <div>
-            <h2 className="app-dashboard-header__title">Dashboard</h2>
-            <p className="app-dashboard-header__subtitle">
-              Order protection at a glance — offers, claims, and coverage across
-              your store.
-            </p>
-          </div>
-          <div className="app-dashboard-header__actions">
-            <s-button href="/app/guide" variant="secondary">
-              Help
-            </s-button>
-            <s-button href="/app/order-sync" variant="primary">
-              Order sync
-            </s-button>
-          </div>
-        </div>
-
         <GettingStarted
           title="Get started with Kourify"
           help={{
@@ -150,30 +150,39 @@ export default function Index() {
         */}
         <MetricsCard
           accessibilityLabel="Protection at a glance"
+          /* Each sub-line restates something already true of the figure above
+            it rather than introducing a number of its own -- a share, a
+            count, or what the figure is drawn from. Nothing here is a
+            comparison the dashboard cannot actually make: there is no
+            previous period stored to compare against, and inventing a trend
+            would be worse than a short card. */
           metrics={[
             {
-              icon: "order",
               tone: "default",
               label: "Orders",
               value: String(totalOrders),
+              sub: "Synced from Shopify",
             },
             {
-              icon: "shield-check-mark",
               tone: "success",
               label: "Protected",
               value: String(analytics.protectedOrders),
+              sub: `${protectedShare}% of orders`,
             },
             {
-              icon: "clock",
               tone: openClaims > 0 ? "warning" : "default",
               label: "Open claims",
               value: String(openClaims),
+              sub: openClaims > 0 ? "Awaiting your review" : "Nothing waiting",
             },
             {
-              icon: "cash-dollar",
               tone: "success",
               label: "Protection sales",
               value: `$${(analytics.protectionRevenueCents / 100).toFixed(2)}`,
+              sub:
+                analytics.protectedOrders > 0
+                  ? `Across ${analytics.protectedOrders} protected orders`
+                  : "No protected orders yet",
             },
           ]}
         />
@@ -183,7 +192,7 @@ export default function Index() {
           gap="base"
           alignItems="stretch"
         >
-          <Card heading="Protection mix">
+          <Card heading="Protection mix" fill>
             <s-stack direction="block" gap="base">
               <s-stack
                 direction="inline"
@@ -194,13 +203,7 @@ export default function Index() {
                   type="strong"
                   tone={analytics.protectedOrders > 0 ? "success" : "neutral"}
                 >
-                  {`${
-                    totalOrders > 0
-                      ? Math.round(
-                          (analytics.protectedOrders / totalOrders) * 100,
-                        )
-                      : 0
-                  }% protected`}
+                  {`${protectedShare}% protected`}
                 </s-text>
                 <s-badge
                   tone={analytics.protectedOrders > 0 ? "success" : "neutral"}
@@ -234,28 +237,56 @@ export default function Index() {
                   minBlockSize="10px"
                 />
               )}
-              <s-stack direction="inline" gap="base">
-                <s-stack direction="inline" gap="small-500" alignItems="center">
-                  <s-icon
-                    type="shield-check-mark"
-                    tone="success"
-                    size="small"
-                  />
-                  <s-text color="subdued">
-                    {`Protected ${analytics.protectedOrders}`}
+              {/* The same label-left/value-right rows the status card beside
+                this one uses, rather than the inline legend that was here.
+                Two cards side by side reading differently made the shorter
+                one look unfinished; matching the pattern also gives this one
+                enough rows to stand at about the same height.
+
+                Attach rate is deliberately absent: the backend computes
+                conversionRate as protectedOrders / totalOrders * 100, which
+                is the figure already at the top of this card. Showing it
+                again under a second name would be one number pretending to
+                be two. */}
+              <s-stack direction="block" gap="small-200">
+                <s-divider direction="inline" />
+                <s-stack
+                  direction="inline"
+                  justifyContent="space-between"
+                  alignItems="center"
+                >
+                  <s-stack
+                    direction="inline"
+                    gap="small-500"
+                    alignItems="center"
+                  >
+                    <s-icon
+                      type="shield-check-mark"
+                      tone="success"
+                      size="small"
+                    />
+                    <s-text color="subdued">Protected</s-text>
+                  </s-stack>
+                  <s-text>{String(analytics.protectedOrders)}</s-text>
+                </s-stack>
+                <s-divider direction="inline" />
+                <s-stack
+                  direction="inline"
+                  justifyContent="space-between"
+                  alignItems="center"
+                >
+                  <s-text color="subdued">Unprotected</s-text>
+                  <s-text>
+                    {String(
+                      Math.max(totalOrders - analytics.protectedOrders, 0),
+                    )}
                   </s-text>
                 </s-stack>
-                <s-text color="subdued">
-                  {`Unprotected ${Math.max(
-                    totalOrders - analytics.protectedOrders,
-                    0,
-                  )}`}
-                </s-text>
               </s-stack>
             </s-stack>
           </Card>
 
-          <Card heading="Protection status">
+          <Card heading="Protection status" fill>
             <s-stack direction="block" gap="small-200">
               <s-stack
                 direction="inline"
@@ -283,6 +314,23 @@ export default function Index() {
                 </s-badge>
               </s-stack>
               <s-divider direction="inline" />
+              {/* The storefront half of protection, sat next to the checkout
+                half. Its state was only rendered inside the Overview card,
+                which is behind a flag, so the one thing a merchant turns on
+                first had no status anywhere on this page. */}
+              <s-stack
+                direction="inline"
+                justifyContent="space-between"
+                alignItems="center"
+              >
+                <s-text color="subdued">Trust badges</s-text>
+                <s-badge tone={settings.badgesEnabled ? "success" : "neutral"}>
+                  {settings.badgesEnabled
+                    ? `On · ${settings.badgeStyle} style`
+                    : "Off"}
+                </s-badge>
+              </s-stack>
+              <s-divider direction="inline" />
               <s-stack
                 direction="inline"
                 justifyContent="space-between"
@@ -294,46 +342,6 @@ export default function Index() {
             </s-stack>
           </Card>
         </s-grid>
-
-        {/*
-          Reference links, not a region, so no card around them.
-          The two panels inside already carry their own subdued surface — a
-          card around them was a box inside a box, and one more equal-weight
-          slab on a page that had too many. What is left is a heading and two
-          tiles, which is what this content is.
-        */}
-        <s-stack direction="block" gap="base">
-          <s-heading>Help &amp; resources</s-heading>
-          <s-grid
-            gridTemplateColumns="@container (inline-size <= 720px) 1fr, 1fr 1fr"
-            gap="base"
-          >
-            <s-clickable
-              href="/app/guide"
-              padding="base"
-              background="subdued"
-              borderRadius="base"
-            >
-              <s-stack direction="block" gap="small-400">
-                <s-stack direction="inline" gap="small-200" alignItems="center">
-                  <s-icon type="info" tone="neutral" size="base" />
-                  <s-text type="strong">How it works</s-text>
-                </s-stack>
-                <s-text color="subdued">
-                  Offers, claims, and coverage explained.
-                </s-text>
-              </s-stack>
-            </s-clickable>
-            <s-box padding="base" background="subdued" borderRadius="base">
-              <s-stack direction="block" gap="small-400">
-                <s-link href="mailto:support@kourify.com">
-                  Contact support
-                </s-link>
-                <s-text color="subdued">support@kourify.com</s-text>
-              </s-stack>
-            </s-box>
-          </s-grid>
-        </s-stack>
 
         {/* One Overview card holds every KPI in a packed grid, rather than two
           half-empty Status/Performance cards spread thin across the width.

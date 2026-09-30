@@ -299,6 +299,13 @@ export default function Claims() {
 
   return (
     <s-page inlineSize="large" heading="Claims">
+      <WorkspaceTabs
+        active="claims"
+        counts={{
+          orders: workspaceCounts.ordersNeedingAction,
+          claims: workspaceCounts.openClaims,
+        }}
+      />
       <s-button
         slot="secondary-actions"
         href="/app/settings"
@@ -351,14 +358,6 @@ export default function Claims() {
           </s-banner>
         )}
 
-        <WorkspaceTabs
-          active="claims"
-          counts={{
-            orders: workspaceCounts.ordersNeedingAction,
-            claims: workspaceCounts.openClaims,
-          }}
-        />
-
         {/*
           One card for one region.
           The count, the filters, the search and the rows are all the same
@@ -366,7 +365,7 @@ export default function Claims() {
           them across two hairlined surfaces made them read as two unrelated
           panels once the admin page turned white.
         */}
-        <Card heading={`Claims (${totalClaims})`}>
+        <Card heading={`Claims (${totalClaims})`} boxed>
           {/* One block stack owns the card's vertical rhythm so the count line,
             filters, search and table each get even breathing room instead of
             butting up against one another. */}

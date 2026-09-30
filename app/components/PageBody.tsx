@@ -21,7 +21,11 @@ export function PageBody({ children }: { children: ReactNode }) {
       gridTemplateColumns={`minmax(0, ${MAX_INLINE_SIZE})`}
       justifyContent="center"
     >
-      <s-stack direction="block" gap="large">
+      {/* base, not large. s-page zeroes its own top padding, so the air a
+        page opens with is this gap and the section margins under it --
+        "large" made every screen read as further apart than the admin's own
+        pages around it. */}
+      <s-stack direction="block" gap="base">
         {children}
       </s-stack>
     </s-grid>

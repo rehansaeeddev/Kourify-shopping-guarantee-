@@ -1,13 +1,11 @@
 import { useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router";
 
 import { Card } from "../components/Card";
 import { EmptyState } from "../components/EmptyState";
-import { PageError, PageSkeleton } from "../components/PageState";
+import { InlineError, InlineLoading } from "../components/PageState";
 import { useToast } from "../components/Toast";
 import {
   DEFAULT_TRANSLATIONS,
-  normalizeLocale,
   type TranslationStrings,
 } from "../lib/claim-i18n";
 import {
@@ -20,11 +18,26 @@ import { PageBody } from "../components/PageBody";
 /** What every mutation here answers with. */
 type Result = { ok: boolean; message?: string; error?: string | null };
 
-export default function Translations() {
+/**
+ * The languages list, add-language form and their modals.
+ *
+ * Split out of the route so the settings page can show it as one of its
+ * panels. Everything here fits beside a settings rail; the per-language
+ * editor does not, which is why editing is handed back to the caller
+ * through onEdit rather than opened from in here.
+ */
+export function LanguagesPanel() {
+  /*
+   | Which language the editor is open on, if any. Held here rather than in
+   | the URL so that this works the same wherever it is rendered -- the
+   | settings panel has no route of its own to put a parameter on, and a list
+   | that opened its editor in one place and navigated away in another was
+   | the same control behaving two different ways.
+   */
+  const [editingLocale, setEditingLocale] = useState<string | null>(null);
   const { data, isPending, error, refetch } = useTranslations();
   const mutations = useTranslationMutations();
   const { showToast } = useToast();
-  const [searchParams, setSearchParams] = useSearchParams();
   const [renaming, setRenaming] = useState<string | null>(null);
 
   // Removing a language drops its saved translations, so it's confirmed in a
@@ -53,25 +66,15 @@ export default function Translations() {
     onError: (cause: Error) => showToast(cause.message, { isError: true }),
   };
 
-  if (isPending) return <PageSkeleton heading="Claim page languages" />;
+  if (isPending) return <InlineLoading heading="Languages" />;
   if (error)
-    return (
-      <PageError
-        heading="Claim page languages"
-        error={error}
-        onRetry={refetch}
-      />
-    );
+    return <InlineError heading="Languages" error={error} onRetry={refetch} />;
 
   const { languages, keys } = data;
   const fallback = data.defaultLocale;
-  const referenceEn = DEFAULT_TRANSLATIONS.en;
 
-  // Which language the editor is open on. A query parameter rather than
-  // state, so the browser's back button leaves the editor.
-  const editLocale = normalizeLocale(searchParams.get("edit") ?? "");
-  const editing = editLocale
-    ? (languages.find((lang) => lang.locale === editLocale) ?? null)
+  const editing = editingLocale
+    ? (languages.find((lang) => lang.locale === editingLocale) ?? null)
     : null;
 
   const renamingLang =
@@ -96,240 +99,259 @@ export default function Translations() {
       <LanguageEditor
         editing={editing}
         keys={keys}
-        referenceEn={referenceEn}
-        busy={busy}
+        referenceEn={DEFAULT_TRANSLATIONS.en}
+        busy={mutations.saveStrings.isPending}
         onSave={(strings) =>
           mutations.saveStrings.mutate(
             { locale: editing.locale, strings },
             notify,
           )
         }
-        onDone={() => setSearchParams({})}
+        onDone={() => setEditingLocale(null)}
       />
     );
   }
 
   return (
-    <s-page inlineSize="large" heading="Claim page languages">
-      <s-button slot="secondary-actions" href="/app/claims" variant="secondary">
-        Back to claims
-      </s-button>
-      <PageBody>
-        {languages.length === 0 ? (
-          <Card heading="Get started">
-            <s-stack direction="block" gap="base">
-              <EmptyState
-                icon="globe"
-                heading="No languages yet"
-                description="Add English and French to match the current defaults, then add more languages like Arabic or Hindi."
-              />
-              <s-stack direction="inline">
-                <s-button
-                  variant="primary"
-                  loading={mutations.seed.isPending}
-                  disabled={busy}
-                  onClick={() => mutations.seed.mutate(undefined, notify)}
-                >
-                  Add English &amp; French
-                </s-button>
-              </s-stack>
+    <>
+      {languages.length === 0 ? (
+        <Card heading="Get started">
+          <s-stack direction="block" gap="base">
+            <EmptyState
+              icon="globe"
+              heading="No languages yet"
+              description="Add English and French to match the current defaults, then add more languages like Arabic or Hindi."
+            />
+            <s-stack direction="inline">
+              <s-button
+                variant="primary"
+                loading={mutations.seed.isPending}
+                disabled={busy}
+                onClick={() => mutations.seed.mutate(undefined, notify)}
+              >
+                Add English &amp; French
+              </s-button>
             </s-stack>
-          </Card>
-        ) : (
-          <>
-            {renamingLang ? (
-              <Card heading={`Edit ${renamingLang.label}`}>
-                <form
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    const form = new FormData(event.currentTarget);
+          </s-stack>
+        </Card>
+      ) : (
+        <>
+          {renamingLang ? (
+            <Card heading={`Edit ${renamingLang.label}`}>
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const form = new FormData(event.currentTarget);
 
-                    mutations.update.mutate(
-                      {
-                        locale: renamingLang.locale,
-                        label: String(form.get("label") ?? ""),
-                        direction: String(form.get("direction") ?? "ltr"),
-                      },
-                      notify,
-                    );
-                    setRenaming(null);
-                  }}
+                  mutations.update.mutate(
+                    {
+                      locale: renamingLang.locale,
+                      label: String(form.get("label") ?? ""),
+                      direction: String(form.get("direction") ?? "ltr"),
+                    },
+                    notify,
+                  );
+                  setRenaming(null);
+                }}
+              >
+                <s-grid
+                  gridTemplateColumns="1fr 1fr"
+                  gap="base"
+                  alignItems="end"
                 >
-                  <s-grid
-                    gridTemplateColumns="1fr 1fr"
-                    gap="base"
-                    alignItems="end"
+                  <s-text-field
+                    label="Display name"
+                    name="label"
+                    value={renamingLang.label}
+                  />
+                  <s-select
+                    label="Direction"
+                    name="direction"
+                    value={renamingLang.direction}
                   >
-                    <s-text-field
-                      label="Display name"
-                      name="label"
-                      value={renamingLang.label}
-                    />
-                    <s-select
-                      label="Direction"
-                      name="direction"
-                      value={renamingLang.direction}
-                    >
-                      <s-option value="ltr">Left to right</s-option>
-                      <s-option value="rtl">Right to left</s-option>
-                    </s-select>
-                  </s-grid>
-                  <s-stack direction="inline" gap="small-200">
-                    <s-button
-                      type="submit"
-                      variant="primary"
-                      loading={mutations.update.isPending}
-                      disabled={busy}
-                    >
-                      Save
-                    </s-button>
-                    <s-button
-                      variant="secondary"
-                      onClick={() => setRenaming(null)}
-                    >
-                      Cancel
-                    </s-button>
-                  </s-stack>
-                </form>
-              </Card>
-            ) : null}
+                    <s-option value="ltr">Left to right</s-option>
+                    <s-option value="rtl">Right to left</s-option>
+                  </s-select>
+                </s-grid>
+                <s-stack direction="inline" gap="small-200">
+                  <s-button
+                    type="submit"
+                    variant="primary"
+                    loading={mutations.update.isPending}
+                    disabled={busy}
+                  >
+                    Save
+                  </s-button>
+                  <s-button
+                    variant="secondary"
+                    onClick={() => setRenaming(null)}
+                  >
+                    Cancel
+                  </s-button>
+                </s-stack>
+              </form>
+            </Card>
+          ) : null}
 
-            <Card heading="Languages">
-              <s-paragraph color="subdued">
-                Choose which languages the storefront claim page offers.
-                Customers switch language with no page reload.
-              </s-paragraph>
-              <s-table variant="auto">
-                <s-table-header-row>
-                  <s-table-header listSlot="primary">Language</s-table-header>
-                  <s-table-header listSlot="secondary">Code</s-table-header>
-                  <s-table-header listSlot="labeled">Direction</s-table-header>
-                  <s-table-header listSlot="labeled">Visible</s-table-header>
-                  <s-table-header listSlot="inline">Actions</s-table-header>
-                </s-table-header-row>
-                <s-table-body>
-                  {languages.map((lang) => (
-                    <s-table-row key={lang.locale}>
-                      <s-table-cell>
-                        <s-stack direction="inline" gap="small-200">
-                          <s-text type="strong">{lang.label}</s-text>
-                          {lang.locale === fallback ? (
-                            <s-badge tone="info">Default</s-badge>
-                          ) : null}
-                        </s-stack>
-                      </s-table-cell>
-                      <s-table-cell>{lang.locale}</s-table-cell>
-                      <s-table-cell>
-                        {lang.direction.toUpperCase()}
-                      </s-table-cell>
-                      <s-table-cell>
-                        {/* A hidden language is an ordinary state, not a warning. */}
-                        <s-badge tone={lang.enabled ? "success" : "neutral"}>
-                          {lang.enabled ? "Shown" : "Hidden"}
-                        </s-badge>
-                      </s-table-cell>
-                      <s-table-cell>
-                        <s-stack direction="inline" gap="small-200">
-                          {/* Every row repeats these five words, so on their
+          {/* No heading: the settings rail already names this section, and
+            a second "Languages" above the card only pushed it down out of
+            line with the rail. The standalone route names it in its page
+            heading. */}
+          <Card>
+            <s-paragraph color="subdued">
+              Choose which languages the storefront claim page offers. Customers
+              switch language with no page reload.
+            </s-paragraph>
+            <s-table variant="auto">
+              <s-table-header-row>
+                <s-table-header listSlot="primary">Language</s-table-header>
+                <s-table-header listSlot="secondary">Code</s-table-header>
+                <s-table-header listSlot="labeled">Direction</s-table-header>
+                <s-table-header listSlot="labeled">Visible</s-table-header>
+                <s-table-header listSlot="inline">Actions</s-table-header>
+              </s-table-header-row>
+              <s-table-body>
+                {languages.map((lang) => (
+                  <s-table-row key={lang.locale}>
+                    <s-table-cell>
+                      <s-stack direction="inline" gap="small-200">
+                        <s-text type="strong">{lang.label}</s-text>
+                        {lang.locale === fallback ? (
+                          <s-badge tone="info">Default</s-badge>
+                        ) : null}
+                      </s-stack>
+                    </s-table-cell>
+                    <s-table-cell>{lang.locale}</s-table-cell>
+                    <s-table-cell>{lang.direction.toUpperCase()}</s-table-cell>
+                    <s-table-cell>
+                      {/* A hidden language is an ordinary state, not a warning. */}
+                      <s-badge tone={lang.enabled ? "success" : "neutral"}>
+                        {lang.enabled ? "Shown" : "Hidden"}
+                      </s-badge>
+                    </s-table-cell>
+                    <s-table-cell>
+                      <s-stack direction="inline" gap="small-200">
+                        {/* Every row repeats these five words, so on their
                               own they read as "Edit, Edit, Edit". The label
                               names the language; the visible text stays short. */}
-                          <s-button
-                            variant="secondary"
-                            accessibilityLabel={`Edit ${lang.label}`}
-                            onClick={() =>
-                              setSearchParams({ edit: lang.locale })
-                            }
-                          >
-                            Edit
-                          </s-button>
-                          <s-button
-                            variant="secondary"
-                            accessibilityLabel={`Rename ${lang.label}`}
-                            onClick={() => setRenaming(lang.locale)}
-                          >
-                            Rename
-                          </s-button>
+                        <s-button
+                          variant="secondary"
+                          accessibilityLabel={`Edit ${lang.label}`}
+                          onClick={() => setEditingLocale(lang.locale)}
+                        >
+                          Edit
+                        </s-button>
+                        <s-button
+                          variant="secondary"
+                          accessibilityLabel={`Rename ${lang.label}`}
+                          onClick={() => setRenaming(lang.locale)}
+                        >
+                          Rename
+                        </s-button>
+                        <s-button
+                          variant="secondary"
+                          disabled={busy}
+                          accessibilityLabel={`${lang.enabled ? "Hide" : "Show"} ${lang.label}`}
+                          onClick={() =>
+                            mutations.update.mutate(
+                              { locale: lang.locale, enabled: !lang.enabled },
+                              notify,
+                            )
+                          }
+                        >
+                          {lang.enabled ? "Hide" : "Show"}
+                        </s-button>
+                        {lang.locale !== fallback ? (
                           <s-button
                             variant="secondary"
                             disabled={busy}
-                            accessibilityLabel={`${lang.enabled ? "Hide" : "Show"} ${lang.label}`}
+                            accessibilityLabel={`Make ${lang.label} the default language`}
                             onClick={() =>
-                              mutations.update.mutate(
-                                { locale: lang.locale, enabled: !lang.enabled },
-                                notify,
-                              )
+                              mutations.setDefault.mutate(lang.locale, notify)
                             }
                           >
-                            {lang.enabled ? "Hide" : "Show"}
+                            Make default
                           </s-button>
-                          {lang.locale !== fallback ? (
-                            <s-button
-                              variant="secondary"
-                              disabled={busy}
-                              accessibilityLabel={`Make ${lang.label} the default language`}
-                              onClick={() =>
-                                mutations.setDefault.mutate(lang.locale, notify)
-                              }
-                            >
-                              Make default
-                            </s-button>
-                          ) : null}
-                          {lang.locale !== fallback ? (
-                            <s-button
-                              variant="secondary"
-                              disabled={busy}
-                              accessibilityLabel={`Remove ${lang.label}`}
-                              onClick={() => {
-                                setPendingRemove({
-                                  locale: lang.locale,
-                                  label: lang.label,
-                                });
-                                removeModalRef.current?.showOverlay();
-                              }}
-                            >
-                              Remove
-                            </s-button>
-                          ) : null}
-                        </s-stack>
-                      </s-table-cell>
-                    </s-table-row>
-                  ))}
-                </s-table-body>
-              </s-table>
-            </Card>
-          </>
-        )}
+                        ) : null}
+                        {lang.locale !== fallback ? (
+                          <s-button
+                            variant="secondary"
+                            disabled={busy}
+                            accessibilityLabel={`Remove ${lang.label}`}
+                            onClick={() => {
+                              setPendingRemove({
+                                locale: lang.locale,
+                                label: lang.label,
+                              });
+                              removeModalRef.current?.showOverlay();
+                            }}
+                          >
+                            Remove
+                          </s-button>
+                        ) : null}
+                      </s-stack>
+                    </s-table-cell>
+                  </s-table-row>
+                ))}
+              </s-table-body>
+            </s-table>
+          </Card>
+        </>
+      )}
 
-        <AddLanguage
-          busy={busy}
-          pending={mutations.add.isPending}
-          onAdd={(language) => mutations.add.mutate(language, notify)}
-        />
+      <AddLanguage
+        busy={busy}
+        pending={mutations.add.isPending}
+        onAdd={(language) => mutations.add.mutate(language, notify)}
+      />
 
-        <s-modal
-          ref={removeModalRef as never}
-          id="kourify-remove-language-modal"
-          heading="Remove language"
+      <s-modal
+        ref={removeModalRef as never}
+        id="kourify-remove-language-modal"
+        heading="Remove language"
+      >
+        <s-paragraph>
+          {pendingRemove
+            ? `Remove ${pendingRemove.label} from the claim page? Its saved translations are deleted, and shoppers will no longer see this language.`
+            : ""}
+        </s-paragraph>
+        <s-button
+          slot="primary-action"
+          variant="primary"
+          tone="critical"
+          loading={mutations.remove.isPending}
+          disabled={busy}
+          onClick={confirmRemove}
         >
-          <s-paragraph>
-            {pendingRemove
-              ? `Remove ${pendingRemove.label} from the claim page? Its saved translations are deleted, and shoppers will no longer see this language.`
-              : ""}
-          </s-paragraph>
-          <s-button
-            slot="primary-action"
-            variant="primary"
-            tone="critical"
-            loading={mutations.remove.isPending}
-            disabled={busy}
-            onClick={confirmRemove}
-          >
-            Remove
-          </s-button>
-          <s-button slot="secondary-actions" onClick={cancelRemove}>
-            Cancel
-          </s-button>
-        </s-modal>
+          Remove
+        </s-button>
+        <s-button slot="secondary-actions" onClick={cancelRemove}>
+          Cancel
+        </s-button>
+      </s-modal>
+    </>
+  );
+}
+
+/**
+ * The page the app nav used to point at.
+ *
+ * Everything it shows is LanguagesPanel, which settings renders too. All this
+ * adds is the page shell, so the two places stay the same screen rather than
+ * two that drift.
+ */
+export default function Translations() {
+  return (
+    <s-page inlineSize="large" heading="Claim page languages">
+      <s-button
+        slot="secondary-actions"
+        href="/app/settings"
+        variant="secondary"
+      >
+        Back to settings
+      </s-button>
+      <PageBody>
+        <LanguagesPanel />
       </PageBody>
     </s-page>
   );
@@ -461,6 +483,9 @@ function groupTranslationKeys(keys: string[]): Map<string, string[]> {
   return buckets;
 }
 
+/** Matches the heading a Card draws for itself. */
+const EDITOR_HEADING_SIZE = { size: "large-200" } as Record<string, string>;
+
 function LanguageEditor({
   editing,
   keys,
@@ -494,180 +519,188 @@ function LanguageEditor({
   const pct = keys.length ? Math.round((doneCount / keys.length) * 100) : 0;
 
   return (
-    <s-page inlineSize="large" heading={`Edit ${editing.label}`}>
-      <s-button slot="secondary-actions" variant="secondary" onClick={onDone}>
-        Back to languages
-      </s-button>
-      <PageBody>
-        {/* Uncontrolled on purpose: the fields are read off the form in one
+    <>
+      {/* Uncontrolled on purpose: the fields are read off the form in one
           pass on submit, so typing in any of a few hundred inputs does not
           re-render the whole editor. */}
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            const form = new FormData(event.currentTarget);
-            const strings: TranslationStrings = {};
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          const form = new FormData(event.currentTarget);
+          const strings: TranslationStrings = {};
 
-            for (const [key, value] of form.entries()) {
-              if (key.startsWith("s:")) strings[key.slice(2)] = String(value);
-            }
+          for (const [key, value] of form.entries()) {
+            if (key.startsWith("s:")) strings[key.slice(2)] = String(value);
+          }
 
-            onSave(strings);
-          }}
-        >
-          <Card heading="Translations">
-            <s-paragraph color="subdued">
-              {`Blank fields fall back to English automatically.`}
-            </s-paragraph>
+          onSave(strings);
+        }}
+      >
+        <Card boxed>
+          {/* The way back and the name of what is open, inside the card
+            rather than floating above it. Loose, they were the only things
+            on the screen not sitting on a surface, and they pushed the card
+            itself out of line with the rail. "Translations" went with them:
+            "Edit <language>" already says what these rows are. */}
+          <s-stack direction="inline" alignItems="center" gap="base">
+            <s-button variant="secondary" icon="arrow-left" onClick={onDone}>
+              Back to languages
+            </s-button>
+            <s-heading {...EDITOR_HEADING_SIZE}>
+              {`Edit ${editing.label}`}
+            </s-heading>
+          </s-stack>
+          <s-paragraph color="subdued">
+            {`Blank fields fall back to English automatically.`}
+          </s-paragraph>
+          <s-stack
+            direction="inline"
+            gap="base"
+            alignItems="center"
+            justifyContent="space-between"
+          >
             <s-stack
               direction="inline"
-              gap="base"
-              alignItems="center"
-              justifyContent="space-between"
+              gap="small-200"
+              accessibilityLabel="String groups"
             >
-              <s-stack
-                direction="inline"
-                gap="small-200"
-                accessibilityLabel="String groups"
-              >
-                {groups.map((group) => {
-                  const groupKeys = buckets.get(group.id) ?? [];
-                  const remaining = groupKeys.filter(
-                    (key) => !filled[key],
-                  ).length;
-                  return (
-                    <s-button
-                      key={group.id}
-                      variant={tab === group.id ? "primary" : "secondary"}
-                      // variant is styling; on its own it tells a screen
-                      // reader nothing about which group is open.
-                      accessibilityLabel={
-                        tab === group.id
-                          ? `${group.title}, current group`
-                          : group.title
-                      }
-                      onClick={() => setTab(group.id)}
-                    >
-                      {remaining === 0
-                        ? group.title
-                        : `${group.title} (${remaining} left)`}
-                    </s-button>
-                  );
-                })}
-              </s-stack>
-
-              {/* Progress rides at the end of the tab row rather than above it,
-                so the toolbar reads as one line: tabs on the left, how far
-                along on the right. */}
-              <s-stack direction="inline" gap="small-200" alignItems="center">
-                <s-text color="subdued">Translated</s-text>
-                <s-text type="strong" fontVariantNumeric="tabular-nums">
-                  {`${doneCount} of ${keys.length}`}
-                </s-text>
-                {doneCount === keys.length ? (
-                  <s-badge tone="success" icon="check">
-                    Complete
-                  </s-badge>
-                ) : (
-                  <s-badge tone="neutral">{`${pct}%`}</s-badge>
-                )}
-              </s-stack>
+              {groups.map((group) => {
+                const groupKeys = buckets.get(group.id) ?? [];
+                const remaining = groupKeys.filter(
+                  (key) => !filled[key],
+                ).length;
+                return (
+                  <s-button
+                    key={group.id}
+                    variant={tab === group.id ? "primary" : "secondary"}
+                    // variant is styling; on its own it tells a screen
+                    // reader nothing about which group is open.
+                    accessibilityLabel={
+                      tab === group.id
+                        ? `${group.title}, current group`
+                        : group.title
+                    }
+                    onClick={() => setTab(group.id)}
+                  >
+                    {remaining === 0
+                      ? group.title
+                      : `${group.title} (${remaining} left)`}
+                  </s-button>
+                );
+              })}
             </s-stack>
 
-            {/* A hairline under the tab row frames it as a tab bar and puts clear
+            {/* Progress rides at the end of the tab row rather than above it,
+                so the toolbar reads as one line: tabs on the left, how far
+                along on the right. */}
+            <s-stack direction="inline" gap="small-200" alignItems="center">
+              <s-text color="subdued">Translated</s-text>
+              <s-text type="strong" fontVariantNumeric="tabular-nums">
+                {`${doneCount} of ${keys.length}`}
+              </s-text>
+              {doneCount === keys.length ? (
+                <s-badge tone="success" icon="check">
+                  Complete
+                </s-badge>
+              ) : (
+                <s-badge tone="neutral">{`${pct}%`}</s-badge>
+              )}
+            </s-stack>
+          </s-stack>
+
+          {/* A hairline under the tab row frames it as a tab bar and puts clear
               air between the tabs and the first field, so the two never read as
               one cramped block. */}
-            <s-divider direction="inline" />
+          <s-divider direction="inline" />
 
-            {/* A bare <div hidden> rather than an s-box: the panels must stay in
+          {/* A bare <div hidden> rather than an s-box: the panels must stay in
               the DOM whichever tab is open, because the save action rebuilds
               the whole `strings` blob from the submitted form and would delete
               anything missing. Polaris sets its own display on s-box, which
               would defeat the hidden attribute. No class, no CSS — this is
               visibility, not layout. */}
-            {groups.map((group) => (
-              <div key={group.id} hidden={tab !== group.id}>
-                <s-stack direction="block" gap="base">
-                  {(buckets.get(group.id) ?? []).map((key) => (
-                    <s-stack key={key} direction="block" gap="small-300">
-                      <s-stack
-                        direction="inline"
-                        gap="small-200"
-                        alignItems="center"
-                      >
-                        {/* Key is identity, not status: a quiet label. The green
+          {groups.map((group) => (
+            <div key={group.id} hidden={tab !== group.id}>
+              <s-stack direction="block" gap="base">
+                {(buckets.get(group.id) ?? []).map((key) => (
+                  <s-stack key={key} direction="block" gap="small-300">
+                    <s-stack
+                      direction="inline"
+                      gap="small-200"
+                      alignItems="center"
+                    >
+                      {/* Key is identity, not status: a quiet label. The green
                           check is the only thing that carries "translated", so a
                           page of done strings reads as calm ticks rather than a
                           wall of colour. */}
-                        <s-text type="strong">{key}</s-text>
-                        {filled[key] ? (
-                          <s-icon
-                            type="check-circle"
-                            tone="success"
-                            size="base"
-                          />
-                        ) : null}
-                        {/* s-icon takes no accessible name — Polaris treats
+                      <s-text type="strong">{key}</s-text>
+                      {filled[key] ? (
+                        <s-icon
+                          type="check-circle"
+                          tone="success"
+                          size="base"
+                        />
+                      ) : null}
+                      {/* s-icon takes no accessible name — Polaris treats
                             icons as decorative — so the state is said here
                             instead, visually hidden. Before this, "translated"
                             was carried by a green tick and nothing else. */}
-                        <s-text accessibilityVisibility="exclusive">
-                          {filled[key] ? "Translated" : "Not translated"}
-                        </s-text>
-                      </s-stack>
-                      {/* Source on the left as read-only reference, the field to
+                      <s-text accessibilityVisibility="exclusive">
+                        {filled[key] ? "Translated" : "Not translated"}
+                      </s-text>
+                    </s-stack>
+                    {/* Source on the left as read-only reference, the field to
                         translate on the right — the two-column shape of
                         Shopify's own translation editor. Stacks on a narrow
                         container. */}
-                      <s-grid
-                        gridTemplateColumns="@container (inline-size <= 640px) 1fr, 1fr 1fr"
-                        gap="base"
-                        alignItems="start"
+                    <s-grid
+                      gridTemplateColumns="@container (inline-size <= 640px) 1fr, 1fr 1fr"
+                      gap="base"
+                      alignItems="start"
+                    >
+                      <s-box
+                        padding="base"
+                        background="subdued"
+                        borderRadius="base"
                       >
-                        <s-box
-                          padding="base"
-                          background="subdued"
-                          borderRadius="base"
-                        >
-                          <s-text color="subdued">{referenceEn[key]}</s-text>
-                        </s-box>
-                        <s-text-field
-                          label={key}
-                          labelAccessibilityVisibility="exclusive"
-                          name={`s:${key}`}
-                          value={editing.strings[key] ?? ""}
-                          placeholder={referenceEn[key]}
-                          onInput={(event) => {
-                            const value = (
-                              event.currentTarget as HTMLInputElement
-                            ).value;
-                            setFilled((prev) =>
-                              prev[key] === Boolean(value.trim())
-                                ? prev
-                                : { ...prev, [key]: Boolean(value.trim()) },
-                            );
-                          }}
-                        />
-                      </s-grid>
-                    </s-stack>
-                  ))}
-                </s-stack>
-              </div>
-            ))}
+                        <s-text color="subdued">{referenceEn[key]}</s-text>
+                      </s-box>
+                      <s-text-field
+                        label={key}
+                        labelAccessibilityVisibility="exclusive"
+                        name={`s:${key}`}
+                        value={editing.strings[key] ?? ""}
+                        placeholder={referenceEn[key]}
+                        onInput={(event) => {
+                          const value = (
+                            event.currentTarget as HTMLInputElement
+                          ).value;
+                          setFilled((prev) =>
+                            prev[key] === Boolean(value.trim())
+                              ? prev
+                              : { ...prev, [key]: Boolean(value.trim()) },
+                          );
+                        }}
+                      />
+                    </s-grid>
+                  </s-stack>
+                ))}
+              </s-stack>
+            </div>
+          ))}
 
-            <s-stack direction="inline" justifyContent="end">
-              <s-button
-                type="submit"
-                variant="primary"
-                loading={busy}
-                disabled={busy}
-              >
-                Save translations
-              </s-button>
-            </s-stack>
-          </Card>
-        </form>
-      </PageBody>
-    </s-page>
+          <s-stack direction="inline" justifyContent="end">
+            <s-button
+              type="submit"
+              variant="primary"
+              loading={busy}
+              disabled={busy}
+            >
+              Save translations
+            </s-button>
+          </s-stack>
+        </Card>
+      </form>
+    </>
   );
 }

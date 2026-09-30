@@ -313,15 +313,14 @@ export default function Orders() {
 
   return (
     <s-page inlineSize="large" heading="Orders">
+      <WorkspaceTabs
+        active="orders"
+        counts={{
+          orders: workspaceCounts.ordersNeedingAction,
+          claims: workspaceCounts.openClaims,
+        }}
+      />
       <PageBody>
-        <WorkspaceTabs
-          active="orders"
-          counts={{
-            orders: workspaceCounts.ordersNeedingAction,
-            claims: workspaceCounts.openClaims,
-          }}
-        />
-
         {/*
           Filters and the table are one region, so they are one card.
           They were two, and on the admin's white page that read as two
@@ -330,7 +329,7 @@ export default function Orders() {
           filter that vanishes the moment it matches nothing cannot be
           cleared. So they sit at the top of the section instead.
         */}
-        <Card heading="Shopify orders">
+        <Card heading="Shopify orders" boxed>
           <s-grid
             gridTemplateColumns="@container (inline-size <= 640px) 1fr, 1fr auto auto"
             gap="base"

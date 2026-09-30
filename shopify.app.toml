@@ -65,7 +65,26 @@ api_version = "2026-10"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_cart_transforms,read_customers,read_merchant_managed_fulfillment_orders,read_orders,read_publications,write_cart_transforms,write_files,write_fulfillments,write_merchant_managed_fulfillment_orders,write_metaobject_definitions,write_metaobjects,write_order_edits,write_orders,write_products,write_publications"
+#
+# Every scope here is reached by a GraphQL operation in the Laravel backend.
+# Six were dropped in 2026-09: read_cart_transforms, read_orders,
+# read_merchant_managed_fulfillment_orders and read_publications, because a
+# write scope already grants its read ("A write scope includes read" --
+# shopify.dev/docs/apps/build/authentication-authorization/manage-access-scopes);
+# and write_metaobjects with write_metaobject_definitions, which nothing used --
+# the word "metaobject" appears nowhere in the codebase. An app that asks for a
+# scope it never exercises is one App Store review sends back.
+#
+# read_customers is the exception: no query reads `customer` today, because
+# displayName is stripped everywhere until Protected Customer Data approval
+# lands. It stays because that approval request is for the Name field, and the
+# queries come back the moment it is granted.
+#
+# Still open: whether write_orders is needed at all. The app only reads orders
+# (order, orders, ordersCount) -- editing goes through write_order_edits and
+# fulfilling through the fulfillment scopes. If a run with read_orders in its
+# place works, that is the narrower ask and the better one for review.
+scopes = "read_customers,write_cart_transforms,write_files,write_fulfillments,write_merchant_managed_fulfillment_orders,write_order_edits,write_orders,write_products,write_publications"
 
 # Required by the CLI's schema, even though this app installs through Shopify
 # managed installation and authenticates by token exchange. There is no OAuth

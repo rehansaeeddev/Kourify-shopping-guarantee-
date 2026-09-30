@@ -108,6 +108,13 @@ export default function OrderSync() {
 
   return (
     <s-page inlineSize="large" heading="Order sync">
+      <WorkspaceTabs
+        active="order-sync"
+        counts={{
+          orders: workspaceCounts.ordersNeedingAction,
+          claims: workspaceCounts.openClaims,
+        }}
+      />
       <s-button slot="secondary-actions" href="/app" variant="secondary">
         Back to home
       </s-button>
@@ -124,14 +131,6 @@ export default function OrderSync() {
             {syncBanner.text}
           </s-banner>
         ) : null}
-
-        <WorkspaceTabs
-          active="order-sync"
-          counts={{
-            orders: workspaceCounts.ordersNeedingAction,
-            claims: workspaceCounts.openClaims,
-          }}
-        />
 
         <MetricsCard
           heading="Sync status"
