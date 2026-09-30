@@ -27,26 +27,29 @@ type CardProps = {
   heading?: string;
   locked?: boolean;
   /**
-   * Fill the height of the grid cell this card sits in.
+   * Draw the card as a box with its heading inside, instead of as a section
+   * with the heading above the surface.
    *
-   * Needed because s-section cannot: it takes no size prop, so two sections
-   * side by side in a stretched grid stand at whatever height their content
-   * gives them, and the shorter one reads as unfinished rather than shorter.
-   * Set this on cards that sit beside each other and the surface becomes an
-   * s-box with blockSize 100%, which does fill. Leave it off everywhere else
-   * -- a section is the right element for a page region, and this is only a
-   * way around the one thing it will not do.
+   * Two things need this. A card that has to fill its grid cell, because
+   * s-section takes no size prop -- that is `fill`. And the first card of a
+   * settings panel, because a heading above the surface starts the panel one
+   * heading lower than the rail beside it, and the two then look unrelated.
+   *
+   * Everywhere else a section is the right element for a page region, and the
+   * heading belongs where Polaris puts it.
    */
+  boxed?: boolean;
+  /** As `boxed`, and also fills the height of its grid cell. */
   fill?: boolean;
   children: ReactNode;
 };
 
 /**
  * A page section. s-section draws the card and its heading itself, so this is
- * only here to keep the `locked` badge consistent across pages -- except when
- * `fill` is set, where the surface has to be drawn by hand to get a height.
+ * only here to keep the `locked` badge consistent across pages -- except in
+ * the two cases above, where the surface has to be drawn by hand.
  */
-export function Card({ heading, locked, fill, children }: CardProps) {
+export function Card({ heading, locked, boxed, fill, children }: CardProps) {
   const lockedBadge = locked ? (
     <s-stack direction="inline">
       <s-badge tone="warning" icon="lock">
@@ -55,10 +58,10 @@ export function Card({ heading, locked, fill, children }: CardProps) {
     </s-stack>
   ) : null;
 
-  if (fill) {
+  if (boxed || fill) {
     return (
       <s-box
-        blockSize="100%"
+        blockSize={fill ? "100%" : undefined}
         padding="base"
         background="base"
         borderWidth="base"
@@ -144,9 +147,7 @@ export function StatTile({
       {/* s-heading takes no tone either, so the figure cannot carry one. The
         sub-line does instead -- that is what keeps "2 open claims" reading
         as something to act on rather than just a number. */}
-      {sub ? (
-        <s-text tone={TONE_TO_TEXT_TONE[tone]}>{sub}</s-text>
-      ) : null}
+      {sub ? <s-text tone={TONE_TO_TEXT_TONE[tone]}>{sub}</s-text> : null}
     </s-stack>
   );
 

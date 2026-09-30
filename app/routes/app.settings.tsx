@@ -456,7 +456,7 @@ export default function Settings() {
           <s-stack direction="block" gap="base">
             {activeTab === "general" && (
               <>
-                <Card heading="Shopping Guarantee">
+                <Card heading="Shopping Guarantee" boxed>
                   <s-stack
                     direction="inline"
                     gap="base"
@@ -670,7 +670,7 @@ export default function Settings() {
             )}
 
             {activeTab === "pricing" && (
-              <Card heading="Pricing">
+              <Card heading="Pricing" boxed>
                 <s-paragraph>
                   Who pays for protection, and — when the customer pays — how
                   that fee is calculated.
@@ -912,7 +912,7 @@ export default function Settings() {
             )}
 
             {activeTab === "coverage" && (
-              <Card heading="Coverage eligibility">
+              <Card heading="Coverage eligibility" boxed>
                 <s-paragraph>
                   The most a single item can be worth and still be covered.
                   Items priced above this are not protected and cannot be
@@ -1025,7 +1025,7 @@ export default function Settings() {
             )}
 
             {activeTab === "claims" && (
-              <Card heading="Claim reasons & filing windows">
+              <Card heading="Claim reasons & filing windows" boxed>
                 <s-paragraph>
                   Which reasons customers can choose in the storefront claim
                   form, and how many days after an order ships each one can
