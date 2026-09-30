@@ -329,7 +329,7 @@ export default function Orders() {
           filter that vanishes the moment it matches nothing cannot be
           cleared. So they sit at the top of the section instead.
         */}
-        <Card heading="Shopify orders">
+        <Card heading="Shopify orders" boxed>
           <s-grid
             gridTemplateColumns="@container (inline-size <= 640px) 1fr, 1fr auto auto"
             gap="base"
