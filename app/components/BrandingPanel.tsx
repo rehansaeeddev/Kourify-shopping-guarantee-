@@ -8,11 +8,25 @@ import {
   type MerchantSettings,
 } from "../lib/queries";
 
-/** The arrangements the claim page draws, named as a merchant sees them. */
-const LAYOUTS = [
-  { value: "story-start", label: "Introduction on the left" },
-  { value: "story-end", label: "Introduction on the right" },
-  { value: "centered", label: "Centred, introduction above" },
+/**
+ * The three axes the page's arrangement is made of, named as a merchant sees
+ * them rather than as the stylesheet does.
+ *
+ * Their combinations are the layouts -- thirty of them -- and not one had to
+ * be thought of and written down.
+ */
+const POSITIONS = [
+  { value: "start", label: "Beside the form, on the left" },
+  { value: "end", label: "Beside the form, on the right" },
+  { value: "above", label: "Above the form" },
+  { value: "below", label: "Below the form" },
+  { value: "hidden", label: "Don't show it" },
+] as const;
+
+const ALIGNMENTS = [
+  { value: "start", label: "Left" },
+  { value: "center", label: "Centre" },
+  { value: "end", label: "Right" },
 ] as const;
 
 /**
@@ -79,7 +93,7 @@ export function BrandingPanel({ settings }: { settings: MerchantSettings }) {
 
   const busy = branding.isPending || logo.isPending;
 
-  const save = (patch: Record<string, string>, message: string) =>
+  const save = (patch: Record<string, string | boolean>, message: string) =>
     branding.mutate(patch, {
       onSuccess: () => showToast(message),
       // The server sends its refusals as one sentence, so this is the one
@@ -238,33 +252,80 @@ export function BrandingPanel({ settings }: { settings: MerchantSettings }) {
         />
       </s-grid>
 
-      {/* The arrangement, not a stylesheet. Three the page knows how to
-        draw, each of which it still draws correctly at every width: below
-        900px the page stacks as it always has, and these only apply above
-        that, so no choice here can break the phone layout. */}
+      {/* Three choices, not a list of arrangements. Each is safe on its
+        own -- hiding something cannot widen a page, text-align cannot
+        either, and the column count only applies above 900px where the two
+        columns exist at all -- so no combination of them can break what the
+        merchant's customers see. */}
       <s-select
-        label="Page layout"
-        name="claimPageLayout"
-        value={settings.claimPageLayout}
-        details="Where the introduction sits next to the claim form."
+        label="Introduction"
+        name="claimStoryPosition"
+        value={settings.claimStoryPosition}
+        details="Where the logo, heading and text sit."
         disabled={busy}
         onChange={(event) => {
           const next = event.currentTarget.value ?? "";
 
           save(
-            { claimPageLayout: next },
-            `Layout set to ${
-              LAYOUTS.find((option) => option.value === next)?.label ?? next
+            { claimStoryPosition: next },
+            `Introduction ${
+              POSITIONS.find((o) => o.value === next)?.label.toLowerCase() ??
+              next
             }`,
           );
         }}
       >
-        {LAYOUTS.map((option) => (
+        {POSITIONS.map((option) => (
           <s-option key={option.value} value={option.value}>
             {option.label}
           </s-option>
         ))}
       </s-select>
+
+      {settings.claimStoryPosition !== "hidden" ? (
+        <>
+          <s-select
+            label="Introduction alignment"
+            name="claimStoryAlign"
+            value={settings.claimStoryAlign}
+            disabled={busy}
+            onChange={(event) => {
+              const next = event.currentTarget.value ?? "";
+
+              save(
+                { claimStoryAlign: next },
+                `Introduction aligned ${
+                  ALIGNMENTS.find(
+                    (o) => o.value === next,
+                  )?.label.toLowerCase() ?? next
+                }`,
+              );
+            }}
+          >
+            {ALIGNMENTS.map((option) => (
+              <s-option key={option.value} value={option.value}>
+                {option.label}
+              </s-option>
+            ))}
+          </s-select>
+
+          <s-checkbox
+            label="Show the three promises"
+            name="claimShowPromises"
+            details="Secure verification, human review, clear communication."
+            checked={settings.claimShowPromises}
+            disabled={busy}
+            onChange={(event) => {
+              const on = event.currentTarget.checked ?? false;
+
+              save(
+                { claimShowPromises: on },
+                on ? "Promises shown" : "Promises hidden",
+              );
+            }}
+          />
+        </>
+      ) : null}
 
       <s-paragraph color="subdued">
         <s-link href={claimPage} target="_blank">

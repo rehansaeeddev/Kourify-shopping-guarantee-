@@ -293,8 +293,13 @@ export type MerchantSettings = {
   brandLogoUrl: string | null;
   brandColor: string | null;
   brandSurface: string | null;
-  /** One of story-start, story-end, centered. Never null: a page has a layout. */
-  claimPageLayout: string;
+  /**
+   * Three axes rather than a list of layouts, so their combinations are the
+   * arrangements and none of them had to be enumerated.
+   */
+  claimStoryPosition: string;
+  claimStoryAlign: string;
+  claimShowPromises: boolean;
   plan: string;
   currency: string;
   storefrontFallbackLanguage: string;
