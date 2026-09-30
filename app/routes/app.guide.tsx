@@ -107,12 +107,47 @@ export default function Guide() {
   const protectionEnabled = Boolean(data.settings.protectionEnabled);
   const badgesEnabled = Boolean(data.settings.badgesEnabled);
 
-  // Three real states, derived from what actually stops protection running.
-  const state = quota.exhausted
-    ? "limit"
-    : protectionEnabled
-      ? "active"
-      : "setup";
+  /*
+   * The four things that have to be true, each read from the shop rather
+   * than remembered. Four because Shopify's onboarding guidance caps a setup
+   * guide at five and every one of these has to be detectable -- a step the
+   * app cannot check is a step that sits unticked for ever.
+   *
+   * "Add the blocks in your theme" is deliberately not here for that reason:
+   * nothing in the Admin API reports whether a merchant placed an app block,
+   * so it lives in Common tasks below instead of as a box that never ticks.
+   */
+  const brand = data.settings;
+  const setup = [
+    {
+      label: "Choose a plan",
+      detail: "What you pay, and how many orders are included.",
+      done: hasActiveBilling,
+      href: "/app/billing",
+      action: "Choose",
+    },
+    {
+      label: "Turn on protection at checkout",
+      detail: "Who pays, what it costs, and which items qualify.",
+      done: protectionEnabled,
+      href: "/app/settings",
+      action: "Set it up",
+    },
+    {
+      label: "Show the trust badge on your storefront",
+      detail: "Tells shoppers their order can be protected.",
+      done: badgesEnabled,
+      href: "/app/settings?tab=general",
+      action: "Turn on",
+    },
+    {
+      label: "Make the claim page yours",
+      detail: "Your name, logo and colours on the page customers file from.",
+      done: Boolean(brand.brandName ?? brand.brandColor ?? brand.brandLogoUrl),
+      href: "/app/settings?tab=branding",
+      action: "Open",
+    },
+  ];
 
   return (
     <s-page inlineSize="large" heading="Help &amp; getting started">
@@ -120,7 +155,7 @@ export default function Guide() {
         Back to home
       </s-button>
       <PageBody>
-        {state === "limit" && (
+        {quota.exhausted && (
           <s-banner tone="warning" heading="Protection is switched off">
             {`You've used all ${quota.limit} protected orders on your current plan. Orders already protected keep their coverage and can still be claimed.`}
             <AppButton
@@ -196,80 +231,74 @@ export default function Guide() {
           </s-banner>
         </Card>
 
-        {state === "setup" && (
-          <Card heading="Finish setup">
-            <s-paragraph color="subdued">
-              Three things to do before protection goes live.
-            </s-paragraph>
-            <s-stack direction="block" gap="base">
-              {[
-                {
-                  label: "Configure protection",
-                  detail:
-                    "Choose who pays, set pricing, and define what's eligible.",
-                  action: { label: "Open settings", href: "/app/settings" },
-                },
-                {
-                  label: "Add storefront blocks",
-                  detail:
-                    "Add the protection widget and trust badge in your Shopify theme editor.",
-                  action: { label: "Badge settings", href: "/app/settings" },
-                },
-                {
-                  label: "Turn on protection",
-                  detail:
-                    "Switch on protection at checkout from Settings \u2192 General.",
-                  action: { label: "Turn it on", href: "/app/settings" },
-                },
-              ].map((step, index) => (
-                <s-stack key={step.label} direction="block" gap="small-300">
-                  {index > 0 ? <s-divider /> : null}
-                  <s-grid
-                    gridTemplateColumns="@container (inline-size <= 560px) 1fr, 1fr auto"
-                    gap="base"
-                    alignItems="center"
-                  >
-                    <s-stack direction="block" gap="small-400">
-                      <s-stack
-                        direction="inline"
-                        gap="small-200"
-                        alignItems="center"
-                      >
-                        <s-badge>{String(index + 1)}</s-badge>
-                        <s-text type="strong">{step.label}</s-text>
-                      </s-stack>
-                      <s-text color="subdued">{step.detail}</s-text>
-                    </s-stack>
-                    <s-stack direction="inline">
-                      <s-button href={step.action.href} variant="secondary">
-                        {step.action.label}
-                      </s-button>
-                    </s-stack>
-                  </s-grid>
-                </s-stack>
-              ))}
-            </s-stack>
-          </Card>
-        )}
+        {/*
+          Shopify's own Setup guide composition, not an explainer.
 
-        {state === "active" && (
-          <Card heading="Your protection is active">
-            {/* The badge is the same one the dashboard's status card uses, so
-              "live" looks the same wherever a merchant meets it. */}
-            <s-stack direction="inline">
+          Their onboarding guidance says to focus on demonstrating benefits
+          rather than lengthy explanations, and to keep it under five steps
+          with each one marked complete on its own. This page was the
+          opposite: several hundred words about how the product works, with
+          the shop's actual state reduced to one small "Live" badge. A
+          reviewer opening it could not tell what was set up and what was
+          not, which is exactly what came back.
+
+          Every step here checks itself against the shop's real data. None
+          of them is a box a merchant ticks by hand.
+          https://shopify.dev/docs/api/app-home/latest/patterns/compositions/setup-guide
+        */}
+        <Card heading="Setup" boxed>
+          <s-stack direction="inline" gap="small-200" alignItems="center">
+            {/* A count, not a bar: this Polaris version ships no progress
+              bar, and "3 of 4" says the same thing in less room. */}
+            <s-text type="strong" fontVariantNumeric="tabular-nums">
+              {`${setup.filter((step) => step.done).length} of ${setup.length} done`}
+            </s-text>
+            {setup.every((step) => step.done) ? (
               <s-badge tone="success" icon="check-circle">
-                Live
+                Ready
               </s-badge>
-            </s-stack>
-            <s-paragraph color="subdued">
-              {`Shopping Guarantee is available for eligible orders.${
-                quota.limit !== null
-                  ? ` You've protected ${quota.used} of ${quota.limit} orders on your plan.`
-                  : ""
-              }`}
-            </s-paragraph>
-          </Card>
-        )}
+            ) : null}
+          </s-stack>
+
+          <s-stack direction="block" gap="base">
+            {setup.map((step, index) => (
+              <s-stack key={step.label} direction="block" gap="small-300">
+                {index > 0 ? <s-divider /> : null}
+                <s-grid
+                  gridTemplateColumns="@container (inline-size <= 560px) 1fr, 1fr auto"
+                  gap="base"
+                  alignItems="center"
+                >
+                  <s-stack direction="block" gap="small-400">
+                    {/* Disabled on purpose. It reports what the shop says,
+                      so ticking it by hand would be a merchant telling the
+                      app something the app already knows better. */}
+                    <s-checkbox
+                      label={step.label}
+                      checked={step.done}
+                      disabled
+                      details={step.detail}
+                    />
+                  </s-stack>
+                  <s-stack direction="inline">
+                    <s-button
+                      href={step.href}
+                      variant={step.done ? "secondary" : "primary"}
+                    >
+                      {step.done ? "Change" : step.action}
+                    </s-button>
+                  </s-stack>
+                </s-grid>
+              </s-stack>
+            ))}
+          </s-stack>
+
+          {quota.limit !== null ? (
+            <s-text color="subdued">
+              {`${quota.used} of ${quota.limit} protected orders used on your plan.`}
+            </s-text>
+          ) : null}
+        </Card>
 
         {/* The part of this page a merchant uses rather than reads. Tiles
           rather than a column of links: five underlined sentences in a list
@@ -361,14 +390,6 @@ export default function Guide() {
             ))}
           </s-stack>
         </Card>
-
-        {!badgesEnabled && state !== "setup" && (
-          <s-banner tone="info">
-            Trust badges are switched off, so shoppers don&apos;t see them on
-            your storefront.{" "}
-            <s-link href="/app/settings">Turn them on in Settings.</s-link>
-          </s-banner>
-        )}
 
         {/* App Home's footer-help composition: the way out of the page, kept
           quiet at the bottom rather than made into another card. */}
