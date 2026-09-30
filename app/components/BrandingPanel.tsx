@@ -119,16 +119,17 @@ export function BrandingPanel({
 
   /*
    * The merchant's own blocks, held locally for the same reason the fields
-   * above are: typing should not save on every keystroke. Seeded off a
-   * serialisation rather than the object, which the query hands back fresh
-   * on every render.
+   * above are: typing should not save on every keystroke.
+   *
+   * Seeded once, unlike the fields above, and deliberately. Those are single
+   * controls whose value the server may refuse and correct; these are four
+   * boxes a merchant tabs between. Re-seeding on every refetch meant the save
+   * that fires when you leave the heading landed while you were already
+   * typing the body -- and replaced what you had typed with the empty string
+   * the server still had. The panel unmounts when the tab changes, so a
+   * remount picks up whatever was saved.
    */
-  const saved = JSON.stringify(text);
   const [own, setOwn] = useState<Record<string, string>>(text);
-
-  useEffect(() => {
-    setOwn(JSON.parse(saved) as Record<string, string>);
-  }, [saved]);
 
   const busy = branding.isPending || logo.isPending || claimText.isPending;
 
@@ -412,7 +413,22 @@ export function BrandingPanel({
           and the page does not draw it.
         </s-paragraph>
 
-        {OWN_TEXT.map((block) => {
+        {/* The introduction's block lives inside the introduction, so hiding
+        one hides the other. Offering the fields anyway would let a merchant
+        write something the page has already been told not to draw -- the
+        same dead pair as "sit with the introduction" and "no introduction",
+        handled the same way rather than left to be found on the storefront. */}
+        {settings.claimStoryPosition === "hidden" ? (
+          <s-text color="subdued">
+            A second block sits with the introduction. It is available once the
+            introduction is shown.
+          </s-text>
+        ) : null}
+
+        {OWN_TEXT.filter(
+          (block) =>
+            block.slot !== "intro" || settings.claimStoryPosition !== "hidden",
+        ).map((block) => {
           const titleKey = `custom.${block.slot}.title`;
           const bodyKey = `custom.${block.slot}.body`;
 
