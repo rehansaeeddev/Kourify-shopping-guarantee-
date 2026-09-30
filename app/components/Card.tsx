@@ -14,6 +14,15 @@ import { type ReactNode } from "react";
  */
 const SECTION_HEADING_SIZE = { size: "large-200" } as Record<string, string>;
 
+/**
+ * The size a metric tile draws its label and figure at.
+ *
+ * A step above the section titles rather than level with them: these four
+ * cards are the first thing on the page and the figures are the reason a
+ * merchant opens it, so they lead rather than match. large-300 is 1.5rem.
+ */
+const METRIC_HEADING_SIZE = { size: "large-300" } as Record<string, string>;
+
 type CardProps = {
   heading?: string;
   locked?: boolean;
@@ -126,11 +135,11 @@ export function StatTile({
         alignItems="center"
         gap="base"
       >
-        <s-heading {...SECTION_HEADING_SIZE}>{label}</s-heading>
+        <s-heading {...METRIC_HEADING_SIZE}>{label}</s-heading>
         {/* A heading too, so both halves of the row sit at the size every
           other card title on the page uses. s-heading takes no size prop,
           so which element is used is the only control there is. */}
-        <s-heading {...SECTION_HEADING_SIZE}>{value}</s-heading>
+        <s-heading {...METRIC_HEADING_SIZE}>{value}</s-heading>
       </s-stack>
       {/* s-heading takes no tone either, so the figure cannot carry one. The
         sub-line does instead -- that is what keeps "2 open claims" reading
