@@ -299,6 +299,13 @@ export default function Claims() {
 
   return (
     <s-page inlineSize="large" heading="Claims">
+      <WorkspaceTabs
+        active="claims"
+        counts={{
+          orders: workspaceCounts.ordersNeedingAction,
+          claims: workspaceCounts.openClaims,
+        }}
+      />
       <s-button
         slot="secondary-actions"
         href="/app/settings"
@@ -350,14 +357,6 @@ export default function Claims() {
             )}
           </s-banner>
         )}
-
-        <WorkspaceTabs
-          active="claims"
-          counts={{
-            orders: workspaceCounts.ordersNeedingAction,
-            claims: workspaceCounts.openClaims,
-          }}
-        />
 
         {/*
           One card for one region.

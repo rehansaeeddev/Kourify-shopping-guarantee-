@@ -313,15 +313,14 @@ export default function Orders() {
 
   return (
     <s-page inlineSize="large" heading="Orders">
+      <WorkspaceTabs
+        active="orders"
+        counts={{
+          orders: workspaceCounts.ordersNeedingAction,
+          claims: workspaceCounts.openClaims,
+        }}
+      />
       <PageBody>
-        <WorkspaceTabs
-          active="orders"
-          counts={{
-            orders: workspaceCounts.ordersNeedingAction,
-            claims: workspaceCounts.openClaims,
-          }}
-        />
-
         {/*
           Filters and the table are one region, so they are one card.
           They were two, and on the admin's white page that read as two
