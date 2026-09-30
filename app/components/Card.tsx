@@ -236,12 +236,25 @@ export function MetricsCard({
 
   if (!heading && !description) return grid;
 
+  /*
+   | Heading above the row, not an s-section wrapped round it. Each tile
+   | draws its own surface, so a section here would be a box around boxes --
+   | and it started the row one section-heading lower than everything else
+   | on the page.
+   */
   return (
-    <s-section heading={heading} accessibilityLabel={accessibilityLabel}>
+    <s-stack
+      direction="block"
+      gap="base"
+      accessibilityLabel={accessibilityLabel}
+    >
+      {heading ? (
+        <s-heading {...SECTION_HEADING_SIZE}>{heading}</s-heading>
+      ) : null}
       {description ? (
         <s-paragraph color="subdued">{description}</s-paragraph>
       ) : null}
       {grid}
-    </s-section>
+    </s-stack>
   );
 }
