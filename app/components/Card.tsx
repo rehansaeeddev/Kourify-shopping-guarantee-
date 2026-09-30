@@ -137,9 +137,13 @@ export function MetricsCard({
       {description ? (
         <s-paragraph color="subdued">{description}</s-paragraph>
       ) : null}
+      {/* large-300, not base: at base the divider sat almost against the
+        figures on either side, so four metrics read as one dense strip
+        rather than four things. The gap applies to the divider columns too,
+        which is what puts air on both sides of each rule. */}
       <s-grid
         gridTemplateColumns={`@container (inline-size <= 640px) 1fr, ${columns}`}
-        gap="base"
+        gap="large-300"
         alignItems="stretch"
       >
         {metrics.map((metric, index) => (

@@ -67,28 +67,20 @@ export default function Index() {
 
   return (
     <s-page inlineSize="large" heading={greeting}>
+      {/*
+        The page's own title bar, not a banner of ours. This used to be a
+        custom green slab with its own heading and subtitle -- a second title
+        competing with the one the admin already draws above it, styled
+        against an admin appearance Shopify has since replaced. These slots put
+        the same two actions where every other admin page keeps them.
+      */}
+      <s-button slot="primary-action" variant="primary" href="/app/order-sync">
+        Order sync
+      </s-button>
+      <s-button slot="secondary-actions" href="/app/guide">
+        Help
+      </s-button>
       <PageBody>
-        {/* The one deliberately custom-styled banner (see theme.css), added on
-            request. Its buttons stay real s-buttons so navigation still works
-            inside the embedded admin. */}
-        <div className="app-dashboard-header">
-          <div>
-            <h2 className="app-dashboard-header__title">Dashboard</h2>
-            <p className="app-dashboard-header__subtitle">
-              Order protection at a glance — offers, claims, and coverage across
-              your store.
-            </p>
-          </div>
-          <div className="app-dashboard-header__actions">
-            <s-button href="/app/guide" variant="secondary">
-              Help
-            </s-button>
-            <s-button href="/app/order-sync" variant="primary">
-              Order sync
-            </s-button>
-          </div>
-        </div>
-
         <GettingStarted
           title="Get started with Kourify"
           help={{
@@ -294,46 +286,6 @@ export default function Index() {
             </s-stack>
           </Card>
         </s-grid>
-
-        {/*
-          Reference links, not a region, so no card around them.
-          The two panels inside already carry their own subdued surface — a
-          card around them was a box inside a box, and one more equal-weight
-          slab on a page that had too many. What is left is a heading and two
-          tiles, which is what this content is.
-        */}
-        <s-stack direction="block" gap="base">
-          <s-heading>Help &amp; resources</s-heading>
-          <s-grid
-            gridTemplateColumns="@container (inline-size <= 720px) 1fr, 1fr 1fr"
-            gap="base"
-          >
-            <s-clickable
-              href="/app/guide"
-              padding="base"
-              background="subdued"
-              borderRadius="base"
-            >
-              <s-stack direction="block" gap="small-400">
-                <s-stack direction="inline" gap="small-200" alignItems="center">
-                  <s-icon type="info" tone="neutral" size="base" />
-                  <s-text type="strong">How it works</s-text>
-                </s-stack>
-                <s-text color="subdued">
-                  Offers, claims, and coverage explained.
-                </s-text>
-              </s-stack>
-            </s-clickable>
-            <s-box padding="base" background="subdued" borderRadius="base">
-              <s-stack direction="block" gap="small-400">
-                <s-link href="mailto:support@kourify.com">
-                  Contact support
-                </s-link>
-                <s-text color="subdued">support@kourify.com</s-text>
-              </s-stack>
-            </s-box>
-          </s-grid>
-        </s-stack>
 
         {/* One Overview card holds every KPI in a packed grid, rather than two
           half-empty Status/Performance cards spread thin across the width.
