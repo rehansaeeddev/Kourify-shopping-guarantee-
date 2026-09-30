@@ -336,14 +336,21 @@ export function BrandingPanel({
     : "";
 
   return (
-    <s-grid
-      // The comma separates the query from the fallback, so a minmax() in
-      // here splits the value and the whole thing stops parsing -- which is
-      // why the preview sat under the settings on a column twice this wide.
-      gridTemplateColumns="@container (inline-size <= 640px) 1fr, 1fr 380px"
-      gap="base"
-    >
-      <s-stack direction="block" gap="base">
+    <s-stack direction="block" gap="base">
+      {/* The four cards pair off, and the preview gets the whole width under
+        them. Beside the settings it was a 380px column, so the claim page --
+        which only splits into two at 1024px -- previewed at a quarter size
+        whatever was picked. Full width it renders close to true scale, and
+        both halves of the page are legible.
+
+        The comma in this value separates the query from its fallback, so a
+        minmax() inside it splits the value and the grid silently falls back
+        to one column. */}
+      <s-grid
+        gridTemplateColumns="@container (inline-size <= 720px) 1fr, 1fr 1fr"
+        gap="base"
+        alignItems="start"
+      >
         {/* A card per question, rather than one card with rules across it.
           A merchant scanning the page should be able to tell what each group
           is for without reading a field label first -- "Colours" answers that
@@ -653,7 +660,7 @@ export function BrandingPanel({
             Languages.
           </s-text>
         </Card>
-      </s-stack>
+      </s-grid>
 
       {/*
         The claim page itself, not a drawing of it.
@@ -696,6 +703,6 @@ export function BrandingPanel({
           to see it at full size.
         </s-paragraph>
       </Card>
-    </s-grid>
+    </s-stack>
   );
 }
