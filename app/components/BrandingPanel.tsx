@@ -337,333 +337,346 @@ export function BrandingPanel({
 
   return (
     <s-stack direction="block" gap="base">
-      {/* The four cards pair off, and the preview gets the whole width under
-        them. Beside the settings it was a 380px column, so the claim page --
-        which only splits into two at 1024px -- previewed at a quarter size
-        whatever was picked. Full width it renders close to true scale, and
-        both halves of the page are legible.
+      {/* Two columns that stack their own cards, not a grid of four.
+        A grid lines its rows up, so a short card leaves the space beside it
+        empty until the next row starts -- which is what put a hole under
+        Colours. Columns flow instead: the next card begins where the last
+        one ended. Nothing is stretched to match anything, so no card is
+        padded out around content it does not have.
 
-        The comma in this value separates the query from its fallback, so a
-        minmax() inside it splits the value and the grid silently falls back
-        to one column. */}
+        Split for height rather than by subject: the two tall cards would
+        otherwise sit in the same column and leave the other one short. */}
       <s-grid
         gridTemplateColumns="@container (inline-size <= 720px) 1fr, 1fr 1fr"
         gap="base"
         alignItems="start"
       >
-        {/* A card per question, rather than one card with rules across it.
-          A merchant scanning the page should be able to tell what each group
-          is for without reading a field label first -- "Colours" answers that
-          from the heading, "Identity" as a line of small text inside a longer
-          card did not. Leave anything blank and that part keeps the page's
-          own design. */}
-        <Card heading="Shop name and logo" boxed>
-          <s-paragraph color="subdued">
-            Who the page says it belongs to.
-          </s-paragraph>
+        <s-stack direction="block" gap="base">
+          <Card heading="Shop name and logo" boxed>
+            <s-paragraph color="subdued">
+              Who the page says it belongs to.
+            </s-paragraph>
 
-          <s-text-field
-            label="Shop name"
-            name="brandName"
-            value={name}
-            details="Shown beside the logo. Leave blank to use the name set for each language under Languages."
-            disabled={busy}
-            onInput={(event) => setName(event.currentTarget.value ?? "")}
-            onBlur={() => {
-              if (name.trim() === (settings.brandName ?? "")) return;
+            <s-text-field
+              label="Shop name"
+              name="brandName"
+              value={name}
+              details="Shown beside the logo. Leave blank to use the name set for each language under Languages."
+              disabled={busy}
+              onInput={(event) => setName(event.currentTarget.value ?? "")}
+              onBlur={() => {
+                if (name.trim() === (settings.brandName ?? "")) return;
 
-              save(
-                { brandName: name.trim() },
-                name.trim() === "" ? "Shop name cleared" : "Shop name saved",
-              );
-            }}
-          />
+                save(
+                  { brandName: name.trim() },
+                  name.trim() === "" ? "Shop name cleared" : "Shop name saved",
+                );
+              }}
+            />
 
-          {/*
-            One logo, one control. The drop zone only exists while there is no
-            logo; once there is one, what shows is that logo and the way to
-            take it off. It used to sit there afterwards saying "Replace logo",
-            which read as somewhere to add another -- and the page only ever
-            shows one. Changing it is remove, then upload: two steps, but never
-            a question about how many there are.
+            {/*
+              One logo, one control. The drop zone only exists while there is no
+              logo; once there is one, what shows is that logo and the way to
+              take it off. It used to sit there afterwards saying "Replace logo",
+              which read as somewhere to add another -- and the page only ever
+              shows one. Changing it is remove, then upload: two steps, but never
+              a question about how many there are.
 
-            Bounded now. The thumbnail and the button used to sit loose on the
-            page with nothing holding them, which is what made this the most
-            unfinished-looking part of the panel.
-          */}
-          {settings.brandLogoUrl ? (
-            <s-stack direction="block" gap="small-300">
-              <s-text type="strong">Logo</s-text>
-              <s-box
-                padding="base"
-                borderWidth="base"
-                borderColor="base"
-                borderRadius="base"
-                background="subdued"
-              >
-                <s-stack direction="inline" gap="base" alignItems="center">
-                  <s-thumbnail src={settings.brandLogoUrl} alt="" size="base" />
-                  <s-box>
-                    <s-stack direction="block" gap="none">
-                      <s-text type="strong">{logoName}</s-text>
-                      <s-text color="subdued">On your Shopify files</s-text>
-                    </s-stack>
-                  </s-box>
-                  <s-button
-                    variant="secondary"
-                    tone="critical"
-                    loading={logo.isPending}
-                    disabled={busy}
-                    onClick={() =>
-                      logo.mutate("", {
-                        onSuccess: () => showToast("Logo removed"),
-                        onError: (cause: Error) =>
-                          showToast(cause.message, { isError: true }),
-                      })
-                    }
-                  >
-                    Remove
-                  </s-button>
-                </s-stack>
-              </s-box>
-              <s-text color="subdued">
-                Remove this one to upload a different logo.
-              </s-text>
-            </s-stack>
-          ) : (
-            <s-stack direction="block" gap="small-300">
-              <s-drop-zone
-                label="Logo"
-                name="logo"
-                accept={ACCEPT}
+              Bounded now. The thumbnail and the button used to sit loose on the
+              page with nothing holding them, which is what made this the most
+              unfinished-looking part of the panel.
+            */}
+            {settings.brandLogoUrl ? (
+              <s-stack direction="block" gap="small-300">
+                <s-text type="strong">Logo</s-text>
+                <s-box
+                  padding="base"
+                  borderWidth="base"
+                  borderColor="base"
+                  borderRadius="base"
+                  background="subdued"
+                >
+                  <s-stack direction="inline" gap="base" alignItems="center">
+                    <s-thumbnail
+                      src={settings.brandLogoUrl}
+                      alt=""
+                      size="base"
+                    />
+                    <s-box>
+                      <s-stack direction="block" gap="none">
+                        <s-text type="strong">{logoName}</s-text>
+                        <s-text color="subdued">On your Shopify files</s-text>
+                      </s-stack>
+                    </s-box>
+                    <s-button
+                      variant="secondary"
+                      tone="critical"
+                      loading={logo.isPending}
+                      disabled={busy}
+                      onClick={() =>
+                        logo.mutate("", {
+                          onSuccess: () => showToast("Logo removed"),
+                          onError: (cause: Error) =>
+                            showToast(cause.message, { isError: true }),
+                        })
+                      }
+                    >
+                      Remove
+                    </s-button>
+                  </s-stack>
+                </s-box>
+                <s-text color="subdued">
+                  Remove this one to upload a different logo.
+                </s-text>
+              </s-stack>
+            ) : (
+              <s-stack direction="block" gap="small-300">
+                <s-drop-zone
+                  label="Logo"
+                  name="logo"
+                  accept={ACCEPT}
+                  disabled={busy}
+                  onChange={(event) => {
+                    const zone =
+                      event.currentTarget as unknown as DropZoneFiles;
+                    const picked = zone.files?.[0];
+
+                    // Cleared so picking the same file twice still fires a
+                    // change. The setter refuses anything but "" or null.
+                    zone.value = "";
+
+                    void pickLogo(picked);
+                  }}
+                  onDropRejected={() =>
+                    showToast(
+                      "That file type is not an image Shopify accepts.",
+                      {
+                        isError: true,
+                      },
+                    )
+                  }
+                />
+                <s-text color="subdued">
+                  PNG, JPG, GIF or WebP, up to 5 MB. Stored on your Shopify
+                  files.
+                </s-text>
+              </s-stack>
+            )}
+          </Card>
+
+          <Card heading="Layout" boxed>
+            <s-paragraph color="subdued">
+              Where each part of the page sits. Pick a tile and watch the
+              preview.
+            </s-paragraph>
+
+            {/* Its own control because it is its own choice. The logo and name
+              used to travel with the introduction, so a merchant who wanted
+              their name across the top had to send the heading and paragraph up
+              there too. "With the introduction" is not offered while there is
+              no introduction to sit with -- the server settles that pair as
+              well, so the page can never end up with the name nowhere. */}
+            {/* Its own control because it is its own choice. The logo and name
+              used to travel with the introduction, so a merchant who wanted
+              their name across the top had to send the heading and paragraph up
+              there too. "With the intro" is not offered while there is no
+              introduction to sit with -- the server settles that pair as well,
+              so the page can never end up with the name nowhere. */}
+            <LayoutTiles
+              label="Shop name and logo"
+              value={settings.claimBrandPosition}
+              disabled={busy}
+              options={
+                settings.claimStoryPosition === "hidden"
+                  ? BRAND_POSITIONS.filter((o) => o.value !== "with-intro")
+                  : BRAND_POSITIONS
+              }
+              onPick={(next) =>
+                save(
+                  { claimBrandPosition: next },
+                  `Shop name ${
+                    BRAND_POSITIONS.find(
+                      (o) => o.value === next,
+                    )?.label.toLowerCase() ?? next
+                  }`,
+                )
+              }
+            />
+
+            <LayoutTiles
+              label="Introduction"
+              value={settings.claimStoryPosition}
+              disabled={busy}
+              options={POSITIONS}
+              onPick={(next) =>
+                save(
+                  { claimStoryPosition: next },
+                  `Introduction ${
+                    POSITIONS.find(
+                      (o) => o.value === next,
+                    )?.label.toLowerCase() ?? next
+                  }`,
+                )
+              }
+            />
+
+            {settings.claimStoryPosition !== "hidden" ? (
+              <s-checkbox
+                label="Show the three promises"
+                name="claimShowPromises"
+                details="Secure verification, human review, clear communication."
+                checked={settings.claimShowPromises}
                 disabled={busy}
                 onChange={(event) => {
-                  const zone = event.currentTarget as unknown as DropZoneFiles;
-                  const picked = zone.files?.[0];
+                  const on = event.currentTarget.checked ?? false;
 
-                  // Cleared so picking the same file twice still fires a
-                  // change. The setter refuses anything but "" or null.
-                  zone.value = "";
-
-                  void pickLogo(picked);
+                  save(
+                    { claimShowPromises: on },
+                    on ? "Promises shown" : "Promises hidden",
+                  );
                 }}
-                onDropRejected={() =>
-                  showToast("That file type is not an image Shopify accepts.", {
-                    isError: true,
-                  })
-                }
               />
+            ) : null}
+          </Card>
+        </s-stack>
+
+        <s-stack direction="block" gap="base">
+          <Card heading="Colours" boxed>
+            <s-paragraph color="subdued">
+              Two colours. Every other shade on the page is worked out from
+              them.
+            </s-paragraph>
+
+            <s-grid
+              gridTemplateColumns="@container (inline-size <= 560px) 1fr, 1fr 1fr"
+              gap="base"
+            >
+              <s-color-field
+                label="Brand colour"
+                name="brandColor"
+                value={color}
+                details="Buttons, progress and highlights. Everything else is shaded from it."
+                disabled={busy}
+                onChange={(event) => {
+                  const next = event.currentTarget.value ?? "";
+
+                  setColor(next);
+                  save(
+                    { brandColor: next },
+                    next === "" ? "Brand colour cleared" : "Brand colour saved",
+                  );
+                }}
+              />
+              <s-color-field
+                label="Page background"
+                name="brandSurface"
+                value={surface}
+                details="The colour behind the card."
+                disabled={busy}
+                onChange={(event) => {
+                  const next = event.currentTarget.value ?? "";
+
+                  setSurface(next);
+                  save(
+                    { brandSurface: next },
+                    next === "" ? "Background cleared" : "Background saved",
+                  );
+                }}
+              />
+            </s-grid>
+          </Card>
+
+          <Card heading="Your own text" boxed>
+            <s-paragraph color="subdued">
+              Anything you want customers to read before they file a claim — how
+              long it takes, what you cover, what to have ready. Leave a block
+              empty and the page does not draw it.
+            </s-paragraph>
+
+            {/* The introduction's block lives inside the introduction, so hiding
+              one hides the other. Offering the fields anyway would let a
+              merchant write something the page has already been told not to
+              draw -- the same dead pair as "sit with the introduction" and "no
+              introduction", handled the same way rather than left to be found
+              on the storefront. */}
+            {settings.claimStoryPosition === "hidden" ? (
               <s-text color="subdued">
-                PNG, JPG, GIF or WebP, up to 5 MB. Stored on your Shopify files.
+                A second block sits with the introduction. It is available once
+                the introduction is shown.
               </s-text>
-            </s-stack>
-          )}
-        </Card>
+            ) : null}
 
-        <Card heading="Colours" boxed>
-          <s-paragraph color="subdued">
-            Two colours. Every other shade on the page is worked out from them.
-          </s-paragraph>
+            {OWN_TEXT.filter(
+              (block) =>
+                block.slot !== "intro" ||
+                settings.claimStoryPosition !== "hidden",
+            ).map((block) => {
+              const titleKey = `custom.${block.slot}.title`;
+              const bodyKey = `custom.${block.slot}.body`;
 
-          <s-grid
-            gridTemplateColumns="@container (inline-size <= 560px) 1fr, 1fr 1fr"
-            gap="base"
-          >
-            <s-color-field
-              label="Brand colour"
-              name="brandColor"
-              value={color}
-              details="Buttons, progress and highlights. Everything else is shaded from it."
-              disabled={busy}
-              onChange={(event) => {
-                const next = event.currentTarget.value ?? "";
+              return (
+                <s-box
+                  key={block.slot}
+                  padding="base"
+                  borderWidth="base"
+                  borderColor="base"
+                  borderRadius="base"
+                >
+                  <s-stack direction="block" gap="small-300">
+                    <s-text type="strong">{block.heading}</s-text>
+                    <s-text-field
+                      label="Heading"
+                      name={titleKey}
+                      value={own[titleKey] ?? ""}
+                      maxLength={TITLE_MAX}
+                      details={block.details}
+                      onInput={(event) => {
+                        // Read now, not inside the updater: React defers that
+                        // function, and the DOM has reset currentTarget to null
+                        // by the time it runs. Every other handler here reads
+                        // the value straight out of the event, which is why only
+                        // these two threw.
+                        const next = event.currentTarget.value ?? "";
 
-                setColor(next);
-                save(
-                  { brandColor: next },
-                  next === "" ? "Brand colour cleared" : "Brand colour saved",
-                );
-              }}
-            />
-            <s-color-field
-              label="Page background"
-              name="brandSurface"
-              value={surface}
-              details="The colour behind the card."
-              disabled={busy}
-              onChange={(event) => {
-                const next = event.currentTarget.value ?? "";
+                        setOwn((current) => ({ ...current, [titleKey]: next }));
+                      }}
+                      onBlur={() => saveText(titleKey, own[titleKey] ?? "")}
+                    />
+                    <s-text-area
+                      label="Text"
+                      name={bodyKey}
+                      rows={3}
+                      value={own[bodyKey] ?? ""}
+                      maxLength={BODY_MAX}
+                      onInput={(event) => {
+                        const next = event.currentTarget.value ?? "";
 
-                setSurface(next);
-                save(
-                  { brandSurface: next },
-                  next === "" ? "Background cleared" : "Background saved",
-                );
-              }}
-            />
-          </s-grid>
-        </Card>
+                        setOwn((current) => ({ ...current, [bodyKey]: next }));
+                      }}
+                      onBlur={() => saveText(bodyKey, own[bodyKey] ?? "")}
+                    />
+                  </s-stack>
+                </s-box>
+              );
+            })}
 
-        <Card heading="Layout" boxed>
-          <s-paragraph color="subdued">
-            Where each part of the page sits. Pick a tile and watch the preview.
-          </s-paragraph>
-
-          {/* Its own control because it is its own choice. The logo and name
-            used to travel with the introduction, so a merchant who wanted
-            their name across the top had to send the heading and paragraph up
-            there too. "With the introduction" is not offered while there is
-            no introduction to sit with -- the server settles that pair as
-            well, so the page can never end up with the name nowhere. */}
-          {/* Its own control because it is its own choice. The logo and name
-            used to travel with the introduction, so a merchant who wanted
-            their name across the top had to send the heading and paragraph up
-            there too. "With the intro" is not offered while there is no
-            introduction to sit with -- the server settles that pair as well,
-            so the page can never end up with the name nowhere. */}
-          <LayoutTiles
-            label="Shop name and logo"
-            value={settings.claimBrandPosition}
-            disabled={busy}
-            options={
-              settings.claimStoryPosition === "hidden"
-                ? BRAND_POSITIONS.filter((o) => o.value !== "with-intro")
-                : BRAND_POSITIONS
-            }
-            onPick={(next) =>
-              save(
-                { claimBrandPosition: next },
-                `Shop name ${
-                  BRAND_POSITIONS.find(
-                    (o) => o.value === next,
-                  )?.label.toLowerCase() ?? next
-                }`,
-              )
-            }
-          />
-
-          <LayoutTiles
-            label="Introduction"
-            value={settings.claimStoryPosition}
-            disabled={busy}
-            options={POSITIONS}
-            onPick={(next) =>
-              save(
-                { claimStoryPosition: next },
-                `Introduction ${
-                  POSITIONS.find(
-                    (o) => o.value === next,
-                  )?.label.toLowerCase() ?? next
-                }`,
-              )
-            }
-          />
-
-          {settings.claimStoryPosition !== "hidden" ? (
-            <s-checkbox
-              label="Show the three promises"
-              name="claimShowPromises"
-              details="Secure verification, human review, clear communication."
-              checked={settings.claimShowPromises}
-              disabled={busy}
-              onChange={(event) => {
-                const on = event.currentTarget.checked ?? false;
-
-                save(
-                  { claimShowPromises: on },
-                  on ? "Promises shown" : "Promises hidden",
-                );
-              }}
-            />
-          ) : null}
-        </Card>
-
-        <Card heading="Your own text" boxed>
-          <s-paragraph color="subdued">
-            Anything you want customers to read before they file a claim — how
-            long it takes, what you cover, what to have ready. Leave a block
-            empty and the page does not draw it.
-          </s-paragraph>
-
-          {/* The introduction's block lives inside the introduction, so hiding
-            one hides the other. Offering the fields anyway would let a
-            merchant write something the page has already been told not to
-            draw -- the same dead pair as "sit with the introduction" and "no
-            introduction", handled the same way rather than left to be found
-            on the storefront. */}
-          {settings.claimStoryPosition === "hidden" ? (
+            {/* Plain text on purpose, and the merchant should know why their
+              formatting did not survive: this page is on their own domain and a
+              shopper types an order number and an email into it. */}
             <s-text color="subdued">
-              A second block sits with the introduction. It is available once
-              the introduction is shown.
+              Plain text only. Saved in your default language — translate it
+              under Languages.
             </s-text>
-          ) : null}
-
-          {OWN_TEXT.filter(
-            (block) =>
-              block.slot !== "intro" ||
-              settings.claimStoryPosition !== "hidden",
-          ).map((block) => {
-            const titleKey = `custom.${block.slot}.title`;
-            const bodyKey = `custom.${block.slot}.body`;
-
-            return (
-              <s-box
-                key={block.slot}
-                padding="base"
-                borderWidth="base"
-                borderColor="base"
-                borderRadius="base"
-              >
-                <s-stack direction="block" gap="small-300">
-                  <s-text type="strong">{block.heading}</s-text>
-                  <s-text-field
-                    label="Heading"
-                    name={titleKey}
-                    value={own[titleKey] ?? ""}
-                    maxLength={TITLE_MAX}
-                    details={block.details}
-                    onInput={(event) => {
-                      // Read now, not inside the updater: React defers that
-                      // function, and the DOM has reset currentTarget to null
-                      // by the time it runs. Every other handler here reads
-                      // the value straight out of the event, which is why only
-                      // these two threw.
-                      const next = event.currentTarget.value ?? "";
-
-                      setOwn((current) => ({ ...current, [titleKey]: next }));
-                    }}
-                    onBlur={() => saveText(titleKey, own[titleKey] ?? "")}
-                  />
-                  <s-text-area
-                    label="Text"
-                    name={bodyKey}
-                    rows={3}
-                    value={own[bodyKey] ?? ""}
-                    maxLength={BODY_MAX}
-                    onInput={(event) => {
-                      const next = event.currentTarget.value ?? "";
-
-                      setOwn((current) => ({ ...current, [bodyKey]: next }));
-                    }}
-                    onBlur={() => saveText(bodyKey, own[bodyKey] ?? "")}
-                  />
-                </s-stack>
-              </s-box>
-            );
-          })}
-
-          {/* Plain text on purpose, and the merchant should know why their
-            formatting did not survive: this page is on their own domain and a
-            shopper types an order number and an email into it. */}
-          <s-text color="subdued">
-            Plain text only. Saved in your default language — translate it under
-            Languages.
-          </s-text>
-        </Card>
+          </Card>
+        </s-stack>
       </s-grid>
 
       {/*
-        The claim page itself, not a drawing of it.
+        The claim page itself, not a drawing of it, and the whole width.
+
+        Beside the settings it had a 380px column, and the claim page only
+        splits into two at 1024px -- so it previewed as the same stacked page
+        whatever was picked. Full width it renders close to true scale.
         
         There used to be no preview here, and the reason given was that
         sketching the page would mean painting two arbitrary merchant hex
