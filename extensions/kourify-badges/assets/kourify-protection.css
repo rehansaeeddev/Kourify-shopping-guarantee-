@@ -21,6 +21,9 @@
     The rgb triples exist so every rgba() keeps its own alpha instead of
     each one needing a variable of its own.
   */
+  /* The merchant's name in the modal header. Defaults to the accent it
+     already used, so the default renders unchanged. */
+  --kourify-modal-brand: var(--kourify-accent);
   --kourify-brand: #0d9488;
   --kourify-brand-dark: #0f766e;
   --kourify-brand-rgb: 15, 118, 110;
@@ -277,7 +280,7 @@
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--kourify-accent);
+  color: var(--kourify-modal-brand);
   margin-block-end: 2px;
 }
 
