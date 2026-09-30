@@ -36,6 +36,12 @@ interface Window {
   shopify?: {
     /** Mints the short-lived session token every API call carries. */
     idToken?: () => Promise<string>;
+    /**
+     * Shows or hides the admin header's loading indicator. It persists until
+     * it is explicitly stopped and does not count overlapping callers, which
+     * is why app/lib/loading.ts keeps the count.
+     */
+    loading?: (isLoading: boolean) => void;
     toast?: {
       show: (
         message: string,

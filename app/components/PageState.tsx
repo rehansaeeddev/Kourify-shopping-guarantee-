@@ -1,26 +1,22 @@
 import { ApiError } from "../lib/api";
+import { usePageLoading } from "../lib/loading";
 import { PageBody } from "./PageBody";
 
 /**
  * What a page shows while its data is in flight.
  *
- * The heading is rendered immediately so the admin frame and its title are
- * there from the first paint — a page that appears entirely blank while
- * loading reads as broken, which is exactly what a spinner is meant to avoid.
+ * Nothing but its heading. The spinner and "Loading…" that used to sit in a
+ * section here have moved to the admin's own header indicator, driven by
+ * usePageLoading -- the place the admin already reports this, and one that
+ * does not push a box onto the page only to take it away again.
+ *
+ * The heading still renders immediately, so the frame and its title are there
+ * from the first paint rather than the page appearing broken.
  */
 export function PageSkeleton({ heading }: { heading: string }) {
-  return (
-    <s-page inlineSize="large" heading={heading}>
-      <PageBody>
-        <s-section>
-          <s-stack direction="inline" gap="small-300" alignItems="center">
-            <s-spinner accessibilityLabel="Loading" />
-            <s-text color="subdued">Loading…</s-text>
-          </s-stack>
-        </s-section>
-      </PageBody>
-    </s-page>
-  );
+  usePageLoading();
+
+  return <s-page inlineSize="large" heading={heading} />;
 }
 
 /**
