@@ -3,23 +3,57 @@ import { type ReactNode } from "react";
 type CardProps = {
   heading?: string;
   locked?: boolean;
+  /**
+   * Fill the height of the grid cell this card sits in.
+   *
+   * Needed because s-section cannot: it takes no size prop, so two sections
+   * side by side in a stretched grid stand at whatever height their content
+   * gives them, and the shorter one reads as unfinished rather than shorter.
+   * Set this on cards that sit beside each other and the surface becomes an
+   * s-box with blockSize 100%, which does fill. Leave it off everywhere else
+   * -- a section is the right element for a page region, and this is only a
+   * way around the one thing it will not do.
+   */
+  fill?: boolean;
   children: ReactNode;
 };
 
 /**
  * A page section. s-section draws the card and its heading itself, so this is
- * only here to keep the `locked` badge consistent across pages.
+ * only here to keep the `locked` badge consistent across pages -- except when
+ * `fill` is set, where the surface has to be drawn by hand to get a height.
  */
-export function Card({ heading, locked, children }: CardProps) {
+export function Card({ heading, locked, fill, children }: CardProps) {
+  const lockedBadge = locked ? (
+    <s-stack direction="inline">
+      <s-badge tone="warning" icon="lock">
+        Locked
+      </s-badge>
+    </s-stack>
+  ) : null;
+
+  if (fill) {
+    return (
+      <s-box
+        blockSize="100%"
+        padding="base"
+        background="base"
+        borderWidth="base"
+        borderColor="base"
+        borderRadius="large"
+      >
+        <s-stack direction="block" gap="base">
+          {heading ? <s-heading>{heading}</s-heading> : null}
+          {lockedBadge}
+          {children}
+        </s-stack>
+      </s-box>
+    );
+  }
+
   return (
     <s-section heading={heading}>
-      {locked && (
-        <s-stack direction="inline">
-          <s-badge tone="warning" icon="lock">
-            Locked
-          </s-badge>
-        </s-stack>
-      )}
+      {lockedBadge}
       {children}
     </s-section>
   );

@@ -175,7 +175,7 @@ export default function Index() {
           gap="base"
           alignItems="stretch"
         >
-          <Card heading="Protection mix">
+          <Card heading="Protection mix" fill>
             <s-stack direction="block" gap="base">
               <s-stack
                 direction="inline"
@@ -295,7 +295,7 @@ export default function Index() {
             </s-stack>
           </Card>
 
-          <Card heading="Protection status">
+          <Card heading="Protection status" fill>
             <s-stack direction="block" gap="small-200">
               <s-stack
                 direction="inline"
