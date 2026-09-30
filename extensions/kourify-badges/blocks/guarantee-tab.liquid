@@ -4,9 +4,11 @@
   data-logo-url="{{ 'kourify-logo.png' | asset_url }}"
 >
   {% render 'protection-translations' %}
+  {%- capture kourify_guarantee -%}{%- render 'kourify-brand-label' -%}{%- endcapture -%}
   <button type="button" class="kourify-guarantee-tab__button" data-kourify-learn-more>
     <img src="{{ 'kourify-logo.png' | asset_url }}" width="14" height="14" alt="" style="display:block;object-fit:contain;" />
-    <span>{{ 'protection.guarantee' | t }}</span>
+    {%- comment -%} Escaped: this is the merchant's own text, on every page of their store. {%- endcomment -%}
+    <span>{{ kourify_guarantee | strip | escape }}</span>
   </button>
 </div>
 

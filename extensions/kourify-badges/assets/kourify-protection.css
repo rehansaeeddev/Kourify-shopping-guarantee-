@@ -558,6 +558,8 @@
 .kourify-guarantee-tab--top .kourify-guarantee-tab__button span {
   writing-mode: horizontal-tb;
   transform: none;
+  /* Laid out as a pill, the inline axis is across the screen again. */
+  max-inline-size: min(260px, 60vw);
 }
 
 .kourify-guarantee-tab__button {
@@ -597,6 +599,17 @@
   transform: rotate(180deg);
   text-align: center;
   color: #fff;
+  /*
+    The tab now carries the merchant's shop name, which may be 120
+    characters. Written vertically, the text runs along the INLINE axis --
+    which is the one going down the screen here -- so this is the cap that
+    keeps a long name from running off the top and bottom of the viewport.
+    The viewport term is what holds it on a short phone.
+  */
+  max-inline-size: min(220px, 45vh);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .kourify-guarantee-tab__button svg {

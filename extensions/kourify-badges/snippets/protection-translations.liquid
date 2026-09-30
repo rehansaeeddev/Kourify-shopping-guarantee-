@@ -2,11 +2,16 @@
 Provides localized strings and the active storefront locale to the protection JavaScript.
 {% enddoc %}
 
+{%- capture kourify_guarantee -%}{%- render 'kourify-brand-label' -%}{%- endcapture -%}
 <span
   hidden
   data-kourify-i18n
   data-locale="{{ request.locale.iso_code | escape }}"
-  data-guarantee="{{ 'protection.guarantee' | t | escape }}"
+  {%- comment -%}
+    Also read by the tab the script injects when the merchant has not added
+    the block, so both routes to the tab say the same thing.
+  {%- endcomment -%}
+  data-guarantee="{{ kourify_guarantee | strip | escape }}"
   data-managed="{{ 'protection.managed' | t | escape }}"
   data-learn-more="{{ 'protection.learn_more' | t | escape }}"
   data-file-claim="{{ 'protection.file_claim' | t | escape }}"

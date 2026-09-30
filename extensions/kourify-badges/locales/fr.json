@@ -1,6 +1,7 @@
 {
   "protection": {
     "guarantee": "Protection Kourify",
+    "guarantee_branded": "Protection {{ name }}",
     "managed": "Géré par Kourify",
     "learn_more": "En savoir plus",
     "file_claim": "Déposer une réclamation",
