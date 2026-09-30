@@ -4,14 +4,54 @@ import { PageError, PageSkeleton } from "../components/PageState";
 import { useDashboard } from "../lib/queries";
 import { PageBody } from "../components/PageBody";
 
-const FLOW = [
-  "Customer selects protection",
-  "Eligible item becomes protected",
-  "Something goes wrong",
-  "Customer submits a claim with evidence",
-  "You review the claim",
-  "You approve or deny it",
-  "Customer is notified",
+/**
+ * The flow, in three phases, each with the person who acts in it.
+ *
+ * It was seven numbered labels laid across two columns. A sequence cannot
+ * be read in two directions: the eye goes down a column, so it read 1, 3,
+ * 5, 7 and then 2, 4, 6 while the numbers said otherwise. And the labels
+ * named no one -- "Eligible item becomes protected" has no actor, and
+ * "Something goes wrong" is not a step anybody takes.
+ *
+ * Phases run left to right, steps run down inside one. Both directions
+ * mean something now, so neither is ambiguous.
+ */
+const FLOW: Array<{
+  phase: string;
+  who: string;
+  where: string;
+  steps: string[];
+}> = [
+  {
+    phase: "At checkout",
+    who: "Your customer",
+    where: "On your storefront",
+    steps: [
+      "They tick protection on their order.",
+      "They pay the fee, or you cover it \u2014 whichever you chose.",
+      "Every eligible item on that order is now covered.",
+    ],
+  },
+  {
+    phase: "If something goes wrong",
+    who: "Your customer",
+    where: "On your storefront",
+    steps: [
+      "They open the claim page from the tab on your store.",
+      "They pick the item, say what happened, attach a photo.",
+      "You get an email that a claim came in.",
+    ],
+  },
+  {
+    phase: "Deciding it",
+    who: "You",
+    where: "Here, in this app",
+    steps: [
+      "Kourify checks it against the rules you set and shows you the evidence.",
+      "You approve or deny it. Kourify never decides for you.",
+      "Your customer is emailed either way.",
+    ],
+  },
 ];
 
 const FAQ: Array<[string, string]> = [
@@ -106,26 +146,47 @@ export default function Guide() {
             wrong, the customer files a claim from your storefront and you
             decide it.
           </s-paragraph>
-          {/* Two columns of numbered steps rather than one ordered list.
-            Seven items down a single column ran past the fold of the card
-            and made the shape of the flow -- how many steps, where the
-            merchant's own part falls -- something you had to read to find
-            out. The number is drawn, not a list marker, because a list
-            stacked in a grid renumbers per column. */}
+          {/* Phases across, steps down. Three columns rather than seven
+            items in two, because the columns are the phases -- reading
+            across is the flow and reading down is what happens within one,
+            so both directions carry meaning. On a narrow window they stack,
+            which keeps the single reading order a sequence needs. */}
           <s-grid
-            gridTemplateColumns="@container (inline-size <= 640px) 1fr, 1fr 1fr"
-            gap="small-200 large"
+            gridTemplateColumns="@container (inline-size <= 860px) 1fr, 1fr 1fr 1fr"
+            gap="base"
           >
-            {FLOW.map((step, index) => (
-              <s-stack
-                key={step}
-                direction="inline"
-                gap="small-300"
-                alignItems="start"
+            {FLOW.map((phase, index) => (
+              <s-box
+                key={phase.phase}
+                padding="base"
+                borderWidth="base"
+                borderColor="base"
+                borderRadius="base"
               >
-                <s-badge tone="neutral">{String(index + 1)}</s-badge>
-                <s-text>{step}</s-text>
-              </s-stack>
+                <s-stack direction="block" gap="small-300">
+                  <s-stack
+                    direction="inline"
+                    gap="small-200"
+                    alignItems="center"
+                  >
+                    <s-badge tone="neutral">{String(index + 1)}</s-badge>
+                    <s-text type="strong">{phase.phase}</s-text>
+                  </s-stack>
+                  {/* Who acts, and where. This is the thing the old list
+                    left out entirely, and the reason it read as a set of
+                    events happening to nobody in particular. */}
+                  <s-stack direction="block" gap="small-500">
+                    <s-text color="subdued">{phase.who}</s-text>
+                    <s-text color="subdued">{phase.where}</s-text>
+                  </s-stack>
+                  <s-divider />
+                  <s-stack direction="block" gap="small-300">
+                    {phase.steps.map((step) => (
+                      <s-text key={step}>{step}</s-text>
+                    ))}
+                  </s-stack>
+                </s-stack>
+              </s-box>
             ))}
           </s-grid>
           <s-banner tone="info">
