@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router";
 
 import { AppButton } from "../components/AppButton";
 import { BrandingPanel } from "../components/BrandingPanel";
@@ -68,7 +69,34 @@ export default function Settings() {
   const protection = useSaveProtection();
   const { showToast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<SettingsTab>("general");
+  /*
+   * The open tab lives in the URL, not in state.
+   *
+   * Held in state it was lost on every refresh: a merchant editing Branding
+   * reloaded and landed back on General. It also means a tab can be linked
+   * to and that the admin's own back button behaves.
+   *
+   * Replaced rather than pushed, so moving between tabs does not fill the
+   * history with entries to walk back through -- back should leave Settings,
+   * not retrace the tabs visited inside it.
+   */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requested = searchParams.get("tab");
+
+  const activeTab: SettingsTab = SETTINGS_TABS.some((t) => t.id === requested)
+    ? (requested as SettingsTab)
+    : "general";
+
+  const setActiveTab = (tab: SettingsTab) =>
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.set("tab", tab);
+
+        return next;
+      },
+      { replace: true },
+    );
 
   // A dismissible banner on top, alongside the toast, so a save is confirmed
   // both transiently and persistently.
