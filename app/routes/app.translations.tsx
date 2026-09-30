@@ -66,7 +66,7 @@ export function LanguagesPanel() {
     onError: (cause: Error) => showToast(cause.message, { isError: true }),
   };
 
-  if (isPending) return <InlineLoading heading="Languages" />;
+  if (isPending) return <InlineLoading />;
   if (error)
     return <InlineError heading="Languages" error={error} onRetry={refetch} />;
 

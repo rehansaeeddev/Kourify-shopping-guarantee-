@@ -4,32 +4,23 @@ import { usePageLoading } from "../lib/loading";
 import { PageBody } from "./PageBody";
 
 /**
- * What something shows while its data is in flight, and what it shows when
- * that data could not be fetched.
+ * What something shows while its data is in flight: nothing of its own.
  *
- * Two pairs, because an s-page cannot contain another one. The Inline pair is
- * the content on its own, for anything already rendered inside a page -- a
- * panel beside a rail, a section of a larger screen. The Page pair is the
- * same content with a page around it.
+ * The admin already reports this, in its header, and App Bridge's Loading API
+ * is how an app joins in -- usePageLoading below. A card in the page saying
+ * "Loading…" on top of that is a second signal for the same thing, and the
+ * slower-feeling one: it is a box that exists only to be replaced, and it
+ * moves the content down until it goes.
  *
- * They are a pair rather than four separate components so the two cannot
- * drift: before this, anything inside an existing page wrote its own spinner
- * and its own banner, and they had already started to differ.
- *
- * Both loading states also drive the Shopify admin's own header indicator, so
- * the merchant gets the admin's usual signal on top of whatever is on screen.
+ * So this renders nothing and only drives the indicator. It is still a
+ * component rather than a bare hook call, because every page and panel
+ * already branches on `isPending` and returning this keeps that branch where
+ * it is -- and keeps the decision in one file if it is ever revisited.
  */
-export function InlineLoading({ heading }: { heading?: string }) {
+export function InlineLoading() {
   usePageLoading();
 
-  return (
-    <Card heading={heading}>
-      <s-stack direction="inline" gap="small-300" alignItems="center">
-        <s-spinner accessibilityLabel="Loading" />
-        <s-text color="subdued">Loading…</s-text>
-      </s-stack>
-    </Card>
-  );
+  return null;
 }
 
 export function InlineError({
@@ -60,13 +51,15 @@ export function InlineError({
  * the first paint rather than the page appearing broken while it waits.
  */
 export function PageSkeleton({ heading }: { heading: string }) {
-  return (
-    <s-page inlineSize="large" heading={heading}>
-      <PageBody>
-        <InlineLoading />
-      </PageBody>
-    </s-page>
-  );
+  usePageLoading();
+
+  /*
+   | The heading and nothing else. It renders immediately, so the frame and
+   | its title are there from the first paint rather than the page looking
+   | broken, and what fills in underneath is the real content -- never a
+   | placeholder that has to be taken away again.
+   */
+  return <s-page inlineSize="large" heading={heading} />;
 }
 
 /**
