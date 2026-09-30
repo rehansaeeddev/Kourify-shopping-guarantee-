@@ -65,6 +65,14 @@ export default function Index() {
       ? { tone: "default" as const, value: "Off", sub: null }
       : { tone: "success" as const, value: "Live", sub: feeSummary };
 
+  // One definition for the share, printed in two places: the Protected
+  // metric's sub-line and the Protection mix heading. They were drifting
+  // apart as separate expressions waiting to happen.
+  const protectedShare =
+    totalOrders > 0
+      ? Math.round((analytics.protectedOrders / totalOrders) * 100)
+      : 0;
+
   return (
     <s-page inlineSize="large" heading={greeting}>
       {/*
@@ -142,30 +150,39 @@ export default function Index() {
         */}
         <MetricsCard
           accessibilityLabel="Protection at a glance"
+          /* Each sub-line restates something already true of the figure above
+            it rather than introducing a number of its own -- a share, a
+            count, or what the figure is drawn from. Nothing here is a
+            comparison the dashboard cannot actually make: there is no
+            previous period stored to compare against, and inventing a trend
+            would be worse than a short card. */
           metrics={[
             {
-              icon: "order",
               tone: "default",
               label: "Orders",
               value: String(totalOrders),
+              sub: "Synced from Shopify",
             },
             {
-              icon: "shield-check-mark",
               tone: "success",
               label: "Protected",
               value: String(analytics.protectedOrders),
+              sub: `${protectedShare}% of orders`,
             },
             {
-              icon: "clock",
               tone: openClaims > 0 ? "warning" : "default",
               label: "Open claims",
               value: String(openClaims),
+              sub: openClaims > 0 ? "Awaiting your review" : "Nothing waiting",
             },
             {
-              icon: "cash-dollar",
               tone: "success",
               label: "Protection sales",
               value: `$${(analytics.protectionRevenueCents / 100).toFixed(2)}`,
+              sub:
+                analytics.protectedOrders > 0
+                  ? `Across ${analytics.protectedOrders} protected orders`
+                  : "No protected orders yet",
             },
           ]}
         />
@@ -186,13 +203,7 @@ export default function Index() {
                   type="strong"
                   tone={analytics.protectedOrders > 0 ? "success" : "neutral"}
                 >
-                  {`${
-                    totalOrders > 0
-                      ? Math.round(
-                          (analytics.protectedOrders / totalOrders) * 100,
-                        )
-                      : 0
-                  }% protected`}
+                  {`${protectedShare}% protected`}
                 </s-text>
                 <s-badge
                   tone={analytics.protectedOrders > 0 ? "success" : "neutral"}

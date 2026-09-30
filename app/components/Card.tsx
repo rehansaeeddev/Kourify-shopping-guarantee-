@@ -111,12 +111,16 @@ export function StatTile({
         gap="base"
       >
         <s-heading>{label}</s-heading>
-        <s-text tone={TONE_TO_TEXT_TONE[tone]}>{value}</s-text>
+        {/* A heading too, so both halves of the row sit at the size every
+          other card title on the page uses. s-heading takes no size prop,
+          so which element is used is the only control there is. */}
+        <s-heading>{value}</s-heading>
       </s-stack>
+      {/* s-heading takes no tone either, so the figure cannot carry one. The
+        sub-line does instead -- that is what keeps "2 open claims" reading
+        as something to act on rather than just a number. */}
       {sub ? (
-        <s-stack direction="inline">
-          <s-badge tone="neutral">{sub}</s-badge>
-        </s-stack>
+        <s-text tone={TONE_TO_TEXT_TONE[tone]}>{sub}</s-text>
       ) : null}
     </s-stack>
   );
