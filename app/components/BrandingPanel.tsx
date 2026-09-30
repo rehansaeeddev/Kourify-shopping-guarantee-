@@ -148,13 +148,22 @@ export function BrandingPanel({ settings }: { settings: MerchantSettings }) {
         }}
       />
 
-      <s-stack direction="block" gap="small-300">
-        {settings.brandLogoUrl ? (
+      {/*
+        One logo, one control. The drop zone only exists while there is no
+        logo; once there is one, what shows is that logo and the way to take
+        it off. It used to sit there afterwards saying "Replace logo", which
+        read as somewhere to add another -- and the page only ever shows one.
+        Changing it is remove, then upload: two steps, but never a question
+        about how many there are.
+      */}
+      {settings.brandLogoUrl ? (
+        <s-stack direction="block" gap="small-300">
+          <s-text type="strong">Logo</s-text>
           <s-stack direction="inline" gap="base" alignItems="center">
             <s-thumbnail src={settings.brandLogoUrl} alt="" size="small" />
             <s-button
-              variant="tertiary"
-              tone="critical"
+              variant="secondary"
+              loading={logo.isPending}
               disabled={busy}
               onClick={() =>
                 logo.mutate("", {
@@ -167,40 +176,38 @@ export function BrandingPanel({ settings }: { settings: MerchantSettings }) {
               Remove logo
             </s-button>
           </s-stack>
-        ) : null}
+          <s-text color="subdued">
+            Remove this one to upload a different logo.
+          </s-text>
+        </s-stack>
+      ) : (
+        <s-stack direction="block" gap="small-300">
+          <s-drop-zone
+            label="Logo"
+            name="logo"
+            accept={ACCEPT}
+            disabled={busy}
+            onChange={(event) => {
+              const zone = event.currentTarget as unknown as DropZoneFiles;
+              const picked = zone.files?.[0];
 
-        {/* s-drop-zone hands the File back on its change event -- it has a
-          read-only `files` array for exactly this. An earlier attempt hid a
-          plain <input type="file"> in here and clicked it from a button;
-          Polaris slots its children into shadow DOM and the input never
-          rendered, so the ref stayed null and the click went nowhere. It
-          failed without a sound, which is the worst way for an upload to
-          fail. */}
-        <s-drop-zone
-          label={settings.brandLogoUrl ? "Replace logo" : "Logo"}
-          name="logo"
-          accept={ACCEPT}
-          disabled={busy}
-          onChange={(event) => {
-            const zone = event.currentTarget as unknown as DropZoneFiles;
-            const picked = zone.files?.[0];
+              // Cleared so picking the same file twice still fires a change.
+              // The setter refuses anything but "" or null, by design.
+              zone.value = "";
 
-            // Cleared so picking the same file twice still fires a change.
-            // The setter refuses anything but "" or null, by design.
-            zone.value = "";
-
-            void pickLogo(picked);
-          }}
-          onDropRejected={() =>
-            showToast("That file type is not an image Shopify accepts.", {
-              isError: true,
-            })
-          }
-        />
-        <s-text color="subdued">
-          PNG, JPG, GIF or WebP, up to 5 MB. Stored on your Shopify files.
-        </s-text>
-      </s-stack>
+              void pickLogo(picked);
+            }}
+            onDropRejected={() =>
+              showToast("That file type is not an image Shopify accepts.", {
+                isError: true,
+              })
+            }
+          />
+          <s-text color="subdued">
+            PNG, JPG, GIF or WebP, up to 5 MB. Stored on your Shopify files.
+          </s-text>
+        </s-stack>
+      )}
 
       <s-grid
         gridTemplateColumns="@container (inline-size <= 560px) 1fr, 1fr 1fr"
