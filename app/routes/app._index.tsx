@@ -226,23 +226,71 @@ export default function Index() {
                   minBlockSize="10px"
                 />
               )}
-              <s-stack direction="inline" gap="base">
-                <s-stack direction="inline" gap="small-500" alignItems="center">
-                  <s-icon
-                    type="shield-check-mark"
-                    tone="success"
-                    size="small"
-                  />
-                  <s-text color="subdued">
-                    {`Protected ${analytics.protectedOrders}`}
+              {/* The same label-left/value-right rows the status card beside
+                this one uses, rather than the inline legend that was here.
+                Two cards side by side reading differently made the shorter
+                one look unfinished; matching the pattern also gives this one
+                enough rows to stand at about the same height.
+
+                Attach rate is deliberately absent: the backend computes
+                conversionRate as protectedOrders / totalOrders * 100, which
+                is the figure already at the top of this card. Showing it
+                again under a second name would be one number pretending to
+                be two. */}
+              <s-stack direction="block" gap="small-200">
+                <s-divider direction="inline" />
+                <s-stack
+                  direction="inline"
+                  justifyContent="space-between"
+                  alignItems="center"
+                >
+                  <s-stack
+                    direction="inline"
+                    gap="small-500"
+                    alignItems="center"
+                  >
+                    <s-icon
+                      type="shield-check-mark"
+                      tone="success"
+                      size="small"
+                    />
+                    <s-text color="subdued">Protected</s-text>
+                  </s-stack>
+                  <s-text>{String(analytics.protectedOrders)}</s-text>
+                </s-stack>
+                <s-divider direction="inline" />
+                <s-stack
+                  direction="inline"
+                  justifyContent="space-between"
+                  alignItems="center"
+                >
+                  <s-text color="subdued">Unprotected</s-text>
+                  <s-text>
+                    {String(
+                      Math.max(totalOrders - analytics.protectedOrders, 0),
+                    )}
                   </s-text>
                 </s-stack>
-                <s-text color="subdued">
-                  {`Unprotected ${Math.max(
-                    totalOrders - analytics.protectedOrders,
-                    0,
-                  )}`}
-                </s-text>
+                <s-divider direction="inline" />
+                <s-stack
+                  direction="inline"
+                  justifyContent="space-between"
+                  alignItems="center"
+                >
+                  <s-text color="subdued">Average protection fee</s-text>
+                  {/* An em dash, not $0.00: with nothing protected there is no
+                    average to state, and a zero would read as a fee that was
+                    charged and came to nothing. */}
+                  <s-text>
+                    {analytics.protectedOrders > 0
+                      ? `$${(
+                          analytics.protectionRevenueCents /
+                          100 /
+                          analytics.protectedOrders
+                        ).toFixed(2)}`
+                      : "—"}
+                  </s-text>
+                </s-stack>
               </s-stack>
             </s-stack>
           </Card>
