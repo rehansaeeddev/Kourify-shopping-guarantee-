@@ -30,16 +30,30 @@ export function Layout({ children }: { children: ReactNode }) {
         />
         {/*
           Both load from Shopify's CDN, not from npm. app-bridge.js is what
-          mints the session tokens this app authenticates with, and polaris.js
-          is what defines the s-* elements every page is built from — neither
-          has an npm package, and @shopify/polaris (the React library) must
-          never be imported alongside them.
+          mints the session tokens this app authenticates with, and the Polaris
+          script is what defines the s-* elements every page is built from —
+          neither has an npm package, and @shopify/polaris (the React library)
+          must never be imported alongside them.
+
+          Polaris 2, not `polaris.js`. Shopify has given the admin a new frame,
+          navigation and visual appearance, and "Polaris 1 doesn't contain the
+          updated styling at all, so an app that loads Polaris 1 renders the
+          current appearance regardless of what the Shopify admin around it is
+          doing" — which is exactly what the app looked like: old-style cards
+          washed out against a refreshed admin. Polaris 2 ships both
+          appearances and picks one at runtime from what App Bridge reports, so
+          this is the whole change; no page needed restyling.
+          https://shopify.dev/docs/apps/build/app-home/polaris2
+
+          It is a release candidate. Shopify's own advice is to run on it now
+          and move to the stable build when one is promoted, so this pin is
+          meant to be revisited rather than left alone.
         */}
         <script
           src="https://cdn.shopify.com/shopifycloud/app-bridge.js"
           data-api-key={SHOPIFY_API_KEY}
         />
-        <script src="https://cdn.shopify.com/shopifycloud/polaris.js" />
+        <script src="https://cdn.shopify.com/shopifycloud/polaris-2.0-rc.js" />
         <Meta />
         <Links />
       </head>
