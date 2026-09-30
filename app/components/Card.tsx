@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from "react";
+import { type ReactNode } from "react";
 
 type CardProps = {
   heading?: string;
@@ -46,11 +46,15 @@ const TONE_TO_ICON_TONE: Record<
 };
 
 /**
- * One metric, following App Home's metrics-card composition: a quiet caption
- * with a tone icon, then the figure itself as the prominent heading. Tiles are
- * borderless — they sit inside a single section, so the section is the card and
- * the tiles never draw their own boxes. Tone colours only the icon, so colour
- * is never the only thing carrying the meaning.
+ * One metric, as its own card.
+ *
+ * These used to be borderless tiles sharing a single section, separated by
+ * vertical rules -- the composition Shopify's own Orders page uses. Read on
+ * the page it turned out to be four figures inside one slab rather than four
+ * things, so each now carries its own surface and the rules are gone.
+ *
+ * Tone colours the icon only, never the figure, so colour is never the one
+ * thing carrying a metric's meaning.
  */
 export function StatTile({
   label,
@@ -60,52 +64,65 @@ export function StatTile({
   href,
   sub,
 }: StatTileProps) {
-  const content = (
+  const body = (
     <s-stack direction="block" gap="small-200">
       <s-stack direction="inline" gap="small-200" alignItems="center">
-        <s-icon
-          type={icon as never}
-          tone={TONE_TO_ICON_TONE[tone]}
-          size="base"
-        />
+        <s-icon type={icon as never} tone={TONE_TO_ICON_TONE[tone]} size="base" />
         <s-text color="subdued">{label}</s-text>
       </s-stack>
       <s-heading>{value}</s-heading>
       {/* The sub-line rides as a neutral badge, not caption text, so each
-        metric ends on a crisp grey pill. Colour is never spent here — the
+        metric ends on a crisp grey pill. Colour is never spent here -- the
         tone icon already carries the metric's signal, so a badge never
         dresses a plain descriptor up as a status. */}
-      {sub && (
+      {sub ? (
         <s-stack direction="inline">
           <s-badge tone="neutral">{sub}</s-badge>
         </s-stack>
-      )}
+      ) : null}
     </s-stack>
   );
 
+  // s-clickable draws its own surface, so the card props go on whichever of
+  // the two is actually rendered rather than nesting a box inside a link.
   if (href) {
     return (
       <s-clickable
         href={href}
-        borderRadius="base"
+        padding="base"
+        background="base"
+        borderWidth="base"
+        borderColor="base"
+        borderRadius="large"
         accessibilityLabel={`${label}: ${value}`}
       >
-        {content}
+        {body}
       </s-clickable>
     );
   }
 
-  return content;
+  return (
+    <s-box
+      padding="base"
+      background="base"
+      borderWidth="base"
+      borderColor="base"
+      borderRadius="large"
+    >
+      {body}
+    </s-box>
+  );
 }
 
 export type Metric = StatTileProps;
 
 /**
- * The App Home metrics-card composition: one section holding a row of
- * borderless StatTiles, each pair separated by a vertical divider. The grid
- * template interleaves a divider between every tile and collapses to a single
- * stacked column on a narrow container, so the dividers only ever sit between
- * side-by-side tiles rather than floating in a stack.
+ * A row of metric cards.
+ *
+ * With a heading or description this stays a section, because those name a
+ * region and a region needs a surface to sit in. Without them the grid is
+ * rendered bare: the cards are the surfaces, and a section around them would
+ * be a box drawn around four boxes.
  */
 export function MetricsCard({
   heading,
@@ -115,44 +132,37 @@ export function MetricsCard({
 }: {
   heading?: string;
   /**
-   * What to call the region when it carries no visible heading.
+   * What to call the row when it carries no visible heading.
    *
-   * A top metrics row reads best with nothing above it, but s-section without
-   * a heading announces itself as an unnamed region — so one of the two has
-   * to be given.
+   * Only used when there is a section to name. A bare row of cards needs no
+   * label of its own -- every card already says what it is.
    */
   accessibilityLabel?: string;
   description?: string;
   metrics: Metric[];
 }) {
-  // "1fr" for the first tile, then "auto 1fr" (divider + tile) for each of the
-  // rest. Below the breakpoint the row stacks into one column.
-  const columns = [
-    "1fr",
-    ...metrics.slice(1).flatMap(() => ["auto", "1fr"]),
-  ].join(" ");
+  const columns = metrics.map(() => "1fr").join(" ");
+
+  const grid = (
+    <s-grid
+      gridTemplateColumns={`@container (inline-size <= 640px) 1fr, @container (inline-size <= 960px) 1fr 1fr, ${columns}`}
+      gap="base"
+      alignItems="stretch"
+    >
+      {metrics.map((metric) => (
+        <StatTile key={metric.label} {...metric} />
+      ))}
+    </s-grid>
+  );
+
+  if (!heading && !description) return grid;
 
   return (
     <s-section heading={heading} accessibilityLabel={accessibilityLabel}>
       {description ? (
         <s-paragraph color="subdued">{description}</s-paragraph>
       ) : null}
-      {/* large-300, not base: at base the divider sat almost against the
-        figures on either side, so four metrics read as one dense strip
-        rather than four things. The gap applies to the divider columns too,
-        which is what puts air on both sides of each rule. */}
-      <s-grid
-        gridTemplateColumns={`@container (inline-size <= 640px) 1fr, ${columns}`}
-        gap="large-300"
-        alignItems="stretch"
-      >
-        {metrics.map((metric, index) => (
-          <Fragment key={metric.label}>
-            {index > 0 ? <s-divider direction="block" /> : null}
-            <StatTile {...metric} />
-          </Fragment>
-        ))}
-      </s-grid>
+      {grid}
     </s-section>
   );
 }
