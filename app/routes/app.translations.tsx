@@ -193,7 +193,11 @@ export function LanguagesPanel() {
             </Card>
           ) : null}
 
-          <Card heading="Languages">
+          {/* No heading: the settings rail already names this section, and
+            a second "Languages" above the card only pushed it down out of
+            line with the rail. The standalone route names it in its page
+            heading. */}
+          <Card>
             <s-paragraph color="subdued">
               Choose which languages the storefront claim page offers. Customers
               switch language with no page reload.

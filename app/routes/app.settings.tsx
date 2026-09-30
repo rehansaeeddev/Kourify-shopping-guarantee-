@@ -392,12 +392,14 @@ export default function Settings() {
           gap="large"
           alignItems="start"
         >
+          {/* large, matching the cards it sits beside -- at base the rail
+            was visibly squarer than every panel to the right of it. */}
           <s-box
             padding="small-300"
             background="subdued"
             borderWidth="base"
             borderColor="strong"
-            borderRadius="base"
+            borderRadius="large"
           >
             <s-stack
               direction="block"
