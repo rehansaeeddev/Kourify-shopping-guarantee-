@@ -223,7 +223,7 @@ export const useSubscribe = () =>
 
 export const useTranslationMutations = () => ({
   add: useInvalidating(
-    (body: { locale: string; label?: string; direction?: string }) =>
+    (body: { locale: string; label?: string }) =>
       api.post<Ok>("/translations", body),
     [keys.translations],
   ),

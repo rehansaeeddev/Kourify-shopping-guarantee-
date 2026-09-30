@@ -147,7 +147,6 @@ export function LanguagesPanel() {
                     {
                       locale: renamingLang.locale,
                       label: String(form.get("label") ?? ""),
-                      direction: String(form.get("direction") ?? "ltr"),
                     },
                     notify,
                   );
@@ -155,7 +154,7 @@ export function LanguagesPanel() {
                 }}
               >
                 <s-grid
-                  gridTemplateColumns="1fr 1fr"
+                  gridTemplateColumns="1fr auto"
                   gap="base"
                   alignItems="end"
                 >
@@ -164,14 +163,6 @@ export function LanguagesPanel() {
                     name="label"
                     value={renamingLang.label}
                   />
-                  <s-select
-                    label="Direction"
-                    name="direction"
-                    value={renamingLang.direction}
-                  >
-                    <s-option value="ltr">Left to right</s-option>
-                    <s-option value="rtl">Right to left</s-option>
-                  </s-select>
                 </s-grid>
                 <s-stack direction="inline" gap="small-200">
                   <s-button
@@ -222,6 +213,7 @@ export function LanguagesPanel() {
                       </s-stack>
                     </s-table-cell>
                     <s-table-cell>{lang.locale}</s-table-cell>
+                    {/* Shown, not chosen: the language decides this. */}
                     <s-table-cell>{lang.direction.toUpperCase()}</s-table-cell>
                     <s-table-cell>
                       {/* A hidden language is an ordinary state, not a warning. */}
@@ -364,14 +356,8 @@ function AddLanguage({
 }: {
   busy: boolean;
   pending: boolean;
-  onAdd: (language: {
-    locale: string;
-    label: string;
-    direction: string;
-  }) => void;
+  onAdd: (language: { locale: string; label: string }) => void;
 }) {
-  const [direction, setDirection] = useState("ltr");
-
   return (
     <Card heading="Add a language">
       <form
@@ -382,7 +368,6 @@ function AddLanguage({
           onAdd({
             locale: String(form.get("locale") ?? "").trim(),
             label: String(form.get("label") ?? "").trim(),
-            direction,
           });
           event.currentTarget.reset();
         }}
@@ -396,7 +381,7 @@ function AddLanguage({
             seeded from English for you to translate.
           </s-paragraph>
           <s-grid
-            gridTemplateColumns="1fr 1fr 1fr auto"
+            gridTemplateColumns="1fr 1fr auto"
             gap="base"
             alignItems="end"
           >
@@ -410,16 +395,6 @@ function AddLanguage({
               name="label"
               placeholder="العربية"
             />
-            <s-select
-              label="Direction"
-              value={direction}
-              onChange={(event) =>
-                setDirection(event.currentTarget.value ?? "ltr")
-              }
-            >
-              <s-option value="ltr">Left to right</s-option>
-              <s-option value="rtl">Right to left</s-option>
-            </s-select>
             <s-button
               type="submit"
               variant="primary"
