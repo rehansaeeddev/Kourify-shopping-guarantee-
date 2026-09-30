@@ -395,7 +395,7 @@ export default function Settings() {
           {/* large, matching the cards it sits beside -- at base the rail
             was visibly squarer than every panel to the right of it. */}
           <s-box
-            padding="small-300"
+            padding="small-200"
             background="subdued"
             borderWidth="base"
             borderColor="strong"
@@ -414,7 +414,10 @@ export default function Settings() {
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     padding="small-300"
-                    borderRadius="base"
+                    /* large, like the rail around it: at base the active
+                      pill was the one square-cornered thing inside a
+                      rounded box. */
+                    borderRadius="large"
                     /*
                      * base on a subdued rail, which is the inverse of what
                      * this was. It read the other way round while the rail
