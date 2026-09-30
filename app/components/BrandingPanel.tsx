@@ -12,9 +12,9 @@ import {
 
 /** Where the logo and shop name can sit, named as a merchant sees them. */
 const BRAND_POSITIONS = [
-  { value: "with-intro", label: "With the introduction" },
-  { value: "top", label: "Across the top of the page" },
-  { value: "hidden", label: "Don't show it" },
+  { value: "with-intro", label: "With the intro", shape: "with-intro" },
+  { value: "top", label: "Across the top", shape: "top" },
+  { value: "hidden", label: "Hidden", shape: "none" },
 ] as const;
 
 /**
@@ -42,11 +42,11 @@ const BODY_MAX = 600;
 
 /** Where the introduction can sit, named as a merchant sees it. */
 const POSITIONS = [
-  { value: "start", label: "Beside the form, on the left" },
-  { value: "end", label: "Beside the form, on the right" },
-  { value: "above", label: "Above the form" },
-  { value: "below", label: "Below the form" },
-  { value: "hidden", label: "Don't show it" },
+  { value: "start", label: "Left", shape: "start" },
+  { value: "end", label: "Right", shape: "end" },
+  { value: "above", label: "Above", shape: "above" },
+  { value: "below", label: "Below", shape: "below" },
+  { value: "hidden", label: "Hidden", shape: "hidden" },
 ] as const;
 
 /**
@@ -79,6 +79,143 @@ function readAsDataUrl(file: File): Promise<string> {
     reader.onload = () => resolve(String(reader.result ?? ""));
     reader.readAsDataURL(file);
   });
+}
+
+/**
+ * A small drawing of one arrangement.
+ *
+ * Every fill is currentColor at an opacity, so the tile carries no colour of
+ * its own and follows whatever Polaris has set around it -- which is what
+ * lets these exist in an admin that owns no CSS. The solid block is the
+ * introduction, the faint one the form.
+ */
+function Diagram({ shape }: { shape: string }) {
+  const solid = { fill: "currentColor", fillOpacity: 0.85 };
+  const faint = { fill: "currentColor", fillOpacity: 0.22 };
+
+  return (
+    <svg
+      viewBox="0 0 56 34"
+      width="56"
+      height="34"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <rect
+        x="0"
+        y="0"
+        width="56"
+        height="34"
+        rx="4"
+        fill="currentColor"
+        fillOpacity={0.07}
+      />
+      {shape === "start" ? (
+        <>
+          <rect x="5" y="5" width="16" height="24" rx="2" {...solid} />
+          <rect x="24" y="5" width="27" height="24" rx="2" {...faint} />
+        </>
+      ) : null}
+      {shape === "end" ? (
+        <>
+          <rect x="5" y="5" width="27" height="24" rx="2" {...faint} />
+          <rect x="35" y="5" width="16" height="24" rx="2" {...solid} />
+        </>
+      ) : null}
+      {shape === "above" ? (
+        <>
+          <rect x="5" y="5" width="46" height="8" rx="2" {...solid} />
+          <rect x="5" y="16" width="46" height="13" rx="2" {...faint} />
+        </>
+      ) : null}
+      {shape === "below" ? (
+        <>
+          <rect x="5" y="5" width="46" height="13" rx="2" {...faint} />
+          <rect x="5" y="21" width="46" height="8" rx="2" {...solid} />
+        </>
+      ) : null}
+      {shape === "hidden" ? (
+        <rect x="5" y="5" width="46" height="24" rx="2" {...faint} />
+      ) : null}
+      {shape === "with-intro" ? (
+        <>
+          <rect x="5" y="5" width="16" height="6" rx="2" {...solid} />
+          <rect x="5" y="14" width="16" height="15" rx="2" {...faint} />
+          <rect x="24" y="5" width="27" height="24" rx="2" {...faint} />
+        </>
+      ) : null}
+      {shape === "top" ? (
+        <>
+          <rect x="17" y="4" width="22" height="6" rx="3" {...solid} />
+          <rect x="5" y="13" width="16" height="16" rx="2" {...faint} />
+          <rect x="24" y="13" width="27" height="16" rx="2" {...faint} />
+        </>
+      ) : null}
+      {shape === "none" ? (
+        <>
+          <rect x="5" y="5" width="16" height="24" rx="2" {...faint} />
+          <rect x="24" y="5" width="27" height="24" rx="2" {...faint} />
+        </>
+      ) : null}
+    </svg>
+  );
+}
+
+/**
+ * A row of arrangements, each drawn as the shape it makes.
+ *
+ * These were two selects. Five arrangements described one at a time in
+ * words, with the page they describe in another tab -- choosing meant
+ * reading, guessing, saving and going to look. Drawn, they are all there at
+ * once and the preview beside them settles it.
+ */
+function LayoutTiles({
+  label,
+  options,
+  value,
+  disabled,
+  onPick,
+}: {
+  label: string;
+  options: readonly { value: string; label: string; shape: string }[];
+  value: string;
+  disabled: boolean;
+  onPick: (next: string) => void;
+}) {
+  return (
+    <s-stack direction="block" gap="small-300">
+      <s-text type="strong">{label}</s-text>
+      <s-grid
+        gridTemplateColumns={`repeat(${options.length}, minmax(0, 1fr))`}
+        gap="small-300"
+      >
+        {options.map((option) => {
+          const on = option.value === value;
+
+          return (
+            <s-clickable
+              key={option.value}
+              padding="small-200"
+              borderWidth="base"
+              borderColor={on ? "strong" : "base"}
+              borderRadius="base"
+              background={on ? "strong" : "transparent"}
+              disabled={disabled}
+              accessibilityLabel={`${label}: ${option.label}`}
+              onClick={() => onPick(option.value)}
+            >
+              <s-stack direction="block" gap="small-400" alignItems="center">
+                <Diagram shape={option.shape} />
+                <s-text color={on ? undefined : "subdued"}>
+                  {option.label}
+                </s-text>
+              </s-stack>
+            </s-clickable>
+          );
+        })}
+      </s-grid>
+    </s-stack>
+  );
 }
 
 /**
@@ -200,7 +337,7 @@ export function BrandingPanel({
 
   return (
     <s-grid
-      gridTemplateColumns="@container (inline-size <= 900px) 1fr, minmax(0, 1fr) 420px"
+      gridTemplateColumns="@container (inline-size <= 640px) 1fr, minmax(0, 1fr) minmax(300px, 400px)"
       gap="base"
     >
       <s-stack direction="block" gap="base">
@@ -362,15 +499,22 @@ export function BrandingPanel({
             there too. "With the introduction" is not offered while there is
             no introduction to sit with -- the server settles that pair as
             well, so the page can never end up with the name nowhere. */}
-          <s-select
+          {/* Its own control because it is its own choice. The logo and name
+            used to travel with the introduction, so a merchant who wanted
+            their name across the top had to send the heading and paragraph up
+            there too. "With the intro" is not offered while there is no
+            introduction to sit with -- the server settles that pair as well,
+            so the page can never end up with the name nowhere. */}
+          <LayoutTiles
             label="Shop name and logo"
-            name="claimBrandPosition"
             value={settings.claimBrandPosition}
-            details="Where your name and logo sit on the page."
             disabled={busy}
-            onChange={(event) => {
-              const next = event.currentTarget.value ?? "";
-
+            options={
+              settings.claimStoryPosition === "hidden"
+                ? BRAND_POSITIONS.filter((o) => o.value !== "with-intro")
+                : BRAND_POSITIONS
+            }
+            onPick={(next) =>
               save(
                 { claimBrandPosition: next },
                 `Shop name ${
@@ -378,30 +522,16 @@ export function BrandingPanel({
                     (o) => o.value === next,
                   )?.label.toLowerCase() ?? next
                 }`,
-              );
-            }}
-          >
-            {(settings.claimStoryPosition === "hidden"
-              ? BRAND_POSITIONS.filter(
-                  (option) => option.value !== "with-intro",
-                )
-              : BRAND_POSITIONS
-            ).map((option) => (
-              <s-option key={option.value} value={option.value}>
-                {option.label}
-              </s-option>
-            ))}
-          </s-select>
+              )
+            }
+          />
 
-          <s-select
+          <LayoutTiles
             label="Introduction"
-            name="claimStoryPosition"
             value={settings.claimStoryPosition}
-            details="Where the heading and text sit."
             disabled={busy}
-            onChange={(event) => {
-              const next = event.currentTarget.value ?? "";
-
+            options={POSITIONS}
+            onPick={(next) =>
               save(
                 { claimStoryPosition: next },
                 `Introduction ${
@@ -409,15 +539,9 @@ export function BrandingPanel({
                     (o) => o.value === next,
                   )?.label.toLowerCase() ?? next
                 }`,
-              );
-            }}
-          >
-            {POSITIONS.map((option) => (
-              <s-option key={option.value} value={option.value}>
-                {option.label}
-              </s-option>
-            ))}
-          </s-select>
+              )
+            }
+          />
 
           {settings.claimStoryPosition !== "hidden" ? (
             <s-checkbox
