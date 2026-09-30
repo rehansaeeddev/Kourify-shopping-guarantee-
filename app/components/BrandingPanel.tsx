@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Card } from "./Card";
 import { useToast } from "./Toast";
@@ -7,6 +7,17 @@ import {
   useSaveBrandLogo,
   type MerchantSettings,
 } from "../lib/queries";
+
+/**
+ * The two members of s-drop-zone this reads.
+ *
+ * Both are documented and both are there at runtime -- `files` is a read-only
+ * getter and `value` a setter that refuses anything but "" or null -- but the
+ * published v1.0 types declare neither, the same gap as `size` on s-heading.
+ * Named here rather than cast away at the call site so what is being assumed
+ * is written down.
+ */
+type DropZoneFiles = { files?: File[]; value: string };
 
 /** What the server accepts, said once so the hint and the check agree. */
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -43,7 +54,6 @@ export function BrandingPanel({ settings }: { settings: MerchantSettings }) {
   const { showToast } = useToast();
   const branding = useSaveBranding();
   const logo = useSaveBrandLogo();
-  const fileInput = useRef<HTMLInputElement | null>(null);
 
   /*
    * Held locally so typing does not save on every keystroke, and seeded again
@@ -129,36 +139,10 @@ export function BrandingPanel({ settings }: { settings: MerchantSettings }) {
         }}
       />
 
-      {/* The file input is the real control and the button is what a merchant
-        clicks: s-drop-zone has no way to hand back the File, and a label
-        dressed as a button is not something a keyboard reaches the same way. */}
-      <input
-        ref={fileInput}
-        type="file"
-        accept={ACCEPT}
-        hidden
-        onChange={(event) => {
-          void pickLogo(event.currentTarget.files?.[0]);
-          // Cleared so picking the same file twice still fires a change.
-          event.currentTarget.value = "";
-        }}
-      />
-
       <s-stack direction="block" gap="small-300">
-        <s-text type="strong">Logo</s-text>
-        <s-stack direction="inline" gap="base" alignItems="center">
-          {settings.brandLogoUrl ? (
+        {settings.brandLogoUrl ? (
+          <s-stack direction="inline" gap="base" alignItems="center">
             <s-thumbnail src={settings.brandLogoUrl} alt="" size="small" />
-          ) : null}
-          <s-button
-            variant="secondary"
-            loading={logo.isPending}
-            disabled={busy}
-            onClick={() => fileInput.current?.click()}
-          >
-            {settings.brandLogoUrl ? "Replace logo" : "Upload logo"}
-          </s-button>
-          {settings.brandLogoUrl ? (
             <s-button
               variant="tertiary"
               tone="critical"
@@ -171,10 +155,39 @@ export function BrandingPanel({ settings }: { settings: MerchantSettings }) {
                 })
               }
             >
-              Remove
+              Remove logo
             </s-button>
-          ) : null}
-        </s-stack>
+          </s-stack>
+        ) : null}
+
+        {/* s-drop-zone hands the File back on its change event -- it has a
+          read-only `files` array for exactly this. An earlier attempt hid a
+          plain <input type="file"> in here and clicked it from a button;
+          Polaris slots its children into shadow DOM and the input never
+          rendered, so the ref stayed null and the click went nowhere. It
+          failed without a sound, which is the worst way for an upload to
+          fail. */}
+        <s-drop-zone
+          label={settings.brandLogoUrl ? "Replace logo" : "Logo"}
+          name="logo"
+          accept={ACCEPT}
+          disabled={busy}
+          onChange={(event) => {
+            const zone = event.currentTarget as unknown as DropZoneFiles;
+            const picked = zone.files?.[0];
+
+            // Cleared so picking the same file twice still fires a change.
+            // The setter refuses anything but "" or null, by design.
+            zone.value = "";
+
+            void pickLogo(picked);
+          }}
+          onDropRejected={() =>
+            showToast("That file type is not an image Shopify accepts.", {
+              isError: true,
+            })
+          }
+        />
         <s-text color="subdued">
           PNG, JPG, GIF or WebP, up to 5 MB. Stored on your Shopify files.
         </s-text>
