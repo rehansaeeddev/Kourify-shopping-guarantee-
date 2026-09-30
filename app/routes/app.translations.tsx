@@ -483,6 +483,9 @@ function groupTranslationKeys(keys: string[]): Map<string, string[]> {
   return buckets;
 }
 
+/** Matches the heading a Card draws for itself. */
+const EDITOR_HEADING_SIZE = { size: "large-200" } as Record<string, string>;
+
 function LanguageEditor({
   editing,
   keys,
@@ -517,12 +520,6 @@ function LanguageEditor({
 
   return (
     <>
-      <s-stack direction="inline" alignItems="center" gap="base">
-        <s-button variant="secondary" icon="arrow-left" onClick={onDone}>
-          Back to languages
-        </s-button>
-        <s-heading>{`Edit ${editing.label}`}</s-heading>
-      </s-stack>
       {/* Uncontrolled on purpose: the fields are read off the form in one
           pass on submit, so typing in any of a few hundred inputs does not
           re-render the whole editor. */}
@@ -539,7 +536,20 @@ function LanguageEditor({
           onSave(strings);
         }}
       >
-        <Card heading="Translations" boxed>
+        <Card boxed>
+          {/* The way back and the name of what is open, inside the card
+            rather than floating above it. Loose, they were the only things
+            on the screen not sitting on a surface, and they pushed the card
+            itself out of line with the rail. "Translations" went with them:
+            "Edit <language>" already says what these rows are. */}
+          <s-stack direction="inline" alignItems="center" gap="base">
+            <s-button variant="secondary" icon="arrow-left" onClick={onDone}>
+              Back to languages
+            </s-button>
+            <s-heading {...EDITOR_HEADING_SIZE}>
+              {`Edit ${editing.label}`}
+            </s-heading>
+          </s-stack>
           <s-paragraph color="subdued">
             {`Blank fields fall back to English automatically.`}
           </s-paragraph>
