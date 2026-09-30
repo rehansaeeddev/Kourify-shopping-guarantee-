@@ -90,6 +90,10 @@
   width: 1280px;
   height: 940px;
   border: 0;
-  transform: scale(calc(100cqw / 1280));
+  /* A length divided by a length is a number; divided by a plain 1280 it
+   * stays a length, which is not a scale factor at all -- the transform was
+   * dropped and the frame showed the top-left corner of a 1280px page, which
+   * on the claim page is empty background. */
+  transform: scale(calc(100cqw / 1280px));
   transform-origin: top left;
 }

@@ -337,20 +337,23 @@ export function BrandingPanel({
 
   return (
     <s-grid
-      gridTemplateColumns="@container (inline-size <= 640px) 1fr, minmax(0, 1fr) minmax(300px, 400px)"
+      // The comma separates the query from the fallback, so a minmax() in
+      // here splits the value and the whole thing stops parsing -- which is
+      // why the preview sat under the settings on a column twice this wide.
+      gridTemplateColumns="@container (inline-size <= 640px) 1fr, 1fr 380px"
       gap="base"
     >
       <s-stack direction="block" gap="base">
-        <Card heading="Claim page branding" boxed>
+        {/* A card per question, rather than one card with rules across it.
+          A merchant scanning the page should be able to tell what each group
+          is for without reading a field label first -- "Colours" answers that
+          from the heading, "Identity" as a line of small text inside a longer
+          card did not. Leave anything blank and that part keeps the page's
+          own design. */}
+        <Card heading="Shop name and logo" boxed>
           <s-paragraph color="subdued">
-            How the storefront claim page looks to your customers. Leave
-            anything blank to keep the page&apos;s own design.
+            Who the page says it belongs to.
           </s-paragraph>
-
-          {/* Three groups, each named and ruled off. They were one run of
-            controls before, so where the name stopped and the layout began
-            was something the merchant had to work out from the labels. */}
-          <s-text type="strong">Identity</s-text>
 
           <s-text-field
             label="Shop name"
@@ -448,9 +451,12 @@ export function BrandingPanel({
               </s-text>
             </s-stack>
           )}
+        </Card>
 
-          <s-divider />
-          <s-text type="strong">Colour</s-text>
+        <Card heading="Colours" boxed>
+          <s-paragraph color="subdued">
+            Two colours. Every other shade on the page is worked out from them.
+          </s-paragraph>
 
           <s-grid
             gridTemplateColumns="@container (inline-size <= 560px) 1fr, 1fr 1fr"
@@ -489,9 +495,12 @@ export function BrandingPanel({
               }}
             />
           </s-grid>
+        </Card>
 
-          <s-divider />
-          <s-text type="strong">Layout</s-text>
+        <Card heading="Layout" boxed>
+          <s-paragraph color="subdued">
+            Where each part of the page sits. Pick a tile and watch the preview.
+          </s-paragraph>
 
           {/* Its own control because it is its own choice. The logo and name
             used to travel with the introduction, so a merchant who wanted
