@@ -3,6 +3,7 @@
   "protectionDescription": "Couverture en cas de perte, de dommage ou de vol pendant le transport.",
   "merchantCoversFee": "Cette commande est automatiquement protégée contre la perte, les dommages ou le vol — offert par nous, sans frais supplémentaires.",
   "addProtection": "Ajouter la protection Kourify — {{price}}",
+  "addProtectionBranded": "Ajouter la protection {{name}} — {{price}}",
   "includedInTotal": "La protection est incluse dans le total affiché dans le récapitulatif.",
   "totalWillUpdate": "Le total de votre commande sera mis à jour dès que la protection sera sélectionnée.",
   "cartChangesUnavailable": "La protection ne peut pas être modifiée pour cette commande.",

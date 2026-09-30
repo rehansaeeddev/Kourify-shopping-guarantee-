@@ -1,3 +1,18 @@
+{%- liquid
+  # The merchant's mark and colour, read straight from the app-data metafields
+  # the admin publishes. No wording: every string on this badge is already a
+  # theme setting the merchant typed.
+  #
+  # Inlined rather than shared, though snippets/protection-translations.liquid
+  # reads the same two: a rendered snippet gets its own scope, so nothing it
+  # assigns is visible here. Keep the copies in step.
+  assign kourify_brand_logo = app.metafields.kourify.brand_logo.value | default: '' | strip
+  assign kourify_brand_color = app.metafields.kourify.brand_color.value | default: '' | strip
+
+  if kourify_brand_logo == blank
+    assign kourify_brand_logo = 'kourify-logo.png' | asset_url
+  endif
+-%}
 <div
   class="kourify-protection-badge"
   data-kourify-protection-badge
@@ -5,11 +20,23 @@
   data-text-merchant="{{ block.settings.merchant_text | escape }}"
   data-text-customer="{{ block.settings.customer_text | escape }}"
   data-show-customer="{% if block.settings.show_when_customer_pays %}1{% else %}0{% endif %}"
-  style="--kourify-accent: {{ block.settings.accent_color }}; display: none;"
+  {%- comment -%}
+    The accent is emitted only when the merchant has set no colour of their
+    own; an inline custom property wins on its own element whatever a
+    stylesheet says about an ancestor. `display: none` stays either way --
+    the badge reveals itself once the script knows who pays.
+  {%- endcomment -%}
+  style="{% if kourify_brand_color == blank %}--kourify-accent: {{ block.settings.accent_color }}; {% endif %}display: none;"
 >
+  {%- comment -%}
+    Renders the palette this badge takes its colours from. Without it a badge
+    that stands alone on a page -- no product or cart block beside it -- got
+    no brand colour at all and stayed the shipped green.
+  {%- endcomment -%}
+  {% render 'protection-translations' %}
   <span class="kourify-protection-badge__icon">
     <img
-      src="{{ 'kourify-logo.png' | asset_url }}"
+      src="{{ kourify_brand_logo | escape }}"
       width="16"
       height="16"
       alt=""

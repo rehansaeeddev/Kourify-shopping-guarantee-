@@ -9,6 +9,10 @@ export default function extension() {
 function Extension() {
   const [variant, setVariant] = useState(null);
   const [payer, setPayer] = useState("customer");
+  // The merchant's own name, when they have set one. The theme blocks read
+  // it from an app-data metafield, but this extension runs sandboxed with no
+  // `app` object, so it comes over the proxy with the rest of the settings.
+  const [brandName, setBrandName] = useState("");
   const [enabled, setEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -28,6 +32,7 @@ function Extension() {
         if (!active || !data) return;
         setPayer(data.protectionPayer || "customer");
         setEnabled(Boolean(data.protectionEnabled));
+        setBrandName(data.brandName || "");
         if (data.protectionVariantId) {
           setVariant({
             id: data.protectionVariantId,
@@ -113,7 +118,14 @@ function Extension() {
           checked={selected}
           disabled={busy || !canChange}
           onChange={handleProtectionChange}
-          label={shopify.i18n.translate("addProtection", {price: formattedFee})}
+          label={
+            brandName
+              ? shopify.i18n.translate("addProtectionBranded", {
+                  name: brandName,
+                  price: formattedFee,
+                })
+              : shopify.i18n.translate("addProtection", {price: formattedFee})
+          }
         />
         <s-text tone="neutral">
           {selected

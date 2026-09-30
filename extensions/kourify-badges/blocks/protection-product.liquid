@@ -1,20 +1,52 @@
+{%- liquid
+  # The merchant's name, mark and colour, read straight from the app-data
+  # metafields the admin publishes.
+  #
+  # Inlined rather than shared, though snippets/protection-translations.liquid
+  # reads the same three: a rendered snippet gets its own scope, so nothing it
+  # assigns is visible here, and capturing the render instead put Shopify's
+  # own "BEGIN app snippet" comment into the output. Keep the copies in step.
+  assign kourify_brand = app.metafields.kourify.brand_name.value | default: '' | strip
+  assign kourify_brand_logo = app.metafields.kourify.brand_logo.value | default: '' | strip
+  assign kourify_brand_color = app.metafields.kourify.brand_color.value | default: '' | strip
+
+  if kourify_brand == blank
+    assign kourify_managed = 'protection.managed' | t
+    assign kourify_provided_by = 'protection.provided_by' | t
+  else
+    assign kourify_managed = 'protection.managed_branded' | t: name: kourify_brand
+    assign kourify_provided_by = 'protection.provided_by_branded' | t: name: kourify_brand
+  endif
+
+  if kourify_brand_logo == blank
+    assign kourify_brand_logo = 'kourify-logo.png' | asset_url
+  endif
+-%}
 <div
   class="kourify-protection kourify-protection--product"
   data-kourify-protection
   data-basis-cents="{{ product.price | default: 0 }}"
   data-currency="{{ shop.currency }}"
   data-logo-url="{{ 'kourify-logo.png' | asset_url }}"
-  style="--kourify-accent: {{ block.settings.accent_color }};"
+  {%- comment -%}
+    Emitted only when the merchant has set no colour of their own. An inline
+    custom property wins on its own element whatever a stylesheet says about
+    an ancestor, so leaving this here unconditionally is exactly what kept
+    this card green beside a pink tab. When a brand colour exists the whole
+    accent family comes from the snippet's rule on `body` -- built by
+    Liquid's colour filters, not printed as the merchant typed it.
+  {%- endcomment -%}
+  {% if kourify_brand_color == blank %}style="--kourify-accent: {{ block.settings.accent_color }};"{% endif %}
 >
   {% render 'protection-translations' %}
   <span class="kourify-protection__eyebrow">
-    <img src="{{ 'kourify-logo.png' | asset_url }}" width="12" height="12" alt="" style="display:block;object-fit:contain;" />
-    {{ 'protection.managed' | t }}
+    <img src="{{ kourify_brand_logo | escape }}" width="12" height="12" alt="" style="display:block;object-fit:contain;" />
+    {{ kourify_managed | escape }}
   </span>
 
   <div class="kourify-protection__card">
     <div class="kourify-protection__icon">
-      <img src="{{ 'kourify-logo.png' | asset_url }}" width="20" height="20" alt="" style="display:block;object-fit:contain;" />
+      <img src="{{ kourify_brand_logo | escape }}" width="20" height="20" alt="" style="display:block;object-fit:contain;" />
     </div>
     <div class="kourify-protection__body">
       <p class="kourify-protection__heading">{{ block.settings.heading }}</p>
@@ -33,7 +65,7 @@
   </div>
 
   <p class="kourify-protection__footnote">
-    {{ 'protection.provided_by' | t }}
+    {{ kourify_provided_by | escape }}
   </p>
 </div>
 

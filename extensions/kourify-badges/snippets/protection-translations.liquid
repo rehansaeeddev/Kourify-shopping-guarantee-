@@ -23,10 +23,19 @@ Provides localized strings and the active storefront locale to the protection Ja
       assign kourify_brand_name = 'Kourify'
       assign kourify_guarantee = 'protection.guarantee' | t
       assign kourify_modal_title = 'protection.modal_title' | t
+      assign kourify_managed = 'protection.managed' | t
+      assign kourify_terms = 'protection.modal_terms' | t
     else
       assign kourify_brand_name = kourify_brand
       assign kourify_guarantee = 'protection.guarantee_branded' | t: name: kourify_brand
       assign kourify_modal_title = 'protection.modal_title_branded' | t: name: kourify_brand
+      assign kourify_managed = 'protection.managed_branded' | t: name: kourify_brand
+      # Without the shop's name the sentence ends ", not the store", which is
+      # the whole point of it -- Kourify is not the merchant. Under the
+      # merchant's own name that clause contradicts itself, so the branded
+      # wording drops it and keeps what still holds: protection is optional,
+      # and this is who handles it.
+      assign kourify_terms = 'protection.modal_terms_branded' | t: name: kourify_brand
     endif
 
     # Built by Liquid's own colour filters rather than printed as typed. The
@@ -56,6 +65,14 @@ Provides localized strings and the active storefront locale to the protection Ja
     assign k_tab_end = kourify_color | color_darken: 20
     assign k_tab_icon = kourify_color | color_lighten: 28
 
+    # The product card, the cart card and the compact badge read this second
+    # family, not --kourify-brand. It is a theme block setting, which is why
+    # a merchant with a pink shop still had a green card next to a pink tab.
+    # The darken is heavier than the tab's: this one is text on its own tint.
+    assign k_accent_dark = kourify_color | color_darken: 25
+    assign k_accent_light = kourify_color | color_lighten: 42
+    assign k_accent_soft = kourify_color | color_lighten: 46
+
     assign kourify_palette_ok = true
     if k_rgb == blank or k_r == blank or k_g == blank or k_b == blank
       assign kourify_palette_ok = false
@@ -64,6 +81,9 @@ Provides localized strings and the active storefront locale to the protection Ja
       assign kourify_palette_ok = false
     endif
     if k_tab_start == blank or k_tab_end == blank or k_tab_icon == blank
+      assign kourify_palette_ok = false
+    endif
+    if k_accent_dark == blank or k_accent_light == blank or k_accent_soft == blank
       assign kourify_palette_ok = false
     endif
   -%}
@@ -88,6 +108,10 @@ Provides localized strings and the active storefront locale to the protection Ja
       --kourify-tab-start: {{ k_tab_start }};
       --kourify-tab-end: {{ k_tab_end }};
       --kourify-tab-icon: {{ k_tab_icon }};
+      --kourify-accent: {{ k_rgb }};
+      --kourify-accent-dark: {{ k_accent_dark }};
+      --kourify-accent-light: {{ k_accent_light }};
+      --kourify-accent-soft: {{ k_accent_soft }};
     }
   </style>
 {%- endif -%}
@@ -108,13 +132,13 @@ Provides localized strings and the active storefront locale to the protection Ja
   data-brand-logo="{{ kourify_brand_logo | escape }}"
   data-brand-name="{{ kourify_brand_name | escape }}"
   data-modal-title="{{ kourify_modal_title | escape }}"
-  data-managed="{{ 'protection.managed' | t | escape }}"
+  data-managed="{{ kourify_managed | escape }}"
   data-learn-more="{{ 'protection.learn_more' | t | escape }}"
   data-file-claim="{{ 'protection.file_claim' | t | escape }}"
   data-included="{{ 'protection.included' | t | escape }}"
   data-included-heading="{{ 'protection.included_heading' | t | escape }}"
   data-modal-description="{{ 'protection.modal_description' | t | escape }}"
-  data-modal-terms="{{ 'protection.modal_terms' | t | escape }}"
+  data-modal-terms="{{ kourify_terms | escape }}"
   data-update-error="{{ 'protection.update_error' | t | escape }}"
   data-coverage-up-to="{{ 'protection.coverage_up_to' | t | escape }}"
 ></span>
