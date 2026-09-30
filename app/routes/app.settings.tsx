@@ -426,6 +426,17 @@ export default function Settings() {
                      * all and every section looked current.
                      */
                     background={isActive ? "base" : "transparent"}
+                    /*
+                     * The outline, not the fill, is what says "this one".
+                     * Polaris has three surface colours and they are #fff,
+                     * #f7f7f7 and #f2f2f2 -- five shades apart at the widest
+                     * -- so a white pill on a subdued rail is as far as
+                     * background alone can carry this. Every item keeps a
+                     * border so the row does not shift by a pixel when the
+                     * current one changes; only its colour does.
+                     */
+                    borderWidth="base"
+                    borderColor={isActive ? "strong" : "subdued"}
                     /* The current section is shown by a background and a bolder
                      label, and neither reaches a screen reader — both are
                      presentation. Saying it is the only way it carries. */
