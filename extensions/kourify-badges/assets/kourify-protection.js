@@ -7,6 +7,29 @@
     return (source && source.getAttribute("data-" + name)) || fallback;
   }
 
+  /*
+    Escapes a value on its way into innerHTML.
+
+    Liquid escapes these into the data attributes, but getAttribute hands
+    back the DECODED string -- the browser undid it when it parsed the page.
+    So by the time this file sees a value, Liquid's escaping is spent, and
+    anything merchant-typed that is concatenated into innerHTML runs.
+
+    That was theoretical while every one of these strings was ours. It stopped
+    being theoretical when the guarantee tab started carrying the shop name:
+    a name of `<img src=x onerror=...>` would have run on every page of the
+    store, reachable by any staff account with access to the app and none to
+    the theme.
+
+    Quotes as well as angle brackets, because two of these land inside
+    attributes rather than between tags.
+  */
+  function safe(value) {
+    var node = document.createElement("div");
+    node.textContent = value == null ? "" : String(value);
+    return node.innerHTML.replace(/"/g, "&quot;");
+  }
+
   // The real logo is a theme asset, only resolvable via Liquid's asset_url —
   // this plain JS file can't call that, so it reads the URL off whichever
   // Kourify block Liquid already rendered it into (see data-logo-url on
@@ -27,7 +50,7 @@
     if (url) {
       return (
         '<img src="' +
-        url +
+        safe(url) +
         '" width="' +
         size +
         '" height="' +
@@ -71,25 +94,29 @@
       '<div class="kourify-modal" role="dialog" aria-modal="true">' +
       '<button type="button" class="kourify-modal__close" data-kourify-close aria-label="Close">✕</button>' +
       modalHeaderHtml(
-        translation("modal-title", "Kourify Shopping Guarantee"),
+        safe(translation("modal-title", "Kourify Shopping Guarantee")),
       ) +
       '<div class="kourify-modal__body">' +
       "<p>" +
-      translation(
-        "modal-description",
-        "Add optional protection for eligible delivery problems.",
+      safe(
+        translation(
+          "modal-description",
+          "Add optional protection for eligible delivery problems.",
+        ),
       ) +
       "</p>" +
       "<p>" +
-      translation(
-        "modal-terms",
-        "Protection is optional and managed directly by Kourify.",
+      safe(
+        translation(
+          "modal-terms",
+          "Protection is optional and managed directly by Kourify.",
+        ),
       ) +
       "</p>" +
       "</div>" +
       '<div class="kourify-modal__actions">' +
       '<button type="button" class="kourify-btn kourify-btn--primary" data-kourify-file-claim>' +
-      translation("file-claim", "File a claim") +
+      safe(translation("file-claim", "File a claim")) +
       "</button>" +
       "</div></div>";
     document.body.appendChild(overlay);
@@ -123,7 +150,7 @@
       '<button type="button" class="kourify-guarantee-tab__button" data-kourify-learn-more>' +
       logoImgHtml(14, true) +
       "<span>" +
-      translation("guarantee", "Kourify Guarantee") +
+      safe(translation("guarantee", "Kourify Guarantee")) +
       "</span>" +
       "</button>";
 
