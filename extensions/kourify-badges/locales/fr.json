@@ -10,6 +10,7 @@
     "included": "Inclus",
     "included_heading": "Protégé sans frais supplémentaires",
     "modal_title": "Garantie d'achat Kourify",
+    "modal_title_branded": "Garantie d’achat {{ name }}",
     "modal_description": "Ajoutez une protection facultative et déposez une réclamation en cas de problème de livraison admissible.",
     "modal_terms": "La protection est facultative et gérée directement par Kourify, et non par la boutique.",
     "update_error": "Impossible de mettre à jour la protection. Veuillez réessayer.",

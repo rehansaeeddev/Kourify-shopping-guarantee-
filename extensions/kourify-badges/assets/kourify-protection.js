@@ -72,10 +72,13 @@
     return (
       '<div class="kourify-modal__header">' +
       '<div class="kourify-modal__header-icon">' +
-      logoImgHtml(20) +
+      logoImgHtml(20, true) +
       "</div>" +
       '<div class="kourify-modal__header-text">' +
-      '<span class="kourify-modal__brand">Kourify</span>' +
+      // Was hardcoded here, so it could not be translated either.
+      '<span class="kourify-modal__brand">' +
+      safe(translation("brand-name", "Kourify")) +
+      "</span>" +
       '<p class="kourify-modal__title">' +
       title +
       "</p>" +

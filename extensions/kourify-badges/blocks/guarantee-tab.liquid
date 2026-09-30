@@ -6,18 +6,17 @@
   {% render 'protection-translations' %}
   {%- liquid
     # The merchant's name and logo, read straight from the app-data
-    # metafields the admin publishes.
+    # metafields the admin publishes. The colour and the modal's wording are
+    # the translations snippet's business, not this block's.
     #
-    # Deliberately not a shared snippet, though the same lines also sit in
-    # snippets/protection-translations.liquid: Shopify wraps every app
-    # snippet's output in "BEGIN app snippet" comments, so capturing a
-    # render put that comment into the tab's own text and into the logo's
-    # src. Keep the two copies in step.
+    # Deliberately not a shared snippet, though snippets/protection-
+    # translations.liquid reads the same metafields: Shopify wraps every app
+    # snippet's output in "BEGIN app snippet" comments, so capturing a render
+    # put that comment into this tab's own text. Keep the two in step.
     #
     # Interpolated rather than concatenated -- English puts the name first,
-    # French and Arabic second -- and a shop that has set no name falls
-    # through to the wording this tab has always used, as does one that has
-    # set no logo.
+    # French and Arabic second -- and a shop that has set nothing falls
+    # through to the wording and the mark this tab has always used.
     assign kourify_brand = app.metafields.kourify.brand_name.value | default: '' | strip
     assign kourify_brand_logo = app.metafields.kourify.brand_logo.value | default: '' | strip
 

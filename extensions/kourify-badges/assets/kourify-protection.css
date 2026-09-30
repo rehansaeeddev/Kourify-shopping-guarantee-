@@ -7,6 +7,30 @@
   --kourify-panel-bg: #f6f9f8;
   --kourify-text: #11212e;
   --kourify-muted: #526270;
+
+  /*
+    The learn-more modal and the guarantee tab.
+
+    Every default below is the exact value the rule it replaces already
+    carried, so a shop that has set no colour renders byte for byte as
+    before. The admin redefines these on `body` when the merchant has set
+    one -- on body rather than :root because this file is linked after the
+    block that emits them, and two :root blocks of equal specificity would
+    be decided by document order, which the later-loading file wins.
+
+    The rgb triples exist so every rgba() keeps its own alpha instead of
+    each one needing a variable of its own.
+  */
+  --kourify-brand: #0d9488;
+  --kourify-brand-dark: #0f766e;
+  --kourify-brand-rgb: 15, 118, 110;
+  --kourify-brand-veil-rgb: 13, 148, 136;
+  --kourify-brand-tint: #e5fbf5;
+  --kourify-brand-tint-strong: #c3f0e4;
+  --kourify-brand-wash: #eff7f5;
+  --kourify-tab-start: #272b2f;
+  --kourify-tab-end: #1d2126;
+  --kourify-tab-icon: #7ae1c7;
 }
 
 .kourify-protection {
@@ -168,7 +192,7 @@
 
 .kourify-modal {
   background:
-    radial-gradient(120% 60% at 50% 0%, rgba(13, 148, 136, 0.07) 0%, rgba(13, 148, 136, 0) 55%),
+    radial-gradient(120% 60% at 50% 0%, rgba(var(--kourify-brand-veil-rgb), 0.07) 0%, rgba(var(--kourify-brand-veil-rgb), 0) 55%),
     linear-gradient(160deg, #ffffff 0%, #f8fffd 100%);
   border-radius: 24px;
   width: min(520px, 100%);
@@ -180,7 +204,7 @@
     0 40px 90px rgba(4, 31, 29, 0.3),
     0 12px 28px rgba(4, 31, 29, 0.14),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(15, 118, 110, 0.14);
+  border: 1px solid rgba(var(--kourify-brand-rgb), 0.14);
   animation: kourify-modal-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -203,8 +227,8 @@
   height: 34px;
   display: grid;
   place-items: center;
-  background: #eff7f5;
-  border: 1px solid rgba(15, 118, 110, 0.1);
+  background: var(--kourify-brand-wash);
+  border: 1px solid rgba(var(--kourify-brand-rgb), 0.1);
   border-radius: 50%;
   font-size: 16px;
   line-height: 1;
@@ -225,7 +249,7 @@
   padding-block-end: 18px;
   padding-inline-end: 44px;
   margin-block-end: 18px;
-  border-bottom: 1px solid rgba(15, 118, 110, 0.1);
+  border-bottom: 1px solid rgba(var(--kourify-brand-rgb), 0.1);
 }
 
 .kourify-modal__header-icon {
@@ -233,14 +257,14 @@
   width: 46px;
   height: 46px;
   border-radius: 14px;
-  background: linear-gradient(135deg, #e5fbf5 0%, #c3f0e4 100%);
+  background: linear-gradient(135deg, var(--kourify-brand-tint) 0%, var(--kourify-brand-tint-strong) 100%);
   color: var(--kourify-accent-dark);
   display: flex;
   align-items: center;
   justify-content: center;
   box-shadow:
-    inset 0 0 0 1px rgba(15, 118, 110, 0.12),
-    0 6px 14px rgba(15, 118, 110, 0.12);
+    inset 0 0 0 1px rgba(var(--kourify-brand-rgb), 0.12),
+    0 6px 14px rgba(var(--kourify-brand-rgb), 0.12);
 }
 
 .kourify-modal__header-text {
@@ -288,7 +312,7 @@
   padding-inline-start: 50px;
   position: relative;
   background: #ffffff;
-  border: 1px solid rgba(15, 118, 110, 0.12);
+  border: 1px solid rgba(var(--kourify-brand-rgb), 0.12);
   border-radius: 14px;
   box-shadow: 0 2px 8px rgba(4, 31, 29, 0.04);
 }
@@ -307,11 +331,11 @@
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+  background: linear-gradient(135deg, var(--kourify-brand-dark) 0%, var(--kourify-brand) 100%);
   color: #ffffff;
   font-size: 11px;
   font-weight: 900;
-  box-shadow: 0 3px 8px rgba(15, 118, 110, 0.28);
+  box-shadow: 0 3px 8px rgba(var(--kourify-brand-rgb), 0.28);
 }
 
 .kourify-modal__actions {
@@ -329,7 +353,7 @@
 
 .kourify-modal__actions .kourify-btn--primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 14px 24px rgba(15, 118, 110, 0.26);
+  box-shadow: 0 14px 24px rgba(var(--kourify-brand-rgb), 0.26);
 }
 
 @media (max-width: 560px) {
@@ -488,9 +512,9 @@
 }
 
 .kourify-btn--primary {
-  background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+  background: linear-gradient(135deg, var(--kourify-brand-dark) 0%, var(--kourify-brand) 100%);
   color: #fff;
-  box-shadow: 0 10px 18px rgba(15, 118, 110, 0.18);
+  box-shadow: 0 10px 18px rgba(var(--kourify-brand-rgb), 0.18);
 }
 
 .kourify-btn--secondary {
@@ -570,7 +594,7 @@
   gap: 8px;
   border: none;
   cursor: pointer;
-  background: linear-gradient(180deg, #272b2f 0%, #1d2126 100%);
+  background: linear-gradient(180deg, var(--kourify-tab-start) 0%, var(--kourify-tab-end) 100%);
   color: #f4fbf9;
   padding: 18px 12px 16px;
   /* Logical rounding so the flat edge hugs the viewport side in both LTR/RTL. */
@@ -615,5 +639,5 @@
 .kourify-guarantee-tab__button svg {
   width: 18px;
   height: 18px;
-  color: #7ae1c7;
+  color: var(--kourify-tab-icon);
 }
