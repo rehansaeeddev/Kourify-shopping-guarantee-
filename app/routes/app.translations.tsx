@@ -20,11 +20,23 @@ import { PageBody } from "../components/PageBody";
 /** What every mutation here answers with. */
 type Result = { ok: boolean; message?: string; error?: string | null };
 
-export default function Translations() {
+/**
+ * The languages list, add-language form and their modals.
+ *
+ * Split out of the route so the settings page can show it as one of its
+ * panels. Everything here fits beside a settings rail; the per-language
+ * editor does not, which is why editing is handed back to the caller
+ * through onEdit rather than opened from in here.
+ */
+export function LanguagesPanel({
+  onEdit,
+}: {
+  /** Open the editor for one language. */
+  onEdit: (locale: string) => void;
+}) {
   const { data, isPending, error, refetch } = useTranslations();
   const mutations = useTranslationMutations();
   const { showToast } = useToast();
-  const [searchParams, setSearchParams] = useSearchParams();
   const [renaming, setRenaming] = useState<string | null>(null);
 
   // Removing a language drops its saved translations, so it's confirmed in a
@@ -53,26 +65,35 @@ export default function Translations() {
     onError: (cause: Error) => showToast(cause.message, { isError: true }),
   };
 
-  if (isPending) return <PageSkeleton heading="Claim page languages" />;
+  /*
+   | Rendered inline rather than through PageSkeleton/PageError: both of
+   | those draw an s-page of their own, and this sits inside one already.
+   */
+  if (isPending)
+    return (
+      <Card heading="Languages">
+        <s-stack direction="inline" gap="small-300" alignItems="center">
+          <s-spinner accessibilityLabel="Loading" />
+          <s-text color="subdued">Loading…</s-text>
+        </s-stack>
+      </Card>
+    );
   if (error)
     return (
-      <PageError
-        heading="Claim page languages"
-        error={error}
-        onRetry={refetch}
-      />
+      <Card heading="Languages">
+        <s-banner tone="critical" heading="Languages could not load">
+          <s-paragraph>Something went wrong loading this section.</s-paragraph>
+        </s-banner>
+        <s-stack direction="inline">
+          <s-button onClick={() => refetch()}>Try again</s-button>
+        </s-stack>
+      </Card>
     );
 
-  const { languages, keys } = data;
+  // keys and the English reference belong to the editor, which the route
+  // renders, not to this list.
+  const { languages } = data;
   const fallback = data.defaultLocale;
-  const referenceEn = DEFAULT_TRANSLATIONS.en;
-
-  // Which language the editor is open on. A query parameter rather than
-  // state, so the browser's back button leaves the editor.
-  const editLocale = normalizeLocale(searchParams.get("edit") ?? "");
-  const editing = editLocale
-    ? (languages.find((lang) => lang.locale === editLocale) ?? null)
-    : null;
 
   const renamingLang =
     languages.find((lang) => lang.locale === renaming) ?? null;
@@ -91,30 +112,8 @@ export default function Translations() {
     removeModalRef.current?.hideOverlay();
   };
 
-  if (editing) {
-    return (
-      <LanguageEditor
-        editing={editing}
-        keys={keys}
-        referenceEn={referenceEn}
-        busy={busy}
-        onSave={(strings) =>
-          mutations.saveStrings.mutate(
-            { locale: editing.locale, strings },
-            notify,
-          )
-        }
-        onDone={() => setSearchParams({})}
-      />
-    );
-  }
-
   return (
-    <s-page inlineSize="large" heading="Claim page languages">
-      <s-button slot="secondary-actions" href="/app/claims" variant="secondary">
-        Back to claims
-      </s-button>
-      <PageBody>
+    <>
         {languages.length === 0 ? (
           <Card heading="Get started">
             <s-stack direction="block" gap="base">
@@ -237,7 +236,7 @@ export default function Translations() {
                             variant="secondary"
                             accessibilityLabel={`Edit ${lang.label}`}
                             onClick={() =>
-                              setSearchParams({ edit: lang.locale })
+                              onEdit(lang.locale)
                             }
                           >
                             Edit
@@ -330,6 +329,74 @@ export default function Translations() {
             Cancel
           </s-button>
         </s-modal>
+    </>
+  );
+}
+
+export default function Translations() {
+  const { data, isPending, error, refetch } = useTranslations();
+  const mutations = useTranslationMutations();
+  const { showToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const notify = {
+    onSuccess: (result: Result) => showToast(result.message ?? "Updated."),
+    onError: (cause: Error) => showToast(cause.message, { isError: true }),
+  };
+
+  if (isPending) return <PageSkeleton heading="Claim page languages" />;
+  if (error)
+    return (
+      <PageError
+        heading="Claim page languages"
+        error={error}
+        onRetry={refetch}
+      />
+    );
+
+  // Which language the editor is open on. A query parameter rather than
+  // state, so the browser's back button leaves the editor.
+  const editLocale = normalizeLocale(searchParams.get("edit") ?? "");
+  const editing = editLocale
+    ? (data.languages.find((lang) => lang.locale === editLocale) ?? null)
+    : null;
+
+  /*
+   | The editor is why this route still exists. It opens one language and
+   | every string in it, which needs a page rather than the column beside the
+   | settings rail -- so the list lives in settings and editing comes here.
+   */
+  if (editing) {
+    return (
+      <LanguageEditor
+        editing={editing}
+        keys={data.keys}
+        referenceEn={DEFAULT_TRANSLATIONS.en}
+        busy={mutations.saveStrings.isPending}
+        onSave={(strings) =>
+          mutations.saveStrings.mutate(
+            { locale: editing.locale, strings },
+            notify,
+          )
+        }
+        onDone={() => setSearchParams({})}
+      />
+    );
+  }
+
+  return (
+    <s-page inlineSize="large" heading="Claim page languages">
+      <s-button
+        slot="secondary-actions"
+        href="/app/settings"
+        variant="secondary"
+      >
+        Back to settings
+      </s-button>
+      <PageBody>
+        <LanguagesPanel
+          onEdit={(locale) => setSearchParams({ edit: locale })}
+        />
       </PageBody>
     </s-page>
   );

@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { useNavigate } from "react-router";
 
 import { AppButton } from "../components/AppButton";
 import { Card } from "../components/Card";
+import { LanguagesPanel } from "./app.translations";
 import { InfoTip } from "../components/InfoTip";
 import { PageError, PageSkeleton } from "../components/PageState";
 import { TrustBadgePreview } from "../components/TrustBadgePreview";
@@ -44,29 +46,10 @@ const SETTINGS_TABS = [
   { id: "pricing", label: "Pricing", icon: "cash-dollar" },
   { id: "coverage", label: "Coverage", icon: "shield-check-mark" },
   { id: "claims", label: "Claims", icon: "clipboard-checklist" },
+  { id: "languages", label: "Languages", icon: "globe" },
 ] as const;
 
 type SettingsTab = (typeof SETTINGS_TABS)[number]["id"];
-
-/**
- * Rail entries that leave the page instead of switching a panel.
- *
- * Languages used to sit in the app nav beside Home and Orders, which put a
- * per-shop configuration screen next to the app's main sections. It belongs
- * with the other settings, and this is where a merchant now finds it.
- *
- * It stays its own route rather than becoming a panel: the page carries a
- * full editor for one language, which needs a page of its own to open into,
- * not a column beside a rail.
- */
-const SETTINGS_LINKS = [
-  {
-    id: "languages",
-    label: "Languages",
-    icon: "globe",
-    href: "/app/translations",
-  },
-] as const;
 
 const PROTECTION_STEPS = [
   "Customer selects protection",
@@ -77,6 +60,7 @@ const PROTECTION_STEPS = [
 ];
 
 export default function Settings() {
+  const navigate = useNavigate();
   const { data, isPending, error, refetch } = useSettings();
   // Badges save on their own endpoint so a badge change never re-runs the
   // protection product and Cart Transform reconciliation the main save does.
@@ -463,26 +447,6 @@ export default function Settings() {
                   </s-clickable>
                 );
               })}
-
-              {SETTINGS_LINKS.map((link) => (
-                <s-clickable
-                  key={link.id}
-                  href={link.href}
-                  padding="small-300"
-                  borderRadius="base"
-                  background="transparent"
-                  accessibilityLabel={link.label}
-                >
-                  <s-stack
-                    direction="inline"
-                    gap="small-200"
-                    alignItems="center"
-                  >
-                    <s-icon type={link.icon} size="small" tone="neutral" />
-                    <s-text>{link.label}</s-text>
-                  </s-stack>
-                </s-clickable>
-              ))}
             </s-stack>
           </s-box>
 
@@ -1156,6 +1120,17 @@ export default function Settings() {
                   })}
                 </s-stack>
               </Card>
+            )}
+
+            {/* The list only. Editing one language opens the route that owns
+              the editor -- it is a page of every string in that language and
+              does not fit the column beside the rail. */}
+            {activeTab === "languages" && (
+              <LanguagesPanel
+                onEdit={(locale) =>
+                  navigate(`/app/translations?edit=${locale}`)
+                }
+              />
             )}
           </s-stack>
         </s-grid>
