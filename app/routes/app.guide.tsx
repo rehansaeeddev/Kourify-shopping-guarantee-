@@ -106,11 +106,28 @@ export default function Guide() {
             wrong, the customer files a claim from your storefront and you
             decide it.
           </s-paragraph>
-          <s-ordered-list>
-            {FLOW.map((step) => (
-              <s-list-item key={step}>{step}</s-list-item>
+          {/* Two columns of numbered steps rather than one ordered list.
+            Seven items down a single column ran past the fold of the card
+            and made the shape of the flow -- how many steps, where the
+            merchant's own part falls -- something you had to read to find
+            out. The number is drawn, not a list marker, because a list
+            stacked in a grid renumbers per column. */}
+          <s-grid
+            gridTemplateColumns="@container (inline-size <= 640px) 1fr, 1fr 1fr"
+            gap="small-200 large"
+          >
+            {FLOW.map((step, index) => (
+              <s-stack
+                key={step}
+                direction="inline"
+                gap="small-300"
+                alignItems="start"
+              >
+                <s-badge tone="neutral">{String(index + 1)}</s-badge>
+                <s-text>{step}</s-text>
+              </s-stack>
             ))}
-          </s-ordered-list>
+          </s-grid>
           <s-banner tone="info">
             Shopping Guarantee is a self-funded, manually reviewed guarantee. It
             is not underwritten insurance, and claims are never approved
@@ -176,6 +193,13 @@ export default function Guide() {
 
         {state === "active" && (
           <Card heading="Your protection is active">
+            {/* The badge is the same one the dashboard's status card uses, so
+              "live" looks the same wherever a merchant meets it. */}
+            <s-stack direction="inline">
+              <s-badge tone="success" icon="check-circle">
+                Live
+              </s-badge>
+            </s-stack>
             <s-paragraph color="subdued">
               {`Shopping Guarantee is available for eligible orders.${
                 quota.limit !== null
@@ -204,7 +228,12 @@ export default function Guide() {
               {
                 href: "/app/claims",
                 icon: "clipboard-checklist",
-                label: openClaims > 0 ? `Claims (${openClaims})` : "Claims",
+                label: "Claims",
+                /* A count belongs beside the name, not inside it: "Claims (2)"
+                  reads as the tile's title and gives the number no weight of
+                  its own, which is the one thing on this tile a merchant is
+                  scanning for. */
+                badge: openClaims > 0 ? `${openClaims} open` : null,
                 detail: "Review and decide what customers have filed",
               },
               {
@@ -247,6 +276,9 @@ export default function Guide() {
                       size="base"
                     />
                     <s-text type="strong">{task.label}</s-text>
+                    {task.badge ? (
+                      <s-badge tone="warning">{task.badge}</s-badge>
+                    ) : null}
                   </s-stack>
                   <s-text color="subdued">{task.detail}</s-text>
                 </s-stack>
