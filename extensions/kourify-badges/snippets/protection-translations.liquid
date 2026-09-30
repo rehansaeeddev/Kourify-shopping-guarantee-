@@ -31,36 +31,63 @@ Provides localized strings and the active storefront locale to the protection Ja
 
     # Built by Liquid's own colour filters rather than printed as typed. The
     # value lands in a stylesheet, where escaping does nothing: a colour that
-    # closed its own rule could hide the terms or cover a button. Shopify's
-    # `color` metafield type checks the format; this makes the page carry a
-    # value Liquid built, not the one the merchant typed -- and a colour the
-    # filters cannot read comes back blank and the whole block is skipped.
-    assign kourify_rgb = kourify_brand_color | color_to_rgb
-    assign kourify_r = kourify_brand_color | color_extract: 'red'
-    assign kourify_g = kourify_brand_color | color_extract: 'green'
-    assign kourify_b = kourify_brand_color | color_extract: 'blue'
+    # closed its own rule could hide the terms or cover a button. So the page
+    # carries a value Liquid built, not the one the merchant typed.
+    #
+    # `append` first because the filters take a string, and a typed metafield
+    # hands back an object. Piped in as-is they return nothing -- and nothing
+    # is worse here than wrong: a custom property set to an empty value makes
+    # every declaration using it invalid, so the tab loses its background and
+    # goes white-on-white rather than falling back to its own colours.
+    #
+    # Which is why every derived value is checked below. If any one of them
+    # comes back empty the whole block is skipped, and the shop simply renders
+    # in the colours this app ships with.
+    assign kourify_color = kourify_brand_color | append: ''
+    assign k_rgb = kourify_color | color_to_rgb
+    assign k_r = kourify_color | color_extract: 'red'
+    assign k_g = kourify_color | color_extract: 'green'
+    assign k_b = kourify_color | color_extract: 'blue'
+    assign k_dark = kourify_color | color_darken: 10
+    assign k_tint = kourify_color | color_lighten: 42
+    assign k_tint_strong = kourify_color | color_lighten: 32
+    assign k_wash = kourify_color | color_lighten: 46
+    assign k_tab_start = kourify_color | color_darken: 8
+    assign k_tab_end = kourify_color | color_darken: 20
+    assign k_tab_icon = kourify_color | color_lighten: 28
+
+    assign kourify_palette_ok = true
+    if k_rgb == blank or k_r == blank or k_g == blank or k_b == blank
+      assign kourify_palette_ok = false
+    endif
+    if k_dark == blank or k_tint == blank or k_tint_strong == blank or k_wash == blank
+      assign kourify_palette_ok = false
+    endif
+    if k_tab_start == blank or k_tab_end == blank or k_tab_icon == blank
+      assign kourify_palette_ok = false
+    endif
   -%}
-{%- if kourify_rgb != blank -%}
+{%- if kourify_palette_ok -%}
   {%- comment -%}
     On `body`, not :root. kourify-protection.css is linked after the block
-    that renders this, and two :root blocks of equal specificity are decided
+    that renders this, and two :root blocks of equal specificity are settled
     by document order -- the stylesheet would win and the merchant's colour
     would silently do nothing. Body is a different element and the tab and
     the modal are both its descendants.
   {%- endcomment -%}
   <style>
     body {
-      --kourify-brand: {{ kourify_rgb }};
-      --kourify-brand-dark: {{ kourify_brand_color | color_darken: 10 }};
-      --kourify-modal-brand: {{ kourify_brand_color | color_darken: 10 }};
-      --kourify-brand-rgb: {{ kourify_r }}, {{ kourify_g }}, {{ kourify_b }};
-      --kourify-brand-veil-rgb: {{ kourify_r }}, {{ kourify_g }}, {{ kourify_b }};
-      --kourify-brand-tint: {{ kourify_brand_color | color_lighten: 42 }};
-      --kourify-brand-tint-strong: {{ kourify_brand_color | color_lighten: 32 }};
-      --kourify-brand-wash: {{ kourify_brand_color | color_lighten: 46 }};
-      --kourify-tab-start: {{ kourify_brand_color | color_darken: 8 }};
-      --kourify-tab-end: {{ kourify_brand_color | color_darken: 20 }};
-      --kourify-tab-icon: {{ kourify_brand_color | color_lighten: 28 }};
+      --kourify-brand: {{ k_rgb }};
+      --kourify-brand-dark: {{ k_dark }};
+      --kourify-modal-brand: {{ k_dark }};
+      --kourify-brand-rgb: {{ k_r }}, {{ k_g }}, {{ k_b }};
+      --kourify-brand-veil-rgb: {{ k_r }}, {{ k_g }}, {{ k_b }};
+      --kourify-brand-tint: {{ k_tint }};
+      --kourify-brand-tint-strong: {{ k_tint_strong }};
+      --kourify-brand-wash: {{ k_wash }};
+      --kourify-tab-start: {{ k_tab_start }};
+      --kourify-tab-end: {{ k_tab_end }};
+      --kourify-tab-icon: {{ k_tab_icon }};
     }
   </style>
 {%- endif -%}
