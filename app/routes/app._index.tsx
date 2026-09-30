@@ -303,6 +303,23 @@ export default function Index() {
                 </s-badge>
               </s-stack>
               <s-divider direction="inline" />
+              {/* The storefront half of protection, sat next to the checkout
+                half. Its state was only rendered inside the Overview card,
+                which is behind a flag, so the one thing a merchant turns on
+                first had no status anywhere on this page. */}
+              <s-stack
+                direction="inline"
+                justifyContent="space-between"
+                alignItems="center"
+              >
+                <s-text color="subdued">Trust badges</s-text>
+                <s-badge tone={settings.badgesEnabled ? "success" : "neutral"}>
+                  {settings.badgesEnabled
+                    ? `On · ${settings.badgeStyle} style`
+                    : "Off"}
+                </s-badge>
+              </s-stack>
+              <s-divider direction="inline" />
               <s-stack
                 direction="inline"
                 justifyContent="space-between"
