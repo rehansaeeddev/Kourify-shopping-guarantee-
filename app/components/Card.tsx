@@ -65,7 +65,15 @@ export function Card({ heading, locked, boxed, fill, children }: CardProps) {
         padding="base"
         background="base"
         borderWidth="base"
-        borderColor="base"
+        /*
+         | subdued, not base. s-section draws no border at all -- its edge is
+         | a box-shadow ring at about 6% black, under a soft drop shadow --
+         | and a base border beside one of those is a visibly harder line on
+         | the same page. s-box has no boxShadow prop, so this is as close as
+         | Polaris gets without CSS of ours. The radius already matched: both
+         | land on 12px.
+         */
+        borderColor="subdued"
         borderRadius="large"
       >
         <s-stack direction="block" gap="base">
@@ -160,7 +168,7 @@ export function StatTile({
         padding="base"
         background="base"
         borderWidth="base"
-        borderColor="base"
+        borderColor="subdued"
         borderRadius="large"
         accessibilityLabel={`${label}: ${value}`}
       >
@@ -174,7 +182,7 @@ export function StatTile({
       padding="base"
       background="base"
       borderWidth="base"
-      borderColor="base"
+      borderColor="subdued"
       borderRadius="large"
     >
       {body}
