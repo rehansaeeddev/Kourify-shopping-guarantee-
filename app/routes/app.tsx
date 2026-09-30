@@ -58,12 +58,26 @@ export default function App() {
 export function ErrorBoundary() {
   const error = useRouteError();
 
+  /*
+   * A thrown Error says what went wrong; say it.
+   *
+   * Everything that was not an ApiError or a route response fell through to
+   * one sentence that names nothing -- so a render crash and a dropped
+   * tunnel produced the same screen, and neither the merchant reporting it
+   * nor anyone reading the report could tell them apart.
+   */
   const message =
     error instanceof ApiError
       ? error.message
       : isRouteErrorResponse(error)
         ? `${error.status} ${error.statusText}`
-        : "Something went wrong loading this page.";
+        : error instanceof Error && error.message !== ""
+          ? error.message
+          : "Something went wrong loading this page.";
+
+  // The stack is for whoever is running the app, not for a merchant.
+  const stack =
+    import.meta.env.DEV && error instanceof Error ? error.stack : undefined;
 
   return (
     <s-page inlineSize="large" heading="Something went wrong">
@@ -72,6 +86,11 @@ export function ErrorBoundary() {
           <s-banner tone="critical" heading="This page could not load">
             <s-paragraph>{message}</s-paragraph>
           </s-banner>
+          {stack ? (
+            <s-text color="subdued">
+              {stack.split("\n").slice(0, 6).join(" ")}
+            </s-text>
+          ) : null}
           <s-stack direction="inline">
             <s-button onClick={() => window.location.reload()}>Reload</s-button>
           </s-stack>

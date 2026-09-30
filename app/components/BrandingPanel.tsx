@@ -441,7 +441,6 @@ export function BrandingPanel({
                 value={own[titleKey] ?? ""}
                 maxLength={TITLE_MAX}
                 details={block.details}
-                disabled={busy}
                 onInput={(event) =>
                   setOwn((current) => ({
                     ...current,
@@ -456,7 +455,6 @@ export function BrandingPanel({
                 rows={3}
                 value={own[bodyKey] ?? ""}
                 maxLength={BODY_MAX}
-                disabled={busy}
                 onInput={(event) =>
                   setOwn((current) => ({
                     ...current,
