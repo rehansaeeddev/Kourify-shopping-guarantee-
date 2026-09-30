@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
 
 import { AppButton } from "../components/AppButton";
 import { Card } from "../components/Card";
@@ -60,7 +59,6 @@ const PROTECTION_STEPS = [
 ];
 
 export default function Settings() {
-  const navigate = useNavigate();
   const { data, isPending, error, refetch } = useSettings();
   // Badges save on their own endpoint so a badge change never re-runs the
   // protection product and Cart Transform reconciliation the main save does.
@@ -1122,16 +1120,7 @@ export default function Settings() {
               </Card>
             )}
 
-            {/* The list only. Editing one language opens the route that owns
-              the editor -- it is a page of every string in that language and
-              does not fit the column beside the rail. */}
-            {activeTab === "languages" && (
-              <LanguagesPanel
-                onEdit={(locale) =>
-                  navigate(`/app/translations?edit=${locale}`)
-                }
-              />
-            )}
+            {activeTab === "languages" && <LanguagesPanel />}
           </s-stack>
         </s-grid>
       </PageBody>
