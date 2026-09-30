@@ -66,3 +66,30 @@
   border-radius: 999px;
   padding: 2px;
 }
+
+/* The claim page, framed inside the branding panel.
+ *
+ * Storefront, not admin: the same category as .app-tb above. The page inside
+ * the frame brings its own stylesheet and the merchant's own colours, so
+ * there is not one colour value here — only the box that holds it.
+ *
+ * Rendered at desktop width and scaled down, because the claim page only
+ * splits into two columns at 1024px. A frame the panel's own width would show
+ * the stacked layout whatever the merchant picked, so "beside the form, on
+ * the left" and "above the form" would preview identically.
+ */
+.app-claim-preview {
+  container-type: inline-size;
+  aspect-ratio: 1280 / 940;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.app-claim-preview__frame {
+  display: block;
+  width: 1280px;
+  height: 940px;
+  border: 0;
+  transform: scale(calc(100cqw / 1280));
+  transform-origin: top left;
+}

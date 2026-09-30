@@ -21,6 +21,7 @@ export const keys = {
   claims: (params: Record<string, unknown> = {}) => ["claims", params] as const,
   orders: (params: Record<string, unknown> = {}) => ["orders", params] as const,
   settings: ["settings"] as const,
+  claimPreview: ["claim-preview"] as const,
   translations: ["translations"] as const,
   orderSync: (page: number) => ["order-sync", page] as const,
   billing: ["billing"] as const,
@@ -75,6 +76,22 @@ export const useSettings = () =>
   useQuery({
     queryKey: keys.settings,
     queryFn: () => api.get<SettingsPayload>("/settings"),
+  });
+
+/**
+ * The storefront claim page itself, for the branding panel to frame.
+ *
+ * The real page from the same view the storefront serves, not a sketch of it
+ * in admin markup -- so it cannot drift, and the merchant's colours reach it
+ * through Branding::cssVariables() rather than being painted here.
+ */
+export const useClaimPreview = () =>
+  useQuery({
+    queryKey: keys.claimPreview,
+    queryFn: () => api.get<{ html: string }>("/settings/claim-preview"),
+    // A saved colour is only worth seeing once the page has been rebuilt
+    // with it, so this always refetches rather than serving a stale frame.
+    staleTime: 0,
   });
 
 export const useTranslations = () =>
@@ -155,7 +172,7 @@ export const useSaveBranding = () =>
   useInvalidating(
     (body: Record<string, unknown>) =>
       api.put<SaveResult>("/settings/branding", body),
-    [keys.settings],
+    [keys.settings, keys.claimPreview],
   );
 
 /**
@@ -166,7 +183,7 @@ export const useSaveBranding = () =>
 export const useSaveBrandLogo = () =>
   useInvalidating(
     (logo: string) => api.put<SaveResult>("/settings/branding/logo", { logo }),
-    [keys.settings],
+    [keys.settings, keys.claimPreview],
   );
 
 /**
@@ -180,7 +197,7 @@ export const useSaveClaimText = () =>
   useInvalidating(
     (text: Record<string, string>) =>
       api.put<Ok>("/settings/branding/text", { text }),
-    [keys.settings, keys.translations],
+    [keys.settings, keys.translations, keys.claimPreview],
   );
 
 export const useSaveProtection = () =>
