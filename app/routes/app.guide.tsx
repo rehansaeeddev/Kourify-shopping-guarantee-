@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import { Card } from "../components/Card";
 import { AppButton } from "../components/AppButton";
 import { PageError, PageSkeleton } from "../components/PageState";
@@ -54,35 +56,137 @@ const FLOW: Array<{
   },
 ];
 
-const FAQ: Array<[string, string]> = [
-  [
-    "Is this insurance?",
-    "No. Shopping Guarantee is a self-funded, manually reviewed guarantee you offer and fund yourself. It is not underwritten insurance.",
-  ],
-  [
-    "Who pays for protection?",
-    "You choose. With Customer pays, the customer pays the protection fee at checkout. With Merchant pays, protection is free for the customer and you cover the cost.",
-  ],
-  [
-    "What is the protection price?",
-    "It's what's charged for protection — a flat price per order, or a percentage of order value. It is not the amount an item is covered for; those are separate settings.",
-  ],
-  [
-    "What determines item eligibility?",
-    "Your coverage settings. You set the maximum eligible item value, and items priced above it aren't protected. Shipping and tax are excluded from covered merchandise value.",
-  ],
-  [
-    "How does a customer submit a claim?",
-    "From the guarantee tab on your storefront. They confirm the order, pick the affected item, choose a reason, and attach a photo where one is required.",
-  ],
-  [
-    "Who decides a claim?",
-    "You do. Kourify checks the eligibility rules you configured and presents the claim with its evidence, but never approves or denies on your behalf.",
-  ],
-  [
-    "When can a customer submit a claim?",
-    "Within the filing window you set for each reason, measured from when the order actually shipped. Claims outside that window are rejected automatically.",
-  ],
+/**
+ * The manual.
+ *
+ * Not a setup guide: the dashboard already has one, with the same steps and
+ * the same buttons, and a second copy of it here was the mistake this page
+ * was rejected for twice. A setup guide answers "how do I start". A manual
+ * answers "how does this work" and "why did that happen", which is what a
+ * merchant needs once they are already running.
+ *
+ * Every answer here is what the code does, not what would be nice. Where a
+ * rule has a number in it, the number is the merchant's own setting and the
+ * answer says so rather than inventing one.
+ */
+const MANUAL: Array<{
+  group: string;
+  entries: Array<{ q: string; a: string; href?: string; link?: string }>;
+}> = [
+  {
+    group: "Protection and pricing",
+    entries: [
+      {
+        q: "Who pays for protection?",
+        a: "You choose. With Customer pays, the shopper pays the protection fee at checkout. With Merchant pays, protection is free for them and the cost is yours.",
+        href: "/app/settings",
+        link: "Pricing settings",
+      },
+      {
+        q: "Can I charge a percentage of the order instead of a flat fee?",
+        a: "Only on Shopify Plus. A percentage fee is applied by a Cart Transform, which Shopify runs on Plus stores only. On any other plan the flat price is used.",
+      },
+      {
+        q: "What makes an item eligible?",
+        a: "Your coverage settings. You set a maximum eligible item value and anything priced above it is not protected. Shipping and tax are never counted as covered merchandise.",
+        href: "/app/settings",
+        link: "Coverage settings",
+      },
+      {
+        q: "What happens when I run out of protected orders?",
+        a: "Protection stops being offered on new orders. Orders already protected keep their coverage and their customers can still file claims.",
+        href: "/app/billing",
+        link: "See your plan",
+      },
+      {
+        q: "Is this insurance?",
+        a: "No. Shopping Guarantee is a guarantee you fund and decide yourself. It is not underwritten insurance, and no claim is ever approved automatically.",
+      },
+    ],
+  },
+  {
+    group: "Your storefront",
+    entries: [
+      {
+        q: "Where do shoppers see protection?",
+        a: "On the product page and in the cart, through app blocks you add in your theme editor, and as the trust badge. The blocks are not added for you \u2014 Shopify only lets a merchant place them.",
+      },
+      {
+        q: "What is the guarantee tab?",
+        a: "The tab pinned to the edge of your storefront. It opens a short explanation and a link to the claim page. It carries your shop name and logo once you set them, and you choose which edge it sits on.",
+        href: "/app/settings",
+        link: "Tab position",
+      },
+      {
+        q: "Can I make the claim page look like my store?",
+        a: "Yes. Set your shop name, logo and two colours, choose where the name and the introduction sit, and add your own text above the form or beside it. Everything else on the page is shaded from your brand colour.",
+        href: "/app/settings?tab=branding",
+        link: "Branding",
+      },
+      {
+        q: "Can the claim page be in another language?",
+        a: "Yes. Add a language and translate its strings; shoppers get a picker on the page. Text you wrote yourself shows in your default language until you translate it too.",
+        href: "/app/settings?tab=languages",
+        link: "Languages",
+      },
+    ],
+  },
+  {
+    group: "Claims",
+    entries: [
+      {
+        q: "How does a customer file a claim?",
+        a: "From the guarantee tab on your storefront. They enter the order number and the email they ordered with, pick the affected item, choose a reason, and attach a photo where one is required.",
+      },
+      {
+        q: "Which reasons need a photo?",
+        a: "Arrived damaged and Concealed damage. Those are claims about the condition of goods that did arrive; nothing can be photographed for a parcel that never showed up, so the other reasons do not ask for one.",
+      },
+      {
+        q: "How long does a customer have to file?",
+        a: "The window you set for each reason, counted from when the order actually shipped. Each of the six reasons has its own window, and a claim outside it is refused before it reaches you.",
+        href: "/app/settings",
+        link: "Claim windows",
+      },
+      {
+        q: "Who decides a claim?",
+        a: "You do. Kourify checks the claim against the rules you configured and puts it in front of you with its evidence, but never approves or denies on your behalf.",
+        href: "/app/claims",
+        link: "Open claims",
+      },
+      {
+        q: "What does the customer get told?",
+        a: "They are emailed when the claim is received and again when you decide it, either way.",
+      },
+    ],
+  },
+  {
+    group: "When something looks wrong",
+    entries: [
+      {
+        q: "The trust badge is not showing on my store",
+        a: "Two things switch it off: the badge setting in this app, and whether the block is placed in your theme. Check the setting first, then your theme editor.",
+        href: "/app/settings",
+        link: "Badge settings",
+      },
+      {
+        q: "Protection is not being offered at checkout",
+        a: "Usually one of three: protection is switched off, you have used your plan\u2019s protected orders, or the item costs more than your maximum eligible value.",
+        href: "/app/settings",
+        link: "Check settings",
+      },
+      {
+        q: "A claim was refused before I saw it",
+        a: "It fell outside the filing window for that reason, or the order it named was never protected. Both are checked before a claim is created, so it never reaches your claims list.",
+      },
+      {
+        q: "The claim page shows the wrong shop name",
+        a: "The name in Branding wins over the per-language one. If Branding is blank the page uses the name set for each language instead.",
+        href: "/app/settings?tab=branding",
+        link: "Branding",
+      },
+    ],
+  },
 ];
 
 export default function Guide() {
@@ -92,6 +196,7 @@ export default function Guide() {
    * cache rather than asking the backend the same questions again.
    */
   const { data, isPending, error, refetch } = useDashboard();
+  const [query, setQuery] = useState("");
 
   if (isPending) return <PageSkeleton heading="Help &amp; getting started" />;
   if (error)
@@ -103,51 +208,23 @@ export default function Guide() {
       />
     );
 
-  const { hasActiveBilling, quota, openClaims } = data;
-  const protectionEnabled = Boolean(data.settings.protectionEnabled);
-  const badgesEnabled = Boolean(data.settings.badgesEnabled);
+  const { quota } = data;
 
   /*
-   * The four things that have to be true, each read from the shop rather
-   * than remembered. Four because Shopify's onboarding guidance caps a setup
-   * guide at five and every one of these has to be detectable -- a step the
-   * app cannot check is a step that sits unticked for ever.
-   *
-   * "Add the blocks in your theme" is deliberately not here for that reason:
-   * nothing in the Admin API reports whether a merchant placed an app block,
-   * so it lives in Common tasks below instead of as a box that never ticks.
+   * The search narrows the manual rather than hiding it behind disclosures.
+   * Matching the answer as well as the question matters: a merchant searches
+   * for the word in front of them -- "photo", "Plus", "window" -- which is
+   * rarely the word a question is titled with.
    */
-  const brand = data.settings;
-  const setup = [
-    {
-      label: "Choose a plan",
-      detail: "What you pay, and how many orders are included.",
-      done: hasActiveBilling,
-      href: "/app/billing",
-      action: "Choose",
-    },
-    {
-      label: "Turn on protection at checkout",
-      detail: "Who pays, what it costs, and which items qualify.",
-      done: protectionEnabled,
-      href: "/app/settings",
-      action: "Set it up",
-    },
-    {
-      label: "Show the trust badge on your storefront",
-      detail: "Tells shoppers their order can be protected.",
-      done: badgesEnabled,
-      href: "/app/settings?tab=general",
-      action: "Turn on",
-    },
-    {
-      label: "Make the claim page yours",
-      detail: "Your name, logo and colours on the page customers file from.",
-      done: Boolean(brand.brandName ?? brand.brandColor ?? brand.brandLogoUrl),
-      href: "/app/settings?tab=branding",
-      action: "Open",
-    },
-  ];
+  const needle = query.trim().toLowerCase();
+  const matches = needle
+    ? MANUAL.map((group) => ({
+        ...group,
+        entries: group.entries.filter((entry) =>
+          `${entry.q} ${entry.a}`.toLowerCase().includes(needle),
+        ),
+      })).filter((group) => group.entries.length > 0)
+    : MANUAL;
 
   return (
     <s-page inlineSize="large" heading="Help &amp; getting started">
@@ -231,161 +308,42 @@ export default function Guide() {
           </s-banner>
         </Card>
 
-        {/*
-          Shopify's own Setup guide composition, not an explainer.
+        {/* A manual, searchable, because that is how one gets used: a
+          merchant arrives with a question, not with a wish to read. There is
+          no disclosure component in this Polaris version, so the answers sit
+          open and the field narrows the page instead of collapsing it --
+          which also leaves the browser's own find-in-page working. */}
+        <Card heading="How it all works" boxed>
+          <s-search-field
+            label="Search"
+            labelAccessibilityVisibility="exclusive"
+            placeholder="Search the manual"
+            value={query}
+            onInput={(event) => setQuery(event.currentTarget.value ?? "")}
+          />
 
-          Their onboarding guidance says to focus on demonstrating benefits
-          rather than lengthy explanations, and to keep it under five steps
-          with each one marked complete on its own. This page was the
-          opposite: several hundred words about how the product works, with
-          the shop's actual state reduced to one small "Live" badge. A
-          reviewer opening it could not tell what was set up and what was
-          not, which is exactly what came back.
-
-          Every step here checks itself against the shop's real data. None
-          of them is a box a merchant ticks by hand.
-          https://shopify.dev/docs/api/app-home/latest/patterns/compositions/setup-guide
-        */}
-        <Card heading="Setup" boxed>
-          <s-stack direction="inline" gap="small-200" alignItems="center">
-            {/* A count, not a bar: this Polaris version ships no progress
-              bar, and "3 of 4" says the same thing in less room. */}
-            <s-text type="strong" fontVariantNumeric="tabular-nums">
-              {`${setup.filter((step) => step.done).length} of ${setup.length} done`}
-            </s-text>
-            {setup.every((step) => step.done) ? (
-              <s-badge tone="success" icon="check-circle">
-                Ready
-              </s-badge>
-            ) : null}
-          </s-stack>
-
-          <s-stack direction="block" gap="base">
-            {setup.map((step, index) => (
-              <s-stack key={step.label} direction="block" gap="small-300">
-                {index > 0 ? <s-divider /> : null}
-                <s-grid
-                  gridTemplateColumns="@container (inline-size <= 560px) 1fr, 1fr auto"
-                  gap="base"
-                  alignItems="center"
-                >
-                  <s-stack direction="block" gap="small-400">
-                    {/* Disabled on purpose. It reports what the shop says,
-                      so ticking it by hand would be a merchant telling the
-                      app something the app already knows better. */}
-                    <s-checkbox
-                      label={step.label}
-                      checked={step.done}
-                      disabled
-                      details={step.detail}
-                    />
-                  </s-stack>
-                  <s-stack direction="inline">
-                    <s-button
-                      href={step.href}
-                      variant={step.done ? "secondary" : "primary"}
-                    >
-                      {step.done ? "Change" : step.action}
-                    </s-button>
-                  </s-stack>
-                </s-grid>
-              </s-stack>
-            ))}
-          </s-stack>
-
-          {quota.limit !== null ? (
+          {matches.length === 0 ? (
             <s-text color="subdued">
-              {`${quota.used} of ${quota.limit} protected orders used on your plan.`}
+              {`Nothing here matches \u201c${query}\u201d. Email support and we will answer it \u2014 and add it.`}
             </s-text>
           ) : null}
-        </Card>
 
-        {/* The part of this page a merchant uses rather than reads. Tiles
-          rather than a column of links: five underlined sentences in a list
-          gave nothing to aim at and nothing to tell one from another. */}
-        <Card heading="Common tasks">
-          <s-grid
-            gridTemplateColumns="@container (inline-size <= 640px) 1fr, 1fr 1fr"
-            gap="base"
-          >
-            {[
-              {
-                href: "/app/settings",
-                icon: "settings",
-                label: "Protection settings",
-                detail: "Who pays, pricing and what is eligible",
-              },
-              {
-                href: "/app/claims",
-                icon: "clipboard-checklist",
-                label: "Claims",
-                /* A count belongs beside the name, not inside it: "Claims (2)"
-                  reads as the tile's title and gives the number no weight of
-                  its own, which is the one thing on this tile a merchant is
-                  scanning for. */
-                badge: openClaims > 0 ? `${openClaims} open` : null,
-                detail: "Review and decide what customers have filed",
-              },
-              {
-                href: "/app/orders",
-                icon: "order",
-                label: "Orders",
-                detail: "See what is protected, or offer it after purchase",
-              },
-              {
-                href: "/app/settings",
-                icon: "globe",
-                label: "Languages",
-                detail: "Translate the storefront claim form",
-              },
-              {
-                href: "/app/billing",
-                icon: "cash-dollar",
-                label: hasActiveBilling ? "Your plan" : "Choose a plan",
-                detail: "What you pay and how much is included",
-              },
-            ].map((task) => (
-              <s-clickable
-                key={task.label}
-                href={task.href}
-                padding="base"
-                borderWidth="base"
-                borderColor="base"
-                borderRadius="large"
-                accessibilityLabel={`${task.label}. ${task.detail}`}
-              >
-                <s-stack direction="block" gap="small-400">
-                  <s-stack
-                    direction="inline"
-                    gap="small-200"
-                    alignItems="center"
-                  >
-                    <s-icon
-                      type={task.icon as never}
-                      tone="neutral"
-                      size="base"
-                    />
-                    <s-text type="strong">{task.label}</s-text>
-                    {task.badge ? (
-                      <s-badge tone="warning">{task.badge}</s-badge>
+          <s-stack direction="block" gap="large">
+            {matches.map((group) => (
+              <s-stack key={group.group} direction="block" gap="base">
+                <s-text type="strong">{group.group}</s-text>
+                {group.entries.map((entry, index) => (
+                  <s-stack key={entry.q} direction="block" gap="small-300">
+                    {index > 0 ? <s-divider /> : null}
+                    <s-text type="strong">{entry.q}</s-text>
+                    <s-text color="subdued">{entry.a}</s-text>
+                    {entry.href ? (
+                      <s-stack direction="inline">
+                        <s-link href={entry.href}>{entry.link}</s-link>
+                      </s-stack>
                     ) : null}
                   </s-stack>
-                  <s-text color="subdued">{task.detail}</s-text>
-                </s-stack>
-              </s-clickable>
-            ))}
-          </s-grid>
-        </Card>
-
-        <Card heading="Questions">
-          {/* A rule between entries, so a run of question/answer pairs reads
-            as separate items rather than one wall of text. */}
-          <s-stack direction="block" gap="base">
-            {FAQ.map(([question, answer], index) => (
-              <s-stack key={question} direction="block" gap="small-300">
-                {index > 0 && <s-divider />}
-                <s-text type="strong">{question}</s-text>
-                <s-text color="subdued">{answer}</s-text>
+                ))}
               </s-stack>
             ))}
           </s-stack>
