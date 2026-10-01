@@ -143,6 +143,34 @@ describe("the API client", () => {
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  /**
+   * App Bridge wedged is not the same as App Bridge missing: idToken() exists,
+   * it is called, and the promise it hands back never settles. Without a bound
+   * on it the page awaits forever and renders nothing — no spinner finishing,
+   * no error boundary firing, nothing on screen to retry from.
+   */
+  it("gives up when App Bridge never mints a token", async () => {
+    vi.useFakeTimers();
+    window.shopify = {
+      idToken: vi.fn().mockReturnValue(new Promise<string>(() => {})),
+    };
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    // Attached before the clock moves, so the rejection is never unhandled.
+    const rejects = expect(api.get("/dashboard")).rejects.toMatchObject({
+      status: 408,
+      message:
+        "Shopify took too long to authorise this page. Reload to try again.",
+    });
+
+    await vi.advanceTimersByTimeAsync(8000);
+    await rejects;
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
 });
 
 describe("downloads", () => {

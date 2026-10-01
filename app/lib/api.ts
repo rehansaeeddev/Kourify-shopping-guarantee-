@@ -19,13 +19,50 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * How long to wait for App Bridge to mint a token before giving up.
+ *
+ * Generous: it normally answers in well under a second, and a merchant on a
+ * slow connection should not be told the admin is broken because of it.
+ */
+const TOKEN_TIMEOUT_MS = 8000;
+
 async function sessionToken(): Promise<string> {
   if (!window.shopify?.idToken) {
     // Only possible outside the Shopify admin, where nothing here can work.
     throw new ApiError(401, "This page must be opened from the Shopify admin.");
   }
 
-  return window.shopify.idToken();
+  /*
+   * Bounded, because idToken() has no timeout of its own. When App Bridge is
+   * wedged — the frame never finishes its handshake with the admin — that
+   * promise simply never settles. Every page here awaits it before its first
+   * request, so the page renders nothing at all: no spinner ever finishes, no
+   * error boundary ever fires, and there is nothing on screen to retry from.
+   * A blank page that says why beats a blank page that doesn't.
+   */
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      window.shopify.idToken(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () =>
+            reject(
+              new ApiError(
+                408,
+                "Shopify took too long to authorise this page. Reload to try again.",
+              ),
+            ),
+          TOKEN_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    // Whichever side won, the tab should not be kept awake by the loser.
+    clearTimeout(timer);
+  }
 }
 
 async function request<T>(
