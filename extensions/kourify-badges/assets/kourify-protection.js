@@ -1,4 +1,21 @@
 (function () {
+  /*
+    Runs once a page, however many blocks pulled this file in.
+
+    Every block carries its own <script src> for this script -- the product
+    block, the cart block, the badge and the guarantee tab -- and a browser
+    executes an external script once per tag, not once per URL. The fetch is
+    cached; the execution is not.
+
+    So a page with three of them ran init() three times, and each run kept its
+    own learnMoreOverlay and added its own delegated click listener. One click
+    on "Learn more" then built three modals stacked on each other, and since
+    the close button only ever closes the overlay it sits in, closing took as
+    many clicks as there were blocks on the page.
+  */
+  if (window.__kourifyProtectionLoaded) return;
+  window.__kourifyProtectionLoaded = true;
+
   var SHIELD_ICON_SVG =
     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2L4 5v6c0 5.25 3.4 9.74 8 11 4.6-1.26 8-5.75 8-11V5l-8-3z" fill="#065f46"/><path d="M8.3 12.1l2.3 2.3 5-5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
