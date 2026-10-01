@@ -9,6 +9,18 @@
   assign kourify_brand_logo = app.metafields.kourify.brand_logo.value | default: '' | strip
   assign kourify_brand_color = app.metafields.kourify.brand_color.value | default: '' | strip
 
+  # The accent is emitted below only when the merchant has set no colour
+  # of their own. An inline custom property wins on its own element
+  # whatever a stylesheet says about an ancestor, so emitting it always
+  # is exactly what kept this card green beside a pink tab. With a brand
+  # colour set the whole accent family comes from the snippet's rule on
+  # `body` -- built by Liquid's colour filters, not printed as typed.
+  # `display: none` stays in either case: the badge reveals itself once the
+  # script knows who pays.
+  # Notes belong here, not between attributes: a comment tag inside an
+  # HTML tag stops Theme Check parsing the file at all, so every other
+  # check in it silently goes unrun.
+
   if kourify_brand_logo == blank
     assign kourify_brand_logo = 'kourify-logo.png' | asset_url
   endif
@@ -20,12 +32,6 @@
   data-text-merchant="{{ block.settings.merchant_text | escape }}"
   data-text-customer="{{ block.settings.customer_text | escape }}"
   data-show-customer="{% if block.settings.show_when_customer_pays %}1{% else %}0{% endif %}"
-  {%- comment -%}
-    The accent is emitted only when the merchant has set no colour of their
-    own; an inline custom property wins on its own element whatever a
-    stylesheet says about an ancestor. `display: none` stays either way --
-    the badge reveals itself once the script knows who pays.
-  {%- endcomment -%}
   style="{% if kourify_brand_color == blank %}--kourify-accent: {{ block.settings.accent_color }}; {% endif %}display: none;"
 >
   {%- comment -%}

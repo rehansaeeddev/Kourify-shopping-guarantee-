@@ -15,6 +15,15 @@ Provides localized strings and the active storefront locale to the protection Ja
     # French and Arabic second -- and a shop that has set nothing falls
     # through to the wording and the colours this app has always used.
 
+  # Notes belong here, not between attributes: a comment tag inside an
+  # HTML tag stops Theme Check parsing the file at all, so every other
+  # check in it silently goes unrun.
+  #
+  # data-guarantee is also read by the tab the script injects when the
+  # merchant has not added the block, so both routes to the tab agree.
+  # data-brand-logo is separate from data-logo-url, which every block
+  # carries and which the modal and the badges read: that one is ours,
+  # this one is the merchant's own mark, and they need not match.
     assign kourify_brand = app.metafields.kourify.brand_name.value | default: '' | strip
     assign kourify_brand_logo = app.metafields.kourify.brand_logo.value | default: '' | strip
     assign kourify_brand_color = app.metafields.kourify.brand_color.value | default: '' | strip
@@ -119,16 +128,7 @@ Provides localized strings and the active storefront locale to the protection Ja
   hidden
   data-kourify-i18n
   data-locale="{{ request.locale.iso_code | escape }}"
-  {%- comment -%}
-    Also read by the tab the script injects when the merchant has not added
-    the block, so both routes to the tab say the same thing.
-  {%- endcomment -%}
   data-guarantee="{{ kourify_guarantee | escape }}"
-  {%- comment -%}
-    Separate from data-logo-url, which every block carries and which the
-    modal and the badges also read. This one is the merchant's own mark and
-    only the tab uses it, so the two do not have to agree.
-  {%- endcomment -%}
   data-brand-logo="{{ kourify_brand_logo | escape }}"
   data-brand-name="{{ kourify_brand_name | escape }}"
   data-modal-title="{{ kourify_modal_title | escape }}"

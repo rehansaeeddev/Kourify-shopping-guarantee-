@@ -10,6 +10,16 @@
   assign kourify_brand_logo = app.metafields.kourify.brand_logo.value | default: '' | strip
   assign kourify_brand_color = app.metafields.kourify.brand_color.value | default: '' | strip
 
+  # The accent is emitted below only when the merchant has set no colour
+  # of their own. An inline custom property wins on its own element
+  # whatever a stylesheet says about an ancestor, so emitting it always
+  # is exactly what kept this card green beside a pink tab. With a brand
+  # colour set the whole accent family comes from the snippet's rule on
+  # `body` -- built by Liquid's colour filters, not printed as typed.
+  # Notes belong here, not between attributes: a comment tag inside an
+  # HTML tag stops Theme Check parsing the file at all, so every other
+  # check in it silently goes unrun.
+
   if kourify_brand == blank
     assign kourify_guarantee = 'protection.guarantee' | t
   else
@@ -26,14 +36,6 @@
   data-basis-cents="{{ cart.total_price | default: 0 }}"
   data-currency="{{ cart.currency.iso_code }}"
   data-logo-url="{{ 'kourify-logo.png' | asset_url }}"
-  {%- comment -%}
-    Emitted only when the merchant has set no colour of their own. An inline
-    custom property wins on its own element whatever a stylesheet says about
-    an ancestor, so leaving this here unconditionally is exactly what kept
-    this card green beside a pink tab. When a brand colour exists the whole
-    accent family comes from the snippet's rule on `body` -- built by
-    Liquid's colour filters, not printed as the merchant typed it.
-  {%- endcomment -%}
   {% if kourify_brand_color == blank %}style="--kourify-accent: {{ block.settings.accent_color }};"{% endif %}
 >
   {% render 'protection-translations' %}
