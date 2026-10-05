@@ -86,6 +86,11 @@ describe("naming a language", () => {
   });
 });
 
+/** A row's names, with the "· ready" / "· you translate" mark taken off. */
+function names(choice: { display: string }): string[] {
+  return choice.display.split(" · ")[0].split(" — ");
+}
+
 describe("the dropdown's contents", () => {
   it("leaves out languages already added", () => {
     const codes = languageChoices(["en"], ["en", "ar"]).map((c) => c.code);
@@ -113,9 +118,25 @@ describe("the dropdown's contents", () => {
   /** The "aa — aa" rows. A code is not a name a merchant can act on. */
   it("offers nothing it cannot name", () => {
     for (const choice of languageChoices(["en", "fr", "ar", "hi"], [])) {
-      expect(choice.display, choice.code).not.toBe(choice.code);
-      expect(choice.display, choice.code).not.toBe(
-        `${choice.code} — ${choice.code}`,
+      expect(names(choice), choice.code).not.toEqual([
+        choice.code,
+        choice.code,
+      ]);
+      expect(names(choice), choice.code).not.toEqual([choice.code]);
+    }
+  });
+
+  /**
+   * The mark every row carries.
+   *
+   * A native select paints an optgroup label once and nowhere else, so a
+   * merchant scrolling past 128 languages cannot tell which half they are
+   * looking at. Groups alone were not enough; this is on every row.
+   */
+  it("says on each row which half it is in", () => {
+    for (const choice of languageChoices(["en", "fr", "ar", "hi"], [])) {
+      expect(choice.display, choice.code).toContain(
+        choice.translated ? "· ready" : "· you translate",
       );
     }
   });
@@ -131,12 +152,17 @@ describe("the dropdown's contents", () => {
     expect(languageChoices(["cr"], []).map((c) => c.code)).toContain("cr");
   });
 
-  /** "Albanian — Albanian" said nothing twice. */
+  /**
+   * "Albanian — Albanian" said nothing twice.
+   *
+   * Compared as the two halves, not as a substring: "Italian — Italiano"
+   * contains "Italian — Italian" and is perfectly correct.
+   */
   it("prints one name when both names are the same", () => {
     for (const choice of languageChoices([], [])) {
-      expect(choice.display, choice.code).not.toBe(
-        `${choice.label} — ${choice.label}`,
-      );
+      const [left, right] = names(choice);
+
+      expect(left === right && right !== undefined, choice.code).toBe(false);
     }
   });
 

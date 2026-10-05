@@ -142,6 +142,12 @@ export type LanguageChoice = {
  * `tw` "Akan", so the list showed Akan twice with no way to tell them apart;
  * now they read "Akan (ak)" and "Akan (tw)".
  *
+ * Every row is also marked "· ready" or "· you translate", on top of the two
+ * groups it sits in. A native select paints an optgroup label once, at the top
+ * of its group, so a merchant scrolling 128 languages to reach Punjabi has the
+ * heading long gone and no way to tell which half they are in. The mark
+ * travels with the row.
+ *
  * Sorted with `localeCompare` in the merchant's own language, because
  * alphabetical order is a property of the language doing the sorting.
  */
@@ -178,11 +184,13 @@ export function languageChoices(
       const native = nativeName(code, merchantLocale);
       const name = (seen.get(label) ?? 0) > 1 ? `${label} (${code})` : label;
 
+      const named = native === label ? name : `${name} — ${native}`;
+
       return {
         code,
         label: name,
         native,
-        display: native === label ? name : `${name} — ${native}`,
+        display: `${named} · ${translated ? "ready" : "you translate"}`,
         translated,
       };
     })
