@@ -500,6 +500,18 @@ export type TranslationsPayload = {
   optionalKeys: string[];
   suggestedLabels: Record<string, string>;
   defaultLocale: string;
+  /**
+   * What the shop's own storefront publishes, so the screen can offer those
+   * instead of asking for a locale code. Empty when Shopify could not be
+   * reached -- not an error, just a reason to show the manual field.
+   */
+  shopLanguages: ShopLanguage[];
+};
+
+export type ShopLanguage = {
+  locale: string;
+  label: string;
+  primary: boolean;
 };
 
 export type SyncJob = {

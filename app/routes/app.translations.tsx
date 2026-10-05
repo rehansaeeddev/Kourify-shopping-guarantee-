@@ -12,6 +12,7 @@ import {
   useTranslationMutations,
   useTranslations,
   type Language,
+  type ShopLanguage,
 } from "../lib/queries";
 import { PageBody } from "../components/PageBody";
 
@@ -295,6 +296,8 @@ export function LanguagesPanel() {
       <AddLanguage
         busy={busy}
         pending={mutations.add.isPending}
+        shopLanguages={data.shopLanguages ?? []}
+        alreadyAdded={languages.map((lang) => lang.locale)}
         onAdd={(language) => mutations.add.mutate(language, notify)}
       />
 
@@ -350,63 +353,116 @@ export default function Translations() {
   );
 }
 
+/**
+ * Adding a language, in two parts.
+ *
+ * The first offers what the shop's own storefront publishes, one click each.
+ * The screen used to have only the second -- a text field for a locale code --
+ * and a merchant filled a page of copy into a language they had named
+ * "English" and saved under `es`, which the claim page quite correctly never
+ * served. A code nobody has to type is a code nobody can mistype.
+ *
+ * The second stays for the case the first cannot cover: a language the shop
+ * does not publish but wants on the claim page, and a shop whose languages we
+ * could not read at all.
+ */
 function AddLanguage({
   busy,
   pending,
+  shopLanguages,
+  alreadyAdded,
   onAdd,
 }: {
   busy: boolean;
   pending: boolean;
+  shopLanguages: ShopLanguage[];
+  alreadyAdded: string[];
   onAdd: (language: { locale: string; label: string }) => void;
 }) {
+  const missing = shopLanguages.filter(
+    (language) => !alreadyAdded.includes(language.locale),
+  );
+
   return (
     <Card heading="Add a language">
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          const form = new FormData(event.currentTarget);
+      <s-stack direction="block" gap="base">
+        {shopLanguages.length > 0 ? (
+          <s-stack direction="block" gap="small-300">
+            <s-paragraph>
+              {missing.length > 0
+                ? "Published on your storefront. Each one starts seeded from English for you to translate."
+                : "Every language your storefront publishes is already here."}
+            </s-paragraph>
+            {missing.length > 0 ? (
+              <s-stack direction="inline" gap="small-300">
+                {missing.map((language) => (
+                  <s-button
+                    key={language.locale}
+                    disabled={busy}
+                    onClick={() =>
+                      onAdd({
+                        locale: language.locale,
+                        label: language.label,
+                      })
+                    }
+                  >
+                    {language.primary
+                      ? `${language.label} (primary)`
+                      : language.label}
+                  </s-button>
+                ))}
+              </s-stack>
+            ) : null}
+          </s-stack>
+        ) : null}
 
-          onAdd({
-            locale: String(form.get("locale") ?? "").trim(),
-            label: String(form.get("label") ?? "").trim(),
-          });
-          event.currentTarget.reset();
-        }}
-      >
-        <s-stack direction="block" gap="base">
-          <s-paragraph>
-            Common codes: <s-text type="strong">ar</s-text> (Arabic, RTL),{" "}
-            <s-text type="strong">hi</s-text> (Hindi),{" "}
-            <s-text type="strong">es</s-text> (Spanish),{" "}
-            <s-text type="strong">de</s-text> (German). New languages start
-            seeded from English for you to translate.
-          </s-paragraph>
-          <s-grid
-            gridTemplateColumns="1fr 1fr auto"
-            gap="base"
-            alignItems="end"
-          >
-            <s-text-field
-              label="Language code"
-              name="locale"
-              placeholder="ar"
-            />
-            <s-text-field
-              label="Display name"
-              name="label"
-              placeholder="العربية"
-            />
-            <s-button
-              type="submit"
-              variant="primary"
-              loading={pending}
-              disabled={busy}
+        {shopLanguages.length > 0 ? <s-divider /> : null}
+
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+
+            onAdd({
+              locale: String(form.get("locale") ?? "").trim(),
+              label: String(form.get("label") ?? "").trim(),
+            });
+            event.currentTarget.reset();
+          }}
+        >
+          <s-stack direction="block" gap="small-300">
+            <s-paragraph>
+              {shopLanguages.length > 0
+                ? "Adding a language your storefront does not publish? Enter its code."
+                : "Enter the code and what to call it. Common ones: ar (Arabic, RTL), hi (Hindi), es (Spanish), de (German)."}
+            </s-paragraph>
+            <s-grid
+              gridTemplateColumns="1fr 1fr auto"
+              gap="base"
+              alignItems="end"
             >
-              Add language
-            </s-button>
-          </s-grid>
-        </s-stack>
-      </form>
+              <s-text-field
+                label="Language code"
+                name="locale"
+                placeholder="ar"
+              />
+              <s-text-field
+                label="Display name"
+                name="label"
+                placeholder="العربية"
+              />
+              <s-button
+                type="submit"
+                variant="primary"
+                loading={pending}
+                disabled={busy}
+              >
+                Add language
+              </s-button>
+            </s-grid>
+          </s-stack>
+        </form>
+      </s-stack>
     </Card>
   );
 }

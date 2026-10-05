@@ -75,6 +75,11 @@ api_version = "2026-10"
 # the word "metaobject" appears nowhere in the codebase. An app that asks for a
 # scope it never exercises is one App Store review sends back.
 #
+# read_locales is read by ShopLanguages, so the languages screen can offer the
+# languages the storefront already publishes instead of asking a merchant to
+# type a locale code. It was added on 2026-10-05, which costs a re-consent --
+# deliberately spent while the app has one install rather than later.
+#
 # read_customers is the exception: no query reads `customer` today, because
 # displayName is stripped everywhere until Protected Customer Data approval
 # lands. It stays because that approval request is for the Name field, and the
@@ -84,7 +89,7 @@ api_version = "2026-10"
 # (order, orders, ordersCount) -- editing goes through write_order_edits and
 # fulfilling through the fulfillment scopes. If a run with read_orders in its
 # place works, that is the narrower ask and the better one for review.
-scopes = "read_customers,write_cart_transforms,write_files,write_fulfillments,write_merchant_managed_fulfillment_orders,write_order_edits,write_orders,write_products,write_publications"
+scopes = "read_customers,read_locales,write_cart_transforms,write_files,write_fulfillments,write_merchant_managed_fulfillment_orders,write_order_edits,write_orders,write_products,write_publications"
 
 # Required by the CLI's schema, even though this app installs through Shopify
 # managed installation and authenticates by token exchange. There is no OAuth
