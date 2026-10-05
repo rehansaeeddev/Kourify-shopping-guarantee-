@@ -86,8 +86,13 @@ api_version = "2026-10"
 # blocks at all, and which of ours are in it and switched on. Without it the
 # dashboard could claim protection was live while the storefront showed
 # nothing -- which it did, on our own test store, for three weeks. Added
-# 2026-10-06, in the same re-consent window as read_locales rather than a
-# second one later.
+# 2026-10-06.
+#
+# This is a second re-consent, not a free ride on read_locales': version 19
+# shipped that one yesterday, so merchants have already been asked once. Worth
+# saying plainly rather than letting the next person assume the two were
+# batched -- and worth batching anything else that needs a scope into the
+# deploy that carries this.
 #
 # read_customers is the exception: no query reads `customer` today, because
 # displayName is stripped everywhere until Protected Customer Data approval
