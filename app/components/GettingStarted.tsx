@@ -9,6 +9,15 @@ type Step = {
   /** Roughly how long this one step takes, when it is the next one. */
   minutes?: number;
   action?: { label: string; href: string };
+  /**
+   * A second way out of the row, opened in a new tab.
+   *
+   * Only the Shopify admin needs this: placing a theme block happens in the
+   * theme editor, which cannot be framed, and it is a different job from the
+   * in-app setting the step's main action points at. Left undefined on a step
+   * whose link cannot be built -- a button to nowhere is worse than no button.
+   */
+  secondaryAction?: { label: string; href: string };
 };
 
 /**
@@ -97,11 +106,21 @@ export function GettingStarted({
                 <s-heading>{next.label}</s-heading>
                 <s-text color="subdued">{next.detail}</s-text>
               </s-stack>
-              {next.action && (
-                <s-stack direction="inline">
-                  <s-button variant="primary" href={next.action.href}>
-                    {next.action.label}
-                  </s-button>
+              {(next.action || next.secondaryAction) && (
+                <s-stack direction="inline" gap="small-300">
+                  {next.action && (
+                    <s-button variant="primary" href={next.action.href}>
+                      {next.action.label}
+                    </s-button>
+                  )}
+                  {next.secondaryAction && (
+                    <s-button
+                      href={next.secondaryAction.href}
+                      target="_blank"
+                    >
+                      {next.secondaryAction.label}
+                    </s-button>
+                  )}
                 </s-stack>
               )}
             </s-grid>
@@ -144,9 +163,18 @@ export function GettingStarted({
                   >
                     {step.label}
                   </s-text>
-                  {step.action ? (
-                    <s-link href={step.action.href}>{step.action.label}</s-link>
-                  ) : null}
+                  <s-stack direction="inline" gap="small-300">
+                    {step.secondaryAction ? (
+                      <s-link href={step.secondaryAction.href} target="_blank">
+                        {step.secondaryAction.label}
+                      </s-link>
+                    ) : null}
+                    {step.action ? (
+                      <s-link href={step.action.href}>
+                        {step.action.label}
+                      </s-link>
+                    ) : null}
+                  </s-stack>
                 </s-grid>
               </s-box>
             </s-box>

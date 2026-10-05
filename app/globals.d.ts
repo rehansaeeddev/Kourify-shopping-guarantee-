@@ -34,6 +34,13 @@ declare namespace React {
  */
 interface Window {
   shopify?: {
+    /**
+     * What App Bridge was booted with. Read for the shop's admin hostname,
+     * which is how a theme-editor deep link is addressed -- see
+     * app/components/ThemeSetup.tsx, which validates it before use rather than
+     * trusting that this is populated.
+     */
+    config?: { shop?: string; apiKey?: string };
     /** Mints the short-lived session token every API call carries. */
     idToken?: () => Promise<string>;
     /**

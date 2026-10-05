@@ -12,10 +12,14 @@ substitute for that review.
 
 | | |
 |---|---|
-| ✅ Likely passing | 28 |
-| ❌ Likely failing | 2 |
+| ✅ Likely passing | 29 |
+| ❌ Likely failing | 1 |
 | ⚠️ Needs review | 5 |
 | ⏭️ Groups skipped | 8 |
+
+**Changed since the first run.** 5.1.3 (theme-extension onboarding) was fixed
+the same day — see "Fixed" below. 3.1.1 (TLS) is the only failure left, and it
+is not fixable in this repo.
 
 ---
 
@@ -33,24 +37,36 @@ app currently only runs behind an ephemeral `trycloudflare.com` tunnel raised
 by `shopify app dev`, which dies with the session and takes a new hostname
 every time. This is the same blocker as launching at all.
 
+---
+
+## ✅ Fixed since this audit was written
+
 ### 5.1.3 Include detailed onboarding instructions for theme app extensions
 
-**Why this matters:** The app's whole storefront presence — the guarantee tab,
-the product badge, the cart block — only appears once a merchant places an app
-block or enables the app embed. Nothing in the app tells them how.
+**What was wrong:** no deep link to the theme editor anywhere in `app/`, and a
+dashboard setup guide that claimed the blocks were already placed. A merchant
+who installed the app and never opened the theme editor saw nothing on their
+storefront and was given no instruction that would change that. We hit this
+ourselves on 2026-10-01: the test store's cart showed a hand-written copy of
+the block for three weeks while the dashboard reported protection as live.
 
-**What was found:** No deep link to the theme editor anywhere in `app/`
-(searched for `/admin/themes`, `editor?context=apps`, `activateAppId`). The
-dashboard's setup guide (`app/routes/app._index.tsx:96`) assumes the blocks are
-already placed — *"Customize copy and price from the theme editor blocks"* —
-and the only other mention is one FAQ line on the Help page. A merchant who
-installs the app and never opens the theme editor sees nothing on their
-storefront and is given no instruction that would change that.
+**What it is now:** `app/components/ThemeSetup.tsx` is a full onboarding panel,
+first on the Help page. It names all six blocks by the exact name the theme
+editor shows, says what a shopper sees and which template each one belongs on,
+separates the app embed (one switch, every theme) from the app blocks (placed,
+Online Store 2.0 only), explains adding, moving, configuring and removing, and
+gives each one a documented deep link that opens the editor with the block
+already added. The dashboard's step 2 no longer claims placement it cannot
+check, and carries an "Add to theme" button for the product block.
+`app/components/ThemeSetup.test.ts` pins every handle to a real block file and
+every printed name to that block's own schema.
 
-**Worth knowing:** we hit exactly this failure ourselves on 2026-10-01. The
-cart drawer showed a hand-written copy of the block rather than the real one
-for weeks, and nobody noticed because nothing in the app says what should be
-where.
+**Still weak, deliberately.** The deep links target `themes/current`, so a
+merchant who wants to try the blocks on an unpublished theme has to do it by
+hand; and we do not check whether their theme supports app blocks before
+offering the button, so a vintage theme learns it from Shopify's own error
+rather than from us. Both of those want `read_themes`, which is another scope
+and another re-consent — not spent without asking.
 
 ---
 
@@ -112,7 +128,7 @@ which is the defensible reading — but a reviewer may see it differently.
 
 ---
 
-## ✅ Likely passing (28)
+## ✅ Likely passing (29)
 
 Checked and found in order: session-token authentication with App Bridge from
 Shopify's CDN and no cookie or `localStorage` session; Shopify checkout only;

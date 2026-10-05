@@ -3,6 +3,7 @@ import { EmptyState } from "../components/EmptyState";
 import { GettingStarted } from "../components/GettingStarted";
 import { PageError, PageSkeleton } from "../components/PageState";
 import { StatusBadge } from "../components/StatusBadge";
+import { themeBlockLink } from "../components/ThemeSetup";
 import { issueTypeLabel } from "../lib/claim-issue-type";
 import { useDashboard } from "../lib/queries";
 import { PageBody } from "../components/PageBody";
@@ -65,6 +66,17 @@ export default function Index() {
       ? { tone: "default" as const, value: "Off", sub: null }
       : { tone: "success" as const, value: "Live", sub: feeSummary };
 
+  /*
+   | The theme editor, opened with the product block already added.
+   |
+   | The one surface worth a button on the dashboard: it is the block that
+   | earns money, and placing it is the step a merchant is most likely never to
+   | discover. The rest of the blocks, and what to do with them, are on the
+   | Help page. null when the shop's domain or the client id is missing, and
+   | the row then shows no button at all.
+   */
+  const themeLink = themeBlockLink(shop, "protection-product");
+
   // One definition for the share, printed in two places: the Protected
   // metric's sub-line and the Protection mix heading. They were drifting
   // apart as separate expressions waiting to happen.
@@ -92,7 +104,7 @@ export default function Index() {
         <GettingStarted
           title="Get started with Kourify"
           help={{
-            label: "New here? Open Help & getting started →",
+            label: "Nothing showing on your store? How to add Kourify to your theme →",
             href: "/app/guide",
           }}
           steps={[
@@ -112,18 +124,38 @@ export default function Index() {
                 : { label: "Set up trust badges", href: "/app/settings" },
             },
             {
-              label: "Package protection is live on your storefront",
+              label: "Switch on package protection",
               icon: "package",
               minutes: 3,
+              /*
+               | This step used to read "Package protection is live on your
+               | storefront" and then state that the widget was on the product
+               | page and cart. It never checked that, and could not: placing a
+               | theme block is the merchant's job and the app has no scope to
+               | see whether it happened. On our own test store the claim was
+               | false for three weeks. The setting is all this step measures,
+               | so the setting is all it now says -- and the sentence names
+               | the second half rather than pretending it is done.
+               */
               detail:
                 protectionStatus.value === "Live"
-                  ? 'The "Protect your order" widget is on your product page and cart. Customize copy and price from the theme editor blocks.'
-                  : "Turn on protection at checkout in Settings to make it live for shoppers.",
+                  ? 'Protection is on. Shopify will not let an app edit your theme, so the "Protect your order" box is only visible once you add it there.'
+                  : "Turn it on in Settings, then add its block to your theme. Shoppers need both.",
               done: protectionStatus.value === "Live",
               action:
                 protectionStatus.value === "Live"
                   ? { label: "Manage", href: "/app/settings" }
                   : { label: "Open settings", href: "/app/settings" },
+              /*
+               | Only when there is a real link to open. secondaryAction is
+               | rendered with target="_blank" because the theme editor cannot
+               | be framed, so an in-app route must never be put here -- the
+               | Help link at the foot of this guide covers the case where the
+               | deep link cannot be built.
+               */
+              secondaryAction: themeLink
+                ? { label: "Add to theme", href: themeLink }
+                : undefined,
             },
             {
               label: "Review your first claim",

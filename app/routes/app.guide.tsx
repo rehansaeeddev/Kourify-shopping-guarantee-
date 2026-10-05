@@ -2,6 +2,8 @@ import { type ReactNode } from "react";
 
 import { Card } from "../components/Card";
 import { PageBody } from "../components/PageBody";
+import { ThemeSetup } from "../components/ThemeSetup";
+import { useDashboard } from "../lib/queries";
 
 /**
  * The size a panel draws its own title at.
@@ -54,17 +56,24 @@ function Panel({
   );
 }
 
-/** A bullet whose first few words are the thing being defined. */
+/**
+ * A bullet whose first few words are the thing being defined.
+ *
+ * A grid, not an inline stack: an inline stack counts the bullet and the
+ * sentence as two items on one line, so a sentence too long to fit beside the
+ * dot wrapped underneath it in full and left the dot alone on its own line.
+ * Two columns give the text a track of its own to wrap inside.
+ */
 function Point({ term, children }: { term: string; children: ReactNode }) {
   return (
-    <s-stack direction="inline" gap="small-300" alignItems="start">
+    <s-grid gridTemplateColumns="auto 1fr" gap="small-300" alignItems="start">
       <s-text color="subdued">&bull;</s-text>
       <s-text>
         <s-text type="strong">{term}</s-text>
         {" — "}
         {children}
       </s-text>
-    </s-stack>
+    </s-grid>
   );
 }
 
@@ -130,6 +139,16 @@ const FAQ: Array<{ q: string; a: string }> = [
 ];
 
 export default function Guide() {
+  /*
+   | Read, never waited on. The deep links need the shop's admin hostname, and
+   | this query is already warm because usePrefetchNav fills it after first
+   | paint. Gating the page on it would mean a help page that shows a skeleton
+   | -- or worse, an error -- exactly when the app is the thing that is broken.
+   | ThemeSetup falls back to App Bridge's own config, and to written
+   | instructions if even that is missing.
+   */
+  const shop = useDashboard().data?.shop;
+
   return (
     <s-page inlineSize="large" heading="How it works">
       <s-button slot="secondary-actions" href="/app" variant="secondary">
@@ -181,6 +200,22 @@ export default function Guide() {
             about, and a photo where one was required.
           </s-text>
         </s-stack>
+
+        {/*
+          First panel on the page, ahead of everything explanatory.
+
+          A merchant who opens Help is usually asking why nothing shows on
+          their storefront, and this is the answer every time: the blocks have
+          not been placed. Burying it under the claims walkthrough would be
+          putting the reading before the doing.
+        */}
+        <Panel
+          icon="store-online"
+          tone="success"
+          heading="Put Kourify on your storefront"
+        >
+          <ThemeSetup shop={shop} />
+        </Panel>
 
         <Panel
           icon="cash-dollar"
