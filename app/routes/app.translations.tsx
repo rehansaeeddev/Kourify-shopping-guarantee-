@@ -7,6 +7,7 @@ import {
   DEFAULT_TRANSLATIONS,
   type TranslationStrings,
 } from "../lib/claim-i18n";
+import { languageChoices, merchantName } from "../lib/languages";
 import {
   useTranslationMutations,
   useTranslations,
@@ -186,6 +187,15 @@ export function LanguagesPanel() {
                     {lang.locale === fallback ? (
                       <s-badge tone="info">Default</s-badge>
                     ) : null}
+                    {/*
+                      Repeated here, not just at the moment of adding. The
+                      warning in the picker is read once; this is where a
+                      merchant comes back weeks later wondering why their
+                      Japanese claim page is in English.
+                    */}
+                    {!(data.translatedLocales ?? []).includes(lang.locale) ? (
+                      <s-badge tone="warning">Starts in English</s-badge>
+                    ) : null}
                   </s-stack>
                 </s-table-cell>
                 <s-table-cell>{lang.locale}</s-table-cell>
@@ -270,6 +280,13 @@ export function LanguagesPanel() {
         pending={mutations.add.isPending}
         shopLanguages={data.shopLanguages ?? []}
         alreadyAdded={languages.map((lang) => lang.locale)}
+        translatedLocales={data.translatedLocales ?? []}
+        /*
+         | The real figure, not a number typed into a sentence. It changed
+         | twice this week -- 64 keys, then 77 -- and a warning that says the
+         | wrong one is a warning a merchant stops believing.
+         */
+        untranslatedCount={data.keys.length - data.optionalKeys.length}
         onAdd={(language) => mutations.add.mutate(language, notify)}
       />
 
@@ -343,17 +360,46 @@ function AddLanguage({
   pending,
   shopLanguages,
   alreadyAdded,
+  translatedLocales,
+  untranslatedCount,
   onAdd,
 }: {
   busy: boolean;
   pending: boolean;
   shopLanguages: ShopLanguage[];
   alreadyAdded: string[];
+  /** The languages the app ships the page and the emails already written in. */
+  translatedLocales: string[];
+  /** How many lines a merchant would be translating by hand. */
+  untranslatedCount: number;
   onAdd: (language: { locale: string; label: string }) => void;
 }) {
   const missing = shopLanguages.filter(
     (language) => !alreadyAdded.includes(language.locale),
   );
+
+  const [code, setCode] = useState("");
+  const [label, setLabel] = useState("");
+
+  /*
+   | Named in the merchant's own language, and sorted in it. Rebuilt only when
+   | the set of already-added languages changes: naming 180 languages is 360
+   | Intl lookups, which is nothing once and wasteful on every keystroke in
+   | the label field beside it.
+   */
+  const choices = useMemo(
+    () => languageChoices(translatedLocales, alreadyAdded),
+    [translatedLocales, alreadyAdded],
+  );
+
+  const ready = choices.filter((language) => language.translated);
+  const unready = choices.filter((language) => !language.translated);
+  const chosen = choices.find((language) => language.code === code) ?? null;
+
+  // "English, French, Arabic and Hindi", in the merchant's language.
+  const readyNames = new Intl.ListFormat(undefined, {
+    type: "conjunction",
+  }).format(translatedLocales.map((locale) => merchantName(locale)));
 
   return (
     <Card heading="Add a language">
@@ -393,45 +439,99 @@ function AddLanguage({
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            const form = new FormData(event.currentTarget);
+            if (chosen === null) return;
 
-            onAdd({
-              locale: String(form.get("locale") ?? "").trim(),
-              label: String(form.get("label") ?? "").trim(),
-            });
-            event.currentTarget.reset();
+            onAdd({ locale: chosen.code, label: label.trim() || chosen.native });
+            setCode("");
+            setLabel("");
           }}
         >
           <s-stack direction="block" gap="small-300">
             <s-paragraph>
               {shopLanguages.length > 0
-                ? "Adding a language your storefront does not publish? Enter its code."
-                : "Enter the code and what to call it. Common ones: ar (Arabic, RTL), hi (Hindi), es (Spanish), de (German)."}
+                ? "Adding a language your storefront does not publish? Pick it here."
+                : "Pick the language your customers should be able to file a claim in."}
             </s-paragraph>
             <s-grid
-              gridTemplateColumns="1fr 1fr auto"
+              gridTemplateColumns="@container (inline-size <= 640px) 1fr, 1fr 1fr auto"
               gap="base"
               alignItems="end"
             >
-              <s-text-field
-                label="Language code"
+              <s-select
+                label="Language"
                 name="locale"
-                placeholder="ar"
-              />
+                value={code}
+                onChange={(event) => {
+                  const picked = event.currentTarget.value ?? "";
+                  setCode(picked);
+                  /*
+                    The name follows the language unless the merchant has
+                    written their own. Typing a label and then changing the
+                    language should not silently keep the old language's name
+                    -- but a label they deliberately wrote should survive.
+                  */
+                  const previous = choices.find((c) => c.code === code);
+                  if (label === "" || label === previous?.native) {
+                    setLabel(
+                      choices.find((c) => c.code === picked)?.native ?? "",
+                    );
+                  }
+                }}
+              >
+                <s-option value="">Choose a language</s-option>
+                {/*
+                  Two groups rather than one list with a note on each row: the
+                  difference between these is the difference between a page
+                  that is finished and seventy lines of English waiting for
+                  someone, and that belongs where the merchant is choosing.
+                */}
+                <s-option-group label="Ready to use">
+                  {ready.map((language) => (
+                    <s-option key={language.code} value={language.code}>
+                      {`${language.label} — ${language.native}`}
+                    </s-option>
+                  ))}
+                </s-option-group>
+                <s-option-group label="You translate it yourself">
+                  {unready.map((language) => (
+                    <s-option key={language.code} value={language.code}>
+                      {`${language.label} — ${language.native}`}
+                    </s-option>
+                  ))}
+                </s-option-group>
+              </s-select>
               <s-text-field
-                label="Display name"
+                label="Name your customers see"
                 name="label"
-                placeholder="العربية"
+                value={label}
+                onChange={(event) => setLabel(event.currentTarget.value ?? "")}
+                placeholder={chosen?.native ?? "العربية"}
+                details="Shown in the language switcher on your claim page."
               />
               <s-button
                 type="submit"
                 variant="primary"
                 loading={pending}
-                disabled={busy}
+                disabled={busy || chosen === null}
               >
                 Add language
               </s-button>
             </s-grid>
+
+            {/*
+              Only once a language is actually chosen. A warning sitting there
+              permanently is one nobody reads by the time it applies.
+            */}
+            {chosen !== null && !chosen.translated ? (
+              <s-banner
+                tone="warning"
+                heading={`${chosen.label} is not written yet`}
+              >
+                <s-paragraph>
+                  {`Kourify ships ${readyNames}. ${chosen.label} starts as ${untranslatedCount} lines of English for you to translate, and until you do, that is what your customers read. Their claim emails stay in English whatever you do here.`}
+                </s-paragraph>
+              </s-banner>
+            ) : null}
           </s-stack>
         </form>
       </s-stack>

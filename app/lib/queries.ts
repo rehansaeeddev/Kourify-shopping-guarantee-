@@ -539,6 +539,12 @@ export type TranslationsPayload = {
    */
   optionalKeys: string[];
   suggestedLabels: Record<string, string>;
+  /**
+   * The languages this app ships written -- the claim page and the three
+   * emails both. Everything else a merchant adds starts as English for them
+   * to translate, and the picker says so.
+   */
+  translatedLocales: string[];
   defaultLocale: string;
   /**
    * What the shop's own storefront publishes, so the screen can offer those
