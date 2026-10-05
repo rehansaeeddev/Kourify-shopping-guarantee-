@@ -1,7 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 
 import { Card } from "../components/Card";
-import { EmptyState } from "../components/EmptyState";
 import { InlineError, InlineLoading } from "../components/PageState";
 import { useToast } from "../components/Toast";
 import {
@@ -83,7 +82,6 @@ export function LanguagesPanel() {
 
   const busy =
     mutations.add.isPending ||
-    mutations.seed.isPending ||
     mutations.update.isPending ||
     mutations.remove.isPending ||
     mutations.setDefault.isPending ||
@@ -116,182 +114,151 @@ export function LanguagesPanel() {
 
   return (
     <>
-      {languages.length === 0 ? (
-        <Card heading="Get started">
-          <s-stack direction="block" gap="base">
-            <EmptyState
-              icon="globe"
-              heading="No languages yet"
-              description="Add English and French to match the current defaults, then add more languages like Arabic or Hindi."
-            />
-            <s-stack direction="inline">
+      {renamingLang ? (
+        <Card heading={`Edit ${renamingLang.label}`}>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              const form = new FormData(event.currentTarget);
+
+              mutations.update.mutate(
+                {
+                  locale: renamingLang.locale,
+                  label: String(form.get("label") ?? ""),
+                },
+                notify,
+              );
+              setRenaming(null);
+            }}
+          >
+            <s-grid gridTemplateColumns="1fr auto" gap="base" alignItems="end">
+              <s-text-field
+                label="Display name"
+                name="label"
+                value={renamingLang.label}
+              />
+            </s-grid>
+            <s-stack direction="inline" gap="small-200">
               <s-button
+                type="submit"
                 variant="primary"
-                loading={mutations.seed.isPending}
+                loading={mutations.update.isPending}
                 disabled={busy}
-                onClick={() => mutations.seed.mutate(undefined, notify)}
               >
-                Add English &amp; French
+                Save
+              </s-button>
+              <s-button variant="secondary" onClick={() => setRenaming(null)}>
+                Cancel
               </s-button>
             </s-stack>
-          </s-stack>
+          </form>
         </Card>
-      ) : (
-        <>
-          {renamingLang ? (
-            <Card heading={`Edit ${renamingLang.label}`}>
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  const form = new FormData(event.currentTarget);
+      ) : null}
 
-                  mutations.update.mutate(
-                    {
-                      locale: renamingLang.locale,
-                      label: String(form.get("label") ?? ""),
-                    },
-                    notify,
-                  );
-                  setRenaming(null);
-                }}
-              >
-                <s-grid
-                  gridTemplateColumns="1fr auto"
-                  gap="base"
-                  alignItems="end"
-                >
-                  <s-text-field
-                    label="Display name"
-                    name="label"
-                    value={renamingLang.label}
-                  />
-                </s-grid>
-                <s-stack direction="inline" gap="small-200">
-                  <s-button
-                    type="submit"
-                    variant="primary"
-                    loading={mutations.update.isPending}
-                    disabled={busy}
-                  >
-                    Save
-                  </s-button>
-                  <s-button
-                    variant="secondary"
-                    onClick={() => setRenaming(null)}
-                  >
-                    Cancel
-                  </s-button>
-                </s-stack>
-              </form>
-            </Card>
-          ) : null}
-
-          {/* No heading: the settings rail already names this section, and
+      {/* No heading: the settings rail already names this section, and
             a second "Languages" above the card only pushed it down out of
             line with the rail. The standalone route names it in its page
             heading. */}
-          <Card>
-            <s-paragraph color="subdued">
-              Choose which languages the storefront claim page offers. Customers
-              switch language with no page reload.
-            </s-paragraph>
-            <s-table variant="auto">
-              <s-table-header-row>
-                <s-table-header listSlot="primary">Language</s-table-header>
-                <s-table-header listSlot="secondary">Code</s-table-header>
-                <s-table-header listSlot="labeled">Direction</s-table-header>
-                <s-table-header listSlot="labeled">Visible</s-table-header>
-                <s-table-header listSlot="inline">Actions</s-table-header>
-              </s-table-header-row>
-              <s-table-body>
-                {languages.map((lang) => (
-                  <s-table-row key={lang.locale}>
-                    <s-table-cell>
-                      <s-stack direction="inline" gap="small-200">
-                        <s-text type="strong">{lang.label}</s-text>
-                        {lang.locale === fallback ? (
-                          <s-badge tone="info">Default</s-badge>
-                        ) : null}
-                      </s-stack>
-                    </s-table-cell>
-                    <s-table-cell>{lang.locale}</s-table-cell>
-                    {/* Shown, not chosen: the language decides this. */}
-                    <s-table-cell>{lang.direction.toUpperCase()}</s-table-cell>
-                    <s-table-cell>
-                      {/* A hidden language is an ordinary state, not a warning. */}
-                      <s-badge tone={lang.enabled ? "success" : "neutral"}>
-                        {lang.enabled ? "Shown" : "Hidden"}
-                      </s-badge>
-                    </s-table-cell>
-                    <s-table-cell>
-                      <s-stack direction="inline" gap="small-200">
-                        {/* Every row repeats these five words, so on their
+      <Card>
+        <s-paragraph color="subdued">
+          Choose which languages the storefront claim page offers. Customers
+          switch language with no page reload.
+        </s-paragraph>
+        <s-table variant="auto">
+          <s-table-header-row>
+            <s-table-header listSlot="primary">Language</s-table-header>
+            <s-table-header listSlot="secondary">Code</s-table-header>
+            <s-table-header listSlot="labeled">Direction</s-table-header>
+            <s-table-header listSlot="labeled">Visible</s-table-header>
+            <s-table-header listSlot="inline">Actions</s-table-header>
+          </s-table-header-row>
+          <s-table-body>
+            {languages.map((lang) => (
+              <s-table-row key={lang.locale}>
+                <s-table-cell>
+                  <s-stack direction="inline" gap="small-200">
+                    <s-text type="strong">{lang.label}</s-text>
+                    {lang.locale === fallback ? (
+                      <s-badge tone="info">Default</s-badge>
+                    ) : null}
+                  </s-stack>
+                </s-table-cell>
+                <s-table-cell>{lang.locale}</s-table-cell>
+                {/* Shown, not chosen: the language decides this. */}
+                <s-table-cell>{lang.direction.toUpperCase()}</s-table-cell>
+                <s-table-cell>
+                  {/* A hidden language is an ordinary state, not a warning. */}
+                  <s-badge tone={lang.enabled ? "success" : "neutral"}>
+                    {lang.enabled ? "Shown" : "Hidden"}
+                  </s-badge>
+                </s-table-cell>
+                <s-table-cell>
+                  <s-stack direction="inline" gap="small-200">
+                    {/* Every row repeats these five words, so on their
                               own they read as "Edit, Edit, Edit". The label
                               names the language; the visible text stays short. */}
-                        <s-button
-                          variant="secondary"
-                          accessibilityLabel={`Edit ${lang.label}`}
-                          onClick={() => setEditingLocale(lang.locale)}
-                        >
-                          Edit
-                        </s-button>
-                        <s-button
-                          variant="secondary"
-                          accessibilityLabel={`Rename ${lang.label}`}
-                          onClick={() => setRenaming(lang.locale)}
-                        >
-                          Rename
-                        </s-button>
-                        <s-button
-                          variant="secondary"
-                          disabled={busy}
-                          accessibilityLabel={`${lang.enabled ? "Hide" : "Show"} ${lang.label}`}
-                          onClick={() =>
-                            mutations.update.mutate(
-                              { locale: lang.locale, enabled: !lang.enabled },
-                              notify,
-                            )
-                          }
-                        >
-                          {lang.enabled ? "Hide" : "Show"}
-                        </s-button>
-                        {lang.locale !== fallback ? (
-                          <s-button
-                            variant="secondary"
-                            disabled={busy}
-                            accessibilityLabel={`Make ${lang.label} the default language`}
-                            onClick={() =>
-                              mutations.setDefault.mutate(lang.locale, notify)
-                            }
-                          >
-                            Make default
-                          </s-button>
-                        ) : null}
-                        {lang.locale !== fallback ? (
-                          <s-button
-                            variant="secondary"
-                            disabled={busy}
-                            accessibilityLabel={`Remove ${lang.label}`}
-                            onClick={() => {
-                              setPendingRemove({
-                                locale: lang.locale,
-                                label: lang.label,
-                              });
-                              removeModalRef.current?.showOverlay();
-                            }}
-                          >
-                            Remove
-                          </s-button>
-                        ) : null}
-                      </s-stack>
-                    </s-table-cell>
-                  </s-table-row>
-                ))}
-              </s-table-body>
-            </s-table>
-          </Card>
-        </>
-      )}
+                    <s-button
+                      variant="secondary"
+                      accessibilityLabel={`Edit ${lang.label}`}
+                      onClick={() => setEditingLocale(lang.locale)}
+                    >
+                      Edit
+                    </s-button>
+                    <s-button
+                      variant="secondary"
+                      accessibilityLabel={`Rename ${lang.label}`}
+                      onClick={() => setRenaming(lang.locale)}
+                    >
+                      Rename
+                    </s-button>
+                    <s-button
+                      variant="secondary"
+                      disabled={busy}
+                      accessibilityLabel={`${lang.enabled ? "Hide" : "Show"} ${lang.label}`}
+                      onClick={() =>
+                        mutations.update.mutate(
+                          { locale: lang.locale, enabled: !lang.enabled },
+                          notify,
+                        )
+                      }
+                    >
+                      {lang.enabled ? "Hide" : "Show"}
+                    </s-button>
+                    {lang.locale !== fallback ? (
+                      <s-button
+                        variant="secondary"
+                        disabled={busy}
+                        accessibilityLabel={`Make ${lang.label} the default language`}
+                        onClick={() =>
+                          mutations.setDefault.mutate(lang.locale, notify)
+                        }
+                      >
+                        Make default
+                      </s-button>
+                    ) : null}
+                    {lang.locale !== fallback ? (
+                      <s-button
+                        variant="secondary"
+                        disabled={busy}
+                        accessibilityLabel={`Remove ${lang.label}`}
+                        onClick={() => {
+                          setPendingRemove({
+                            locale: lang.locale,
+                            label: lang.label,
+                          });
+                          removeModalRef.current?.showOverlay();
+                        }}
+                      >
+                        Remove
+                      </s-button>
+                    ) : null}
+                  </s-stack>
+                </s-table-cell>
+              </s-table-row>
+            ))}
+          </s-table-body>
+        </s-table>
+      </Card>
 
       <AddLanguage
         busy={busy}
