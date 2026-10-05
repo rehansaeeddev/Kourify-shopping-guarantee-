@@ -1,3 +1,5 @@
+import { useThemeSetup, type ThemePlacement } from "../lib/queries";
+
 /**
  * Storefront setup: the one part of this app a merchant has to finish outside
  * it.
@@ -212,9 +214,12 @@ export function themeBlockLink(
 function SurfaceRow({
   surface,
   shop,
+  placed,
 }: {
   surface: Surface;
   shop: string | undefined;
+  /** undefined when the theme could not be read -- then claim nothing. */
+  placed: boolean | undefined;
 }) {
   const href = deepLink(shop, surface);
 
@@ -231,6 +236,16 @@ function SurfaceRow({
             <s-badge tone="neutral">
               {surface.placement.kind === "embed" ? "Switch" : "Block"}
             </s-badge>
+            {/*
+              Only ever drawn from a theme we actually read. A missing answer
+              shows no badge at all rather than a grey "Not added" that would
+              be a guess dressed up as a fact.
+            */}
+            {placed === true ? (
+              <s-badge tone="success" icon="check">
+                On your storefront
+              </s-badge>
+            ) : null}
           </s-stack>
           <s-text color="subdued">{surface.shopperSees}</s-text>
           <s-text color="subdued">{surface.where}</s-text>
@@ -246,9 +261,17 @@ function SurfaceRow({
               A new tab, not this frame. The admin refuses to be framed, so a
               same-frame navigation would land the merchant on a blank panel
               inside our own iframe.
+
+              A block that is already there gets a quieter button and a verb
+              that does not lie: pressing it adds a second copy, so offering
+              "Add" again would be inviting the duplicate.
             */}
-            <s-button href={href} target="_blank">
-              {surface.cta}
+            <s-button
+              href={href}
+              target="_blank"
+              variant={placed === true ? "tertiary" : undefined}
+            >
+              {placed === true ? "Open in theme editor" : surface.cta}
             </s-button>
           </s-stack>
         )}
@@ -261,16 +284,27 @@ function SurfaceRow({
 function SurfaceList({
   surfaces,
   shop,
+  theme,
 }: {
   surfaces: Surface[];
   shop: string | undefined;
+  theme: ThemePlacement | undefined;
 }) {
   return (
     <s-box borderWidth="base" borderColor="strong" borderRadius="base">
       {surfaces.map((surface, index) => (
         <s-box key={surface.handle}>
           {index > 0 ? <s-divider /> : null}
-          <SurfaceRow surface={surface} shop={shop} />
+          <SurfaceRow
+            surface={surface}
+            shop={shop}
+            // Only a theme we read can answer this. Everything else -- still
+            // loading, lookup failed, request refused -- is undefined, and
+            // undefined draws no badge and changes no wording.
+            placed={
+              theme?.known === true ? theme.placed[surface.handle] : undefined
+            }
+          />
         </s-box>
       ))}
     </s-box>
@@ -304,6 +338,16 @@ function Move({ n, children }: { n: number; children: React.ReactNode }) {
 export function ThemeSetup({ shop }: { shop?: string }) {
   const linked = adminHost(shop) !== null && API_KEY !== "";
 
+  /*
+   | Read, never waited on. The instructions are the point of this panel and
+   | they are true whatever the theme turns out to hold, so they render at
+   | once; the badges and the vintage warning appear a moment later. A failed
+   | lookup leaves `known` false and the panel says exactly what it said
+   | before any of this existed.
+   */
+  const theme = useThemeSetup().data;
+  const vintage = theme?.known === true && !theme.supportsAppBlocks;
+
   return (
     <s-stack direction="block" gap="base">
       <s-paragraph>
@@ -313,14 +357,29 @@ export function ThemeSetup({ shop }: { shop?: string }) {
         Settings.
       </s-paragraph>
 
-      <s-banner tone="info" heading="Your theme needs to support app blocks">
-        <s-paragraph>
-          The three boxes below need an Online Store 2.0 theme — that is any
-          theme from Shopify’s theme store since 2021. On an older “vintage”
-          theme the guarantee tab still works, but the product and cart boxes
-          cannot be added, and the button will tell you so.
-        </s-paragraph>
-      </s-banner>
+      {vintage ? (
+        <s-banner
+          tone="warning"
+          heading={`${theme?.themeName ?? "Your theme"} cannot hold app blocks`}
+        >
+          <s-paragraph>
+            It is an older “vintage” theme, built before Online Store 2.0, and
+            Shopify allows app blocks only in newer ones. The guarantee tab
+            below still works — it is a switch, not a block. The product and
+            cart boxes do not, and their buttons will fail. Switching to any
+            theme from Shopify’s theme store fixes it.
+          </s-paragraph>
+        </s-banner>
+      ) : (
+        <s-banner tone="info" heading="Your theme needs to support app blocks">
+          <s-paragraph>
+            The three boxes below need an Online Store 2.0 theme — that is any
+            theme from Shopify’s theme store since 2021. On an older “vintage”
+            theme the guarantee tab still works, but the product and cart boxes
+            cannot be added, and the button will tell you so.
+          </s-paragraph>
+        </s-banner>
+      )}
 
       {!linked && (
         <s-banner tone="warning" heading="Buttons are not available right now">
@@ -338,7 +397,7 @@ export function ThemeSetup({ shop }: { shop?: string }) {
           Without these three, Kourify is invisible to your shoppers.
         </s-text>
       </s-stack>
-      <SurfaceList surfaces={REQUIRED} shop={shop} />
+      <SurfaceList surfaces={REQUIRED} shop={shop} theme={theme} />
 
       <s-stack direction="block" gap="small-200">
         <s-heading>How the theme editor works</s-heading>
@@ -388,7 +447,7 @@ export function ThemeSetup({ shop }: { shop?: string }) {
           for itself when to appear, so read the line under it.
         </s-text>
       </s-stack>
-      <SurfaceList surfaces={OPTIONAL} shop={shop} />
+      <SurfaceList surfaces={OPTIONAL} shop={shop} theme={theme} />
 
       <s-divider />
 

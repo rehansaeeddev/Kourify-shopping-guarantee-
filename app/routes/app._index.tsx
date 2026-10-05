@@ -5,7 +5,7 @@ import { PageError, PageSkeleton } from "../components/PageState";
 import { StatusBadge } from "../components/StatusBadge";
 import { themeBlockLink } from "../components/ThemeSetup";
 import { issueTypeLabel } from "../lib/claim-issue-type";
-import { useDashboard } from "../lib/queries";
+import { useDashboard, useThemeSetup } from "../lib/queries";
 import { PageBody } from "../components/PageBody";
 
 function greetingForHour(hour: number): string {
@@ -20,6 +20,14 @@ const SHOW_DASHBOARD_METRICS = false;
 
 export default function Index() {
   const { data, isPending, error, refetch } = useDashboard();
+
+  /*
+   | Read, never waited on. This reads theme files from Shopify and is the
+   | slowest thing either screen asks for, so the dashboard paints without it
+   | and the setup guide's wording settles a moment later. Calling it above
+   | the early returns below keeps the hook order fixed, which React requires.
+   */
+  const themeState = useThemeSetup().data;
 
   if (isPending) return <PageSkeleton heading="Dashboard" />;
   if (error)
@@ -77,6 +85,17 @@ export default function Index() {
    */
   const themeLink = themeBlockLink(shop, "protection-product");
 
+  /*
+   | Whether that block is actually in the published theme: true, false, or
+   | undefined for "we could not look". Undefined is a real third state here
+   | and not a missing boolean -- the query is still in flight on first paint,
+   | and a failed theme lookup never resolves to false.
+   */
+  const blockPlaced =
+    themeState?.known === true
+      ? themeState.placed["protection-product"] === true
+      : undefined;
+
   // One definition for the share, printed in two places: the Protected
   // metric's sub-line and the Protection mix heading. They were drifting
   // apart as separate expressions waiting to happen.
@@ -130,32 +149,48 @@ export default function Index() {
               /*
                | This step used to read "Package protection is live on your
                | storefront" and then state that the widget was on the product
-               | page and cart. It never checked that, and could not: placing a
-               | theme block is the merchant's job and the app has no scope to
-               | see whether it happened. On our own test store the claim was
-               | false for three weeks. The setting is all this step measures,
-               | so the setting is all it now says -- and the sentence names
-               | the second half rather than pretending it is done.
+               | page and cart. It never checked that, and could not. On our
+               | own test store the claim was false for three weeks.
+               |
+               | read_themes is what lets it be checked rather than claimed, so
+               | the three sentences below are the three states that exist:
+               | the block is there, it is not, or we could not look. The third
+               | one says the least, which is correct -- a lookup that failed
+               | must never read as "you have not done it".
                */
               detail:
-                protectionStatus.value === "Live"
-                  ? "Protection is on. Shopify still needs you to place it yourself — in your theme editor, and in Settings → Checkout."
-                  : "Turn it on in Settings, then place it in your theme editor and your checkout. Shoppers see nothing until all three are done.",
-              done: protectionStatus.value === "Live",
+                protectionStatus.value !== "Live"
+                  ? "Turn it on in Settings, then place it in your theme editor and your checkout. Shoppers see nothing until all three are done."
+                  : blockPlaced === true
+                    ? "Protection is on and the box is on your product page. The tick box at checkout is added separately, in Settings → Checkout."
+                    : blockPlaced === false
+                      ? "Protection is on, but the box is not in your theme, so no shopper can see it. Adding it takes one click."
+                      : "Protection is on. Shopify still needs you to place it yourself — in your theme editor, and in Settings → Checkout.",
+              /*
+               | Not done while we know the block is missing. A merchant whose
+               | storefront shows nothing has not finished this step, whatever
+               | the setting says -- and ticking it would hide this whole guide
+               | once the other two are done.
+               */
+              done: protectionStatus.value === "Live" && blockPlaced !== false,
               action:
                 protectionStatus.value === "Live"
                   ? { label: "Manage", href: "/app/settings" }
                   : { label: "Open settings", href: "/app/settings" },
               /*
-               | Only when there is a real link to open. secondaryAction is
-               | rendered with target="_blank" because the theme editor cannot
-               | be framed, so an in-app route must never be put here -- the
-               | Help link at the foot of this guide covers the case where the
-               | deep link cannot be built.
+               | Only when there is a real link to open, and not once the block
+               | is known to be there: a deep link adds a block without
+               | checking for one, so offering it again invites a duplicate.
+               |
+               | secondaryAction is rendered with target="_blank" because the
+               | theme editor cannot be framed, so an in-app route must never
+               | be put here -- the Help link at the foot of this guide covers
+               | the case where the deep link cannot be built.
                */
-              secondaryAction: themeLink
-                ? { label: "Add to theme", href: themeLink }
-                : undefined,
+              secondaryAction:
+                themeLink && blockPlaced !== true
+                  ? { label: "Add to theme", href: themeLink }
+                  : undefined,
             },
             {
               label: "Review your first claim",

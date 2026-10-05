@@ -23,6 +23,7 @@ export const keys = {
   settings: ["settings"] as const,
   claimPreview: ["claim-preview"] as const,
   translations: ["translations"] as const,
+  themeSetup: ["theme-setup"] as const,
   orderSync: (page: number) => ["order-sync", page] as const,
   billing: ["billing"] as const,
 };
@@ -92,6 +93,23 @@ export const useClaimPreview = () =>
     // A saved colour is only worth seeing once the page has been rebuilt
     // with it, so this always refetches rather than serving a stale frame.
     staleTime: 0,
+  });
+
+/**
+ * Which of our blocks the merchant's published theme actually has.
+ *
+ * Its own query, never folded into the dashboard: it reads theme files from
+ * Shopify, so it is the slowest thing either screen asks for, and the
+ * storefront-setup panel renders its instructions without waiting for it.
+ *
+ * Nothing retries. A theme lookup that failed says `known: false`, the panel
+ * claims nothing, and three more attempts would only make a slow page slower.
+ */
+export const useThemeSetup = () =>
+  useQuery({
+    queryKey: keys.themeSetup,
+    queryFn: () => api.get<ThemePlacement>("/theme-setup"),
+    retry: false,
   });
 
 export const useTranslations = () =>
@@ -390,6 +408,25 @@ export type Dashboard = {
   hasActiveBilling: boolean;
   activePlan: string;
   quota: Quota;
+};
+
+/**
+ * What the published theme has of ours in it.
+ *
+ * `known` is the field that matters: false means the lookup failed, and
+ * nothing else in here may be shown to a merchant. "We could not check" and
+ * "you have not added it" are different answers, and only one of them is safe
+ * to act on -- the wrong one sends merchants back to re-add blocks they
+ * already have.
+ *
+ * `placed` is keyed by block handle and carries every app block the theme
+ * holds, other apps' included. Look ours up by name; never count the keys.
+ */
+export type ThemePlacement = {
+  known: boolean;
+  themeName: string | null;
+  supportsAppBlocks: boolean;
+  placed: Record<string, boolean | undefined>;
 };
 
 export type Trends = {

@@ -80,6 +80,15 @@ api_version = "2026-10"
 # type a locale code. It was added on 2026-10-05, which costs a re-consent --
 # deliberately spent while the app has one install rather than later.
 #
+# read_themes is read by ThemeBlocks, which reads the published theme's
+# settings_data.json and its product and cart templates to answer two
+# questions the app had been guessing at: whether the theme can host app
+# blocks at all, and which of ours are in it and switched on. Without it the
+# dashboard could claim protection was live while the storefront showed
+# nothing -- which it did, on our own test store, for three weeks. Added
+# 2026-10-06, in the same re-consent window as read_locales rather than a
+# second one later.
+#
 # read_customers is the exception: no query reads `customer` today, because
 # displayName is stripped everywhere until Protected Customer Data approval
 # lands. It stays because that approval request is for the Name field, and the
@@ -89,7 +98,7 @@ api_version = "2026-10"
 # (order, orders, ordersCount) -- editing goes through write_order_edits and
 # fulfilling through the fulfillment scopes. If a run with read_orders in its
 # place works, that is the narrower ask and the better one for review.
-scopes = "read_customers,read_locales,write_cart_transforms,write_files,write_fulfillments,write_merchant_managed_fulfillment_orders,write_order_edits,write_orders,write_products,write_publications"
+scopes = "read_customers,read_locales,read_themes,write_cart_transforms,write_files,write_fulfillments,write_merchant_managed_fulfillment_orders,write_order_edits,write_orders,write_products,write_publications"
 
 # Required by the CLI's schema, even though this app installs through Shopify
 # managed installation and authenticates by token exchange. There is no OAuth

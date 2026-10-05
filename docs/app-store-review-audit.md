@@ -71,12 +71,21 @@ the docs do not mention and the click did: a deep link adds a block without
 checking for one, so clicking it on a theme that already has that block draws
 it twice. The panel now says so.
 
-**Still weak, deliberately.** The deep links target `themes/current`, so a
-merchant who wants to try the blocks on an unpublished theme has to do it by
-hand; and we do not check whether their theme supports app blocks before
-offering the button, so a vintage theme learns it from Shopify's own error
-rather than from us. Both of those want `read_themes`, which is another scope
-and another re-consent — not spent without asking.
+**`read_themes` was added on 2026-10-06**, which closes the larger half of
+what was still weak. `ThemeBlocks` in the backend reads the published theme's
+`settings_data.json` and its product and cart templates, so the panel can show
+which blocks are really there and switched on, warn before the buttons rather
+than after when a theme is vintage, and stop the dashboard ticking a step
+whose block is missing. A lookup that fails reports `known: false` and the app
+claims nothing — "we could not check" and "you have not added it" are
+different answers and only one is safe to act on.
+
+**Still weak.** Two things, both narrow. The deep links target
+`themes/current`, so a merchant who wants to try the blocks on an unpublished
+theme does it by hand. And placement is only read from those three files, not
+from section groups — a cart block placed in a drawer built as an `aside`
+group reads as missing. Both report less than the truth rather than something
+false, which is the right direction to be wrong in.
 
 ---
 
