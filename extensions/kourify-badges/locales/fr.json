@@ -19,13 +19,5 @@
     "update_error": "Impossible de mettre à jour la protection. Veuillez réessayer.",
     "safe_checkout": "Paiement sécurisé garanti",
     "coverage_up_to": "Couvre les articles jusqu'à {{ amount }} chacun."
-  },
-  "ratings": {
-    "stars": {
-      "label": "Évaluations"
-    },
-    "home": {
-      "recommendationText": "Produit recommandé !"
-    }
   }
 }

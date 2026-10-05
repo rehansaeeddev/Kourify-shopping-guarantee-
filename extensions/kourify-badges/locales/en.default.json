@@ -19,13 +19,5 @@
     "update_error": "Couldn't update protection — please try again.",
     "safe_checkout": "Guaranteed Safe Checkout",
     "coverage_up_to": "Covers items up to {{ amount }} each."
-  },
-  "ratings": {
-    "stars": {
-      "label": "Ratings"
-    },
-    "home": {
-      "recommendationText": "Recommended Product!"
-    }
   }
 }

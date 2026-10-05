@@ -19,13 +19,5 @@
     "update_error": "تعذّر تحديث الحماية — يرجى المحاولة مرة أخرى.",
     "safe_checkout": "دفع آمن مضمون",
     "coverage_up_to": "يغطي المنتجات حتى {{ amount }} لكل منتج."
-  },
-  "ratings": {
-    "stars": {
-      "label": "التقييمات"
-    },
-    "home": {
-      "recommendationText": "منتج موصى به!"
-    }
   }
 }
