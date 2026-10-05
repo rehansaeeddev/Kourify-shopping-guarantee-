@@ -72,4 +72,55 @@ describe("shopify.app.toml", () => {
     expect(toml).toMatch(/^\[auth\]$/m);
     expect(toml).toMatch(/^\s*redirect_urls\s*=\s*\[\s*"[^"]+"/m);
   });
+
+  /**
+   * The scopes, pinned.
+   *
+   * Not because the list is sacred, but because of what changing it costs.
+   * Adding one makes Shopify ask every merchant to approve the app again --
+   * and this app has already spent two of those in two days, read_locales on
+   * 2026-10-05 and read_themes and read_orders together on 2026-10-06.
+   * Removing one is silent, which is worse: an accidental deletion takes a
+   * capability away and nothing anywhere says so until a call starts failing
+   * in production.
+   *
+   * So a change here has to be two edits, and the second one is this list.
+   * Shopify's own words for what the first edit costs:
+   * shopify.dev/docs/apps/build/authentication-authorization/manage-access-scopes
+   */
+  it("asks for exactly the scopes it exercises", () => {
+    const declared = /^\s*scopes\s*=\s*"([^"]*)"/m.exec(toml)?.[1] ?? "";
+
+    expect(declared.split(",").sort()).toEqual([
+      // Reserved for Protected Customer Data approval; no query reads
+      // `customer` while displayName is stripped.
+      "read_customers",
+      "read_locales",
+      "read_orders",
+      "read_themes",
+      "write_cart_transforms",
+      "write_files",
+      "write_fulfillments",
+      "write_merchant_managed_fulfillment_orders",
+      "write_order_edits",
+      "write_products",
+      "write_publications",
+    ]);
+  });
+
+  /**
+   * The restricted scopes, by name. Each one needs Shopify's approval before
+   * an app may hold it, and asking for one uninvited is a rejected review.
+   */
+  it("asks for none of the scopes that need Shopify's permission first", () => {
+    for (const restricted of [
+      "read_all_orders",
+      "write_payment_mandate",
+      "write_checkout_extensions_apis",
+      "read_advanced_dom_pixel_events",
+      "read_checkout_extensions_chat",
+    ]) {
+      expect(toml).not.toContain(restricted);
+    }
+  });
 });

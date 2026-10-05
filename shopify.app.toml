@@ -69,7 +69,9 @@ api_version = "2026-10"
 # Every scope here is reached by a GraphQL operation in the Laravel backend.
 # Six were dropped in 2026-09: read_cart_transforms, read_orders,
 # read_merchant_managed_fulfillment_orders and read_publications, because a
-# write scope already grants its read ("A write scope includes read" --
+# write scope already grants its read -- read_orders is back below, not
+# because that reasoning was wrong but because the write scope it was folded
+# into turned out not to be needed either ("A write scope includes read" --
 # shopify.dev/docs/apps/build/authentication-authorization/manage-access-scopes);
 # and write_metaobjects with write_metaobject_definitions, which nothing used --
 # the word "metaobject" appears nowhere in the codebase. An app that asks for a
@@ -99,11 +101,20 @@ api_version = "2026-10"
 # lands. It stays because that approval request is for the Name field, and the
 # queries come back the moment it is granted.
 #
-# Still open: whether write_orders is needed at all. The app only reads orders
-# (order, orders, ordersCount) -- editing goes through write_order_edits and
-# fulfilling through the fulfillment scopes. If a run with read_orders in its
-# place works, that is the narrower ask and the better one for review.
-scopes = "read_customers,read_locales,read_themes,write_cart_transforms,write_files,write_fulfillments,write_merchant_managed_fulfillment_orders,write_order_edits,write_orders,write_products,write_publications"
+# write_orders became read_orders on 2026-10-06, settled rather than left
+# open. Every mutation the backend sends was enumerated: the only ones that
+# touch an order are orderEditBegin, orderEditAddCustomItem and
+# orderEditCommit, and Shopify's own schema gives their requirement as
+# "write_order_edits, read_orders" -- never write_orders. The metafields the
+# app writes belong to currentAppInstallation, not to orders. Nothing else
+# writes an order at all.
+#
+# It rides in the same deploy as read_themes on purpose. A removal is silent
+# and an addition prompts, so swapping here costs nothing extra: both
+# additions land in one re-consent instead of two. Deliberately the last
+# scope change before launch -- anything new after this is its own prompt for
+# every merchant.
+scopes = "read_customers,read_locales,read_orders,read_themes,write_cart_transforms,write_files,write_fulfillments,write_merchant_managed_fulfillment_orders,write_order_edits,write_products,write_publications"
 
 # Required by the CLI's schema, even though this app installs through Shopify
 # managed installation and authenticates by token exchange. There is no OAuth

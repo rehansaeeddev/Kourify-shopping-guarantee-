@@ -87,6 +87,27 @@ from section groups — a cart block placed in a drawer built as an `aside`
 group reads as missing. Both report less than the truth rather than something
 false, which is the right direction to be wrong in.
 
+### Scopes narrowed in the same pass
+
+**Why this matters for review:** "an app that asks for a scope it never
+exercises is one review sends back" is the rule the September cull was done
+under, and one scope had been left open ever since.
+
+`write_orders` is gone, replaced by `read_orders` (2026-10-06). Every mutation
+the backend sends was enumerated first: the only three that touch an order are
+`orderEditBegin`, `orderEditAddCustomItem` and `orderEditCommit`, whose
+requirement Shopify's schema gives as `write_order_edits, read_orders`. The
+metafields the app writes belong to `currentAppInstallation`. Nothing writes
+an order.
+
+It ships in the same deploy as `read_themes` deliberately — a removal is
+silent and an addition prompts, so the two additions cost one re-consent
+rather than two. `app/shopify-config.test.ts` now pins the whole list, so the
+next change has to be a deliberate edit in two places.
+
+**Not yet proven on a store.** Order sync, a fulfillment and the offer flow
+all have to run once without `write_orders` before launch.
+
 ---
 
 ## ⚠️ Needs review
