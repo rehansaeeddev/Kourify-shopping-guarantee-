@@ -61,6 +61,16 @@ check, and carries an "Add to theme" button for the product block.
 `app/components/ThemeSetup.test.ts` pins every handle to a real block file and
 every printed name to that block's own schema.
 
+**Tested, not assumed.** All three link shapes were clicked against the live
+oveelab admin on 2026-10-06. `context=apps&activateAppId=…` opened App embeds
+with the guarantee tab already switched on — Shopify redirects it to its own
+`?context=apps&appEmbed=…` form, which is the link working, not failing.
+`target=mainSection` landed the product block inside Product information.
+`target=newAppsSection` added the cart block to the cart template. One thing
+the docs do not mention and the click did: a deep link adds a block without
+checking for one, so clicking it on a theme that already has that block draws
+it twice. The panel now says so.
+
 **Still weak, deliberately.** The deep links target `themes/current`, so a
 merchant who wants to try the blocks on an unpublished theme has to do it by
 hand; and we do not check whether their theme supports app blocks before

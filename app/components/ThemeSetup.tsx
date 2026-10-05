@@ -348,19 +348,30 @@ export function ThemeSetup({ shop }: { shop?: string }) {
           Press a button above. Your theme editor opens in a new tab with the
           block already added, so you can see it before you keep it.
         </Move>
+        {/*
+          Watched this happen on 2026-10-06. The cart link was clicked on a
+          store that already had the block, and the editor drew the box twice
+          -- the button adds a block, it does not check for one. Harmless as
+          long as the merchant knows, and confusing if nobody says it.
+        */}
         <Move n={2}>
+          If that block is already in your theme, you will now see two of them.
+          Delete one, or just close the tab without saving — nothing has
+          changed yet.
+        </Move>
+        <Move n={3}>
           Drag it up or down to move it. In the left-hand list, a block sits
           inside a section and can be dragged within it.
         </Move>
-        <Move n={3}>
+        <Move n={4}>
           Click the block to change its wording, its colour and the price you
           show. Those settings live in the theme editor, not in this app.
         </Move>
-        <Move n={4}>
+        <Move n={5}>
           Press <s-text type="strong">Save</s-text>. Nothing reaches a shopper
           until you save.
         </Move>
-        <Move n={5}>
+        <Move n={6}>
           To take one off later, click it and choose{" "}
           <s-text type="strong">Remove block</s-text>. To hide it for a while,
           use the eye icon next to its name. Uninstalling Kourify removes all of
