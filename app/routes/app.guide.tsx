@@ -20,12 +20,23 @@ const PANEL_HEADING = { size: "large-200" } as Record<string, string>;
  * as its words, and the rule under the title is what stops a long page
  * reading as one column of prose.
  */
+/**
+ * Polaris gives icons seven tones and every one of them means something:
+ * there is no decorative palette to rotate through. So a panel's colour is
+ * chosen for what the panel is about, which leaves some sharing a tone --
+ * and leaves warning and critical unused here, because amber and red are
+ * already spoken for at the top of this page, where they mean a claim is
+ * waiting or was denied. A red question mark beside "FAQ" would read as a
+ * problem.
+ */
 function Panel({
   icon,
+  tone = "info",
   heading,
   children,
 }: {
   icon: string;
+  tone?: "info" | "success" | "caution" | "neutral";
   heading: string;
   children: ReactNode;
 }) {
@@ -33,7 +44,7 @@ function Panel({
     <Card boxed>
       <s-stack direction="inline" gap="small-300" alignItems="center">
         <s-box background="subdued" borderRadius="large" padding="small-300">
-          <s-icon type={icon as never} tone="neutral" size="base" />
+          <s-icon type={icon as never} tone={tone} size="base" />
         </s-box>
         <s-heading {...PANEL_HEADING}>{heading}</s-heading>
       </s-stack>
@@ -171,7 +182,11 @@ export default function Guide() {
           </s-text>
         </s-stack>
 
-        <Panel icon="cash-dollar" heading="The fee vs what is covered">
+        <Panel
+          icon="cash-dollar"
+          tone="info"
+          heading="The fee vs what is covered"
+        >
           <s-text color="subdued">
             Two different numbers, and the one merchants mix up. One is what you
             charge; the other is what qualifies.
@@ -193,7 +208,11 @@ export default function Guide() {
           </s-text>
         </Panel>
 
-        <Panel icon="clipboard-checklist" heading="How a claim reaches you">
+        <Panel
+          icon="clipboard-checklist"
+          tone="info"
+          heading="How a claim reaches you"
+        >
           <s-stack direction="block" gap="base">
             <Step n={1} label="Your customer files it">
               From the guarantee tab on your storefront: the order number, the
@@ -216,7 +235,7 @@ export default function Guide() {
           gap="base"
           alignItems="start"
         >
-          <Panel icon="order" heading="Acting on a claim">
+          <Panel icon="order" tone="success" heading="Acting on a claim">
             <s-text color="subdued">
               Open any claim to act. Each one closes it.
             </s-text>
@@ -233,7 +252,7 @@ export default function Guide() {
             </s-stack>
           </Panel>
 
-          <Panel icon="globe" heading="What your customer gets">
+          <Panel icon="globe" tone="success" heading="What your customer gets">
             <s-stack direction="block" gap="small-300">
               <Point term="On filing">
                 a confirmation that the claim was received.
@@ -253,7 +272,7 @@ export default function Guide() {
           gap="base"
           alignItems="start"
         >
-          <Panel icon="color" heading="Making the claim page yours">
+          <Panel icon="color" tone="info" heading="Making the claim page yours">
             <s-stack direction="block" gap="small-300">
               <Point term="Name and logo">
                 yours, and you choose whether they sit with the introduction or
@@ -272,7 +291,7 @@ export default function Guide() {
             </s-stack>
           </Panel>
 
-          <Panel icon="settings" heading="What you control">
+          <Panel icon="settings" tone="info" heading="What you control">
             <s-stack direction="block" gap="small-300">
               <Point term="Who pays">the customer at checkout, or you.</Point>
               <Point term="What qualifies">
@@ -288,7 +307,11 @@ export default function Guide() {
           </Panel>
         </s-grid>
 
-        <Panel icon="shield-check-mark" heading="Where protection appears">
+        <Panel
+          icon="shield-check-mark"
+          tone="success"
+          heading="Where protection appears"
+        >
           <s-grid
             gridTemplateColumns="repeat(3, minmax(0, 1fr))"
             gap="base"
@@ -318,7 +341,7 @@ export default function Guide() {
           </s-grid>
         </Panel>
 
-        <Panel icon="lock" heading="Customer data and privacy">
+        <Panel icon="lock" tone="caution" heading="Customer data and privacy">
           <s-text color="subdued">
             A claim needs the order number, the email the order was placed with,
             which item it is about, and a photo where the reason requires one.
@@ -336,7 +359,7 @@ export default function Guide() {
           </s-stack>
         </Panel>
 
-        <Panel icon="question-circle" heading="FAQ">
+        <Panel icon="question-circle" tone="info" heading="FAQ">
           <s-stack direction="block" gap="base">
             {FAQ.map((entry, index) => (
               <s-stack key={entry.q} direction="block" gap="small-300">
