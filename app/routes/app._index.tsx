@@ -69,8 +69,8 @@ export default function Index() {
   /*
    | The theme editor, opened with the product block already added.
    |
-   | The one surface worth a button on the dashboard: it is the block that
-   | earns money, and placing it is the step a merchant is most likely never to
+   | The one surface worth a button on the dashboard: it is the main storefront
+   | block, and placing it is the step a merchant is most likely never to
    | discover. The rest of the blocks, and what to do with them, are on the
    | Help page. null when the shop's domain or the client id is missing, and
    | the row then shows no button at all.
@@ -139,8 +139,8 @@ export default function Index() {
                */
               detail:
                 protectionStatus.value === "Live"
-                  ? 'Protection is on. Shopify will not let an app edit your theme, so the "Protect your order" box is only visible once you add it there.'
-                  : "Turn it on in Settings, then add its block to your theme. Shoppers need both.",
+                  ? "Protection is on. Shopify still needs you to place it yourself — in your theme editor, and in Settings → Checkout."
+                  : "Turn it on in Settings, then place it in your theme editor and your checkout. Shoppers see nothing until all three are done.",
               done: protectionStatus.value === "Live",
               action:
                 protectionStatus.value === "Live"

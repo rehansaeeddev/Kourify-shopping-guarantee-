@@ -56,6 +56,16 @@ export type Surface = {
   shopperSees: string;
   /** Where it belongs, in a merchant's words rather than a template name. */
   where: string;
+  /**
+   * What else has to be true before a shopper sees it, where that is not
+   * simply "it is placed".
+   *
+   * Three of these six hide themselves at runtime and each does it on a
+   * different rule, so the rule belongs on the row rather than over the group:
+   * a merchant who places a block and sees nothing has no way to tell a
+   * mistake from a setting.
+   */
+  note?: string;
   placement: Placement;
   /** The button's words. An embed is switched on; a block is placed. */
   cta: string;
@@ -76,8 +86,9 @@ const REQUIRED: Surface[] = [
     handle: "protection-product",
     editorName: "Kourify Protection",
     shopperSees:
-      'The "Protect your order" box a shopper ticks to add protection. This is the one that earns money.',
+      'The "Protect your order" box. Where the shopper pays, they tick it to add protection; where you pay, it tells them the order is already covered.',
     where: "Product pages, next to the Add to cart button.",
+    note: "Hidden while protection is switched off in Settings.",
     placement: { kind: "block", template: "product", target: "mainSection" },
     cta: "Add to product page",
   },
@@ -85,14 +96,23 @@ const REQUIRED: Surface[] = [
     handle: "protection-cart",
     editorName: "Kourify Protect (Cart)",
     shopperSees:
-      "The same box on the cart page, for shoppers who did not tick it on the product page.",
+      "The same box on the cart page, for shoppers who did not see it on the product page.",
     where: "The cart page.",
+    note: "Hidden while protection is switched off in Settings.",
     placement: { kind: "block", template: "cart", target: "newAppsSection" },
     cta: "Add to cart page",
   },
 ];
 
-/** These only ever show when Trust badges is switched on in Settings. */
+/**
+ * Reassurance only -- nothing to tick, nothing to buy.
+ *
+ * Not one rule between them, which is why each carries its own note. The two
+ * trust badges run kourify-badge.js and check `badgesEnabled`; the protection
+ * badge runs kourify-protection.js and decides on who pays, ignoring that
+ * setting entirely. Saying "these show when Trust badges is on" over all three
+ * would have been wrong about the first one.
+ */
 const OPTIONAL: Surface[] = [
   {
     handle: "protection-badge",
@@ -100,6 +120,7 @@ const OPTIONAL: Surface[] = [
     shopperSees:
       "A small line saying this order is protected. No tick box, nothing to buy.",
     where: "Product pages, near the title or price.",
+    note: "Not tied to Trust badges. It shows whenever you cover protection yourself — and when the shopper pays, only if you tick “Show the badge when the customer pays” in the block.",
     placement: { kind: "block", template: "product", target: "mainSection" },
     cta: "Add to product page",
   },
@@ -108,6 +129,7 @@ const OPTIONAL: Surface[] = [
     editorName: "Kourify Trust Badge",
     shopperSees: "A safe-checkout badge.",
     where: "Product pages.",
+    note: "Shows only while Trust badges is switched on in Settings.",
     placement: { kind: "block", template: "product", target: "mainSection" },
     cta: "Add to product page",
   },
@@ -116,6 +138,7 @@ const OPTIONAL: Surface[] = [
     editorName: "Kourify Badge (Cart)",
     shopperSees: "The same safe-checkout badge, on the cart.",
     where: "The cart page.",
+    note: "Shows only while Trust badges is switched on in Settings.",
     placement: { kind: "block", template: "cart", target: "newAppsSection" },
     cta: "Add to cart page",
   },
@@ -211,6 +234,11 @@ function SurfaceRow({
           </s-stack>
           <s-text color="subdued">{surface.shopperSees}</s-text>
           <s-text color="subdued">{surface.where}</s-text>
+          {surface.note ? (
+            <s-text color="subdued" type="strong">
+              {surface.note}
+            </s-text>
+          ) : null}
         </s-stack>
         {href === null ? null : (
           <s-stack direction="inline">
@@ -345,9 +373,8 @@ export function ThemeSetup({ shop }: { shop?: string }) {
       <s-stack direction="block" gap="small-200">
         <s-heading>Optional badges</s-heading>
         <s-text color="subdued">
-          Reassurance only — nothing to tick, nothing to buy. They stay hidden
-          until <s-text type="strong">Trust badges</s-text> is switched on in
-          Settings.
+          Reassurance only — nothing to tick, nothing to buy. Each one decides
+          for itself when to appear, so read the line under it.
         </s-text>
       </s-stack>
       <SurfaceList surfaces={OPTIONAL} shop={shop} />
@@ -365,10 +392,17 @@ export function ThemeSetup({ shop }: { shop?: string }) {
         </s-text>
       </s-stack>
 
+      {/*
+        Not "a drawer cannot hold an app block". A drawer built as a section
+        group can -- we rebuilt our own test store's that way. Plenty are not,
+        and a merchant whose drawer has no Apps slot needs to know that is the
+        theme's doing and what to do instead.
+      */}
       <s-paragraph color="subdued">
-        A cart drawer cannot hold an app block — Shopify only allows them in
-        sections, and a drawer is not one. Shoppers who never open the cart page
-        see the product page box instead.
+        Many themes put the cart in a slide-out drawer, and most drawers have
+        nowhere to add an app block. If yours does not, the cart box goes on
+        the cart page, and shoppers who never open that page see the product
+        page box instead.
       </s-paragraph>
     </s-stack>
   );
