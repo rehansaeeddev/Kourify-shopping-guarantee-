@@ -713,8 +713,9 @@ export default function Settings() {
             {activeTab === "pricing" && (
               <Card heading="Pricing" boxed>
                 <s-paragraph>
-                  Who pays for protection, and — when the customer pays — how
-                  that fee is calculated.
+                  {customerPaysAllowed
+                    ? "Who pays for protection, and how the fee is worked out when the customer does."
+                    : "Who pays for protection."}
                 </s-paragraph>
                 <s-stack direction="block" gap="base" paddingBlockStart="base">
                   <s-choice-list
@@ -733,15 +734,22 @@ export default function Settings() {
                     }}
                   >
                     <s-choice value="merchant">
-                      Merchant pays — protection is free for the customer and
-                      you cover the cost.
+                      Merchant pays
+                      <s-text slot="details" color="subdued">
+                        {customerPaysAllowed
+                          ? "Protection is free for the customer. You cover the cost, so there is no fee to set."
+                          : "Protection is free for the customer and you cover the cost."}
+                      </s-text>
                     </s-choice>
                     <s-choice value="customer" disabled={!customerPaysAllowed}>
-                      {customerPaysAllowed
-                        ? "Customer pays — the customer pays the protection fee at checkout."
-                        : planAllowsCustomerPays(plan)
-                          ? "Customer pays — requires Shopify Plus."
-                          : "Customer pays — not available on this plan."}
+                      Customer pays
+                      <s-text slot="details" color="subdued">
+                        {customerPaysAllowed
+                          ? "The customer pays the protection fee at checkout."
+                          : planAllowsCustomerPays(plan)
+                            ? "Requires Shopify Plus."
+                            : `Not available on ${PLAN_LABELS[plan]} — protection is merchant-funded here.`}
+                      </s-text>
                     </s-choice>
                   </s-choice-list>
 
@@ -752,16 +760,8 @@ export default function Settings() {
                       {`${PLAN_LABELS[plan]} includes up to ${
                         planProtectedOrderLimit(plan) ??
                         BASIC_PROTECTED_ORDER_LIMIT
-                      } protected orders. Protection is merchant-funded on this plan.`}
+                      } protected orders.`}
                     </s-banner>
-                  )}
-
-                  {merchantPays && (
-                    <s-paragraph color="subdued">
-                      {customerPaysAllowed
-                        ? "There's no fee to set while you're covering protection. Switch to Customer pays to price it."
-                        : "There's no fee to set: you're covering protection, and customer-paid protection isn't available on this store."}
-                    </s-paragraph>
                   )}
 
                   {merchantPays ? null : (
