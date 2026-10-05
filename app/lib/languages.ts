@@ -49,10 +49,13 @@ export const LANGUAGE_CODES: readonly string[] = [
 /**
  * Names a language, in whichever language was asked for.
  *
- * Wrapped because `Intl.DisplayNames` throws on a locale tag it cannot parse
- * and returns the code unchanged for one it does not know -- and this runs in
- * whatever browser the merchant brought. A language that cannot be named is
- * still offered, under its code, rather than disappearing from the list.
+ * Returns null when the browser cannot do it, which is more often than it
+ * sounds. Chrome ships CLDR's "modern" coverage, not the full set, so
+ * `.of("aa")` comes back as "aa" rather than "Afar" -- and constructing
+ * DisplayNames in a locale it has no data for quietly answers in English
+ * instead of throwing. Node's full-icu knows all of them, which is why the
+ * tests beside this file passed while the real dropdown showed rows reading
+ * "aa — aa".
  */
 function nameIn(language: string, inLocale: string): string | null {
   try {
@@ -61,6 +64,7 @@ function nameIn(language: string, inLocale: string): string | null {
       fallback: "code",
     }).of(language);
 
+    // fallback: "code" means an unknown language answers with its own code.
     return named && named !== language ? named : null;
   } catch {
     return null;
@@ -83,10 +87,11 @@ function capitalize(text: string, locale: string): string {
  * where the person reading it is looking for their own language and will not
  * recognise the English word for it.
  *
- * Many of these come back lower-cased -- "français", "español" -- which is
- * correct prose and wrong for a menu item, so the first letter is raised.
- * A language that cannot name itself falls back to the merchant's name for
- * it, and then to the code.
+ * Many come back lower-cased -- "français", "español" -- which is correct
+ * prose and wrong for a menu item, so the first letter is raised. Where the
+ * browser has no data for the language itself it answers in the merchant's
+ * language instead, and that is what gets used: a name they can read beats no
+ * name at all.
  */
 export function nativeName(code: string, merchantLocale = "en"): string {
   const own = nameIn(code, code);
@@ -96,17 +101,26 @@ export function nativeName(code: string, merchantLocale = "en"): string {
     : (nameIn(code, merchantLocale) ?? code);
 }
 
-/** What the merchant should see it called: their own name for the language. */
-export function merchantName(code: string, merchantLocale = "en"): string {
-  return nameIn(code, merchantLocale) ?? code;
+/**
+ * What the merchant should see it called, or null when the browser cannot
+ * name it at all.
+ *
+ * Null is the signal to leave the language out of the list. A row reading
+ * "aa — aa" helps nobody: a merchant cannot be expected to recognise a code,
+ * and one who genuinely wants Afar is no better served by it.
+ */
+export function merchantName(code: string, merchantLocale = "en"): string | null {
+  return nameIn(code, merchantLocale);
 }
 
 export type LanguageChoice = {
   code: string;
-  /** Named in the merchant's language, for the dropdown. */
+  /** Named in the merchant's language. */
   label: string;
   /** Named in its own language, for the shopper's switcher. */
   native: string;
+  /** The dropdown row, already assembled. */
+  display: string;
   /** Whether this app ships the page and the emails already written. */
   translated: boolean;
 };
@@ -114,9 +128,22 @@ export type LanguageChoice = {
 /**
  * The dropdown's contents: everything not already added, named and sorted.
  *
+ * Three things this does that a plain map would not, all of them because the
+ * browser's naming data is incomplete rather than wrong:
+ *
+ * A language the browser cannot name is dropped -- unless it is one we ship
+ * translations for, which must never silently vanish from the list.
+ *
+ * "Albanian — Albanian" collapses to "Albanian". Where Chrome has no Albanian
+ * data it answers in English, so the two halves come back identical and
+ * printing both says nothing twice.
+ *
+ * Two codes that produce one name keep their codes. CLDR calls both `ak` and
+ * `tw` "Akan", so the list showed Akan twice with no way to tell them apart;
+ * now they read "Akan (ak)" and "Akan (tw)".
+ *
  * Sorted with `localeCompare` in the merchant's own language, because
- * alphabetical order is a property of the language doing the sorting -- and
- * a merchant reading a Spanish admin expects ñ where Spanish puts it.
+ * alphabetical order is a property of the language doing the sorting.
  */
 export function languageChoices(
   translatedLocales: readonly string[],
@@ -126,12 +153,38 @@ export function languageChoices(
   const taken = new Set(alreadyAdded);
   const ready = new Set(translatedLocales);
 
-  return LANGUAGE_CODES.filter((code) => !taken.has(code))
+  const named = LANGUAGE_CODES.filter((code) => !taken.has(code))
     .map((code) => ({
       code,
       label: merchantName(code, merchantLocale),
-      native: nativeName(code, merchantLocale),
       translated: ready.has(code),
     }))
+    .filter(
+      (language): language is { code: string; label: string; translated: boolean } =>
+        language.label !== null || language.translated,
+    )
+    .map((language) => ({
+      ...language,
+      label: language.label ?? language.code,
+    }));
+
+  const seen = new Map<string, number>();
+  for (const language of named) {
+    seen.set(language.label, (seen.get(language.label) ?? 0) + 1);
+  }
+
+  return named
+    .map(({ code, label, translated }) => {
+      const native = nativeName(code, merchantLocale);
+      const name = (seen.get(label) ?? 0) > 1 ? `${label} (${code})` : label;
+
+      return {
+        code,
+        label: name,
+        native,
+        display: native === label ? name : `${name} — ${native}`,
+        translated,
+      };
+    })
     .sort((a, b) => a.label.localeCompare(b.label, merchantLocale));
 }

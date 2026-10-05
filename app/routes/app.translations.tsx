@@ -399,7 +399,9 @@ function AddLanguage({
   // "English, French, Arabic and Hindi", in the merchant's language.
   const readyNames = new Intl.ListFormat(undefined, {
     type: "conjunction",
-  }).format(translatedLocales.map((locale) => merchantName(locale)));
+  }).format(
+    translatedLocales.map((locale) => merchantName(locale) ?? locale),
+  );
 
   return (
     <Card heading="Add a language">
@@ -453,6 +455,14 @@ function AddLanguage({
                 : "Pick the language your customers should be able to file a claim in."}
             </s-paragraph>
             <s-grid
+              /*
+                No minmax() here, however much a long option list looks like
+                it wants one. Polaris splits a conditional value on commas, so
+                the comma inside minmax(0, 1fr) ends the @container clause and
+                the whole rule collapses to one column -- measured at 760px
+                wide: 313px of select became 760px, stacked. Plain 1fr holds
+                the three on a row and the query still folds them at 640px.
+              */
               gridTemplateColumns="@container (inline-size <= 640px) 1fr, 1fr 1fr auto"
               gap="base"
               alignItems="end"
@@ -484,18 +494,24 @@ function AddLanguage({
                   difference between these is the difference between a page
                   that is finished and seventy lines of English waiting for
                   someone, and that belongs where the merchant is choosing.
+
+                  "we wrote these", not "automatic". Nothing here is machine
+                  translated and the app offers no such thing -- the four are
+                  hand-written and shipped. What is automatic about them is
+                  only that the merchant does no work, which is what the
+                  label says.
                 */}
-                <s-option-group label="Ready to use">
+                <s-option-group label="Ready to use — we wrote these">
                   {ready.map((language) => (
                     <s-option key={language.code} value={language.code}>
-                      {`${language.label} — ${language.native}`}
+                      {language.display}
                     </s-option>
                   ))}
                 </s-option-group>
-                <s-option-group label="You translate it yourself">
+                <s-option-group label="You translate these by hand">
                   {unready.map((language) => (
                     <s-option key={language.code} value={language.code}>
-                      {`${language.label} — ${language.native}`}
+                      {language.display}
                     </s-option>
                   ))}
                 </s-option-group>
@@ -505,7 +521,7 @@ function AddLanguage({
                 name="label"
                 value={label}
                 onChange={(event) => setLabel(event.currentTarget.value ?? "")}
-                placeholder={chosen?.native ?? "العربية"}
+                placeholder={chosen?.native ?? "Pick a language first"}
                 details="Shown in the language switcher on your claim page."
               />
               <s-button
