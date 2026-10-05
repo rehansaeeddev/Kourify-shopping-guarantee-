@@ -7,11 +7,7 @@ import {
   DEFAULT_TRANSLATIONS,
   type TranslationStrings,
 } from "../lib/claim-i18n";
-import {
-  languageChoices,
-  merchantName,
-  type LanguageChoice,
-} from "../lib/languages";
+import { languageChoices, merchantName } from "../lib/languages";
 import {
   useTranslationMutations,
   useTranslations,
@@ -396,41 +392,9 @@ function AddLanguage({
     [translatedLocales, alreadyAdded],
   );
 
-  const [query, setQuery] = useState("");
-
-  /*
-   | Matched on all three of a language's names, because a merchant may know
-   | any one of them: "Punjabi" from the admin, "ਪੰਜਾਬੀ" from a customer who
-   | asked for it, and "pa" from a Shopify screen that showed the code.
-   */
-  const found = useMemo(() => {
-    const needle = query.trim().toLocaleLowerCase();
-
-    return needle === ""
-      ? choices
-      : choices.filter((language) =>
-          [language.label, language.native, language.code].some((name) =>
-            name.toLocaleLowerCase().includes(needle),
-          ),
-        );
-  }, [choices, query]);
-
-  const ready = found.filter((language) => language.translated);
-  const unready = found.filter((language) => !language.translated);
+  const ready = choices.filter((language) => language.translated);
+  const unready = choices.filter((language) => !language.translated);
   const chosen = choices.find((language) => language.code === code) ?? null;
-
-  /** Whether a language survives a given search, used to drop a hidden pick. */
-  const matches = (language: LanguageChoice | null, search: string): boolean => {
-    const needle = search.trim().toLocaleLowerCase();
-
-    return (
-      language !== null &&
-      (needle === "" ||
-        [language.label, language.native, language.code].some((name) =>
-          name.toLocaleLowerCase().includes(needle),
-        ))
-    );
-  };
 
   // "English, French, Arabic and Hindi", in the merchant's language.
   const readyNames = new Intl.ListFormat(undefined, {
@@ -490,29 +454,6 @@ function AddLanguage({
                 ? "Adding a language your storefront does not publish? Pick it here."
                 : "Pick the language your customers should be able to file a claim in."}
             </s-paragraph>
-            {/*
-              A search box, because an optgroup label only paints at the top
-              of its group. With 128 languages under "You translate these by
-              hand", a merchant scrolling to Punjabi has the heading far
-              offscreen and sees one undifferentiated list. Narrowing it is
-              what makes the two categories visible, not relabelling them
-              again.
-            */}
-            <s-search-field
-              label="Search languages"
-              placeholder="Start typing — Punjabi, ਪੰਜਾਬੀ, pa"
-              value={query}
-              onInput={(event) => {
-                setQuery(event.currentTarget.value ?? "");
-                // A language that no longer matches must not stay selected
-                // behind a filter that hides it.
-                if (code !== "" && !matches(chosen, event.currentTarget.value)) {
-                  setCode("");
-                  setLabel("");
-                }
-              }}
-            />
-
             <s-grid
               /*
                 No minmax() here, however much a long option list looks like
@@ -547,11 +488,7 @@ function AddLanguage({
                   }
                 }}
               >
-                <s-option value="">
-                  {found.length === 0
-                    ? "No language matches that"
-                    : "Choose a language"}
-                </s-option>
+                <s-option value="">Choose a language</s-option>
                 {/*
                   Two groups rather than one list with a note on each row: the
                   difference between these is the difference between a page
