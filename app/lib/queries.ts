@@ -258,10 +258,6 @@ export const useTranslationMutations = () => ({
       api.post<Ok>("/translations", body),
     [keys.translations],
   ),
-  seed: useInvalidating(
-    () => api.post<Ok>("/translations/seed"),
-    [keys.translations],
-  ),
   saveStrings: useInvalidating(
     ({
       locale,

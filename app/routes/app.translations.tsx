@@ -100,6 +100,11 @@ export function LanguagesPanel() {
         keys={keys}
         optionalKeys={optionalKeys}
         referenceEn={DEFAULT_TRANSLATIONS.en}
+        isDefault={editing.locale === data.defaultLocale}
+        defaultLabel={
+          languages.find((lang) => lang.locale === data.defaultLocale)?.label ??
+          data.defaultLocale
+        }
         busy={mutations.saveStrings.isPending}
         onSave={(strings) =>
           mutations.saveStrings.mutate(
@@ -494,6 +499,8 @@ function LanguageEditor({
   keys,
   optionalKeys,
   referenceEn,
+  isDefault,
+  defaultLabel,
   busy,
   onSave,
   onDone,
@@ -502,6 +509,10 @@ function LanguageEditor({
   keys: string[];
   optionalKeys: string[];
   referenceEn: TranslationStrings;
+  /** Whether this is the language every other one falls back to. */
+  isDefault: boolean;
+  /** What that language is called, for saying so in a sentence. */
+  defaultLabel: string;
   busy: boolean;
   onSave: (strings: TranslationStrings) => void;
   onDone: () => void;
@@ -569,7 +580,9 @@ function LanguageEditor({
             </s-heading>
           </s-stack>
           <s-paragraph color="subdued">
-            {`Blank fields fall back to English automatically.`}
+            {isDefault
+              ? "Leave a field blank and it shows the wording this app ships. Your own blocks are the exception: blank, they are not shown at all, and every other language falls back to what you write here."
+              : `Leave a field blank and it shows the wording this app ships. Your own blocks are the exception: blank, they show your ${defaultLabel} text.`}
           </s-paragraph>
           <s-stack
             direction="inline"
@@ -689,6 +702,13 @@ function LanguageEditor({
                         name={`s:${key}`}
                         value={editing.strings[key] ?? ""}
                         placeholder={referenceEn[key]}
+                        details={
+                          optional.has(key)
+                            ? isDefault
+                              ? "Blank: not shown, and other languages fall back to this."
+                              : `Blank: shows your ${defaultLabel} text.`
+                            : undefined
+                        }
                         onInput={(event) => {
                           const value = (
                             event.currentTarget as HTMLInputElement
