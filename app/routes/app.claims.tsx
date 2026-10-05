@@ -95,6 +95,8 @@ export default function Claims() {
     status: string;
     orderName: string;
     shopifyOrderId: string | null;
+    /** Whether the shopper's email was actually queued. */
+    notified: boolean;
   };
   const [statusBanner, setStatusBanner] = useState<StatusOutcome | null>(null);
 
@@ -170,8 +172,17 @@ export default function Claims() {
       {
         onSuccess: (result) =>
           setBulkBanner({
-            text: result.message ?? "Claims updated.",
-            ok: result.ok,
+            /*
+             | A decision that saved but could not be emailed is counted
+             | separately from a skipped one. Folding it into "skipped" would
+             | send a merchant looking for a claim that is perfectly fine --
+             | what went wrong is the mailer, not the claim.
+             */
+            text:
+              result.unnotified
+                ? `${result.message ?? "Claims updated."} · ${result.unnotified} customer${result.unnotified === 1 ? "" : "s"} could not be emailed`
+                : (result.message ?? "Claims updated."),
+            ok: result.ok && !result.unnotified,
           }),
         onError: (cause) => setBulkBanner({ text: cause.message, ok: false }),
       },
@@ -199,6 +210,8 @@ export default function Claims() {
           status,
           orderName: claim?.shopifyOrderName ?? claim?.orderNumber ?? "",
           shopifyOrderId: claim?.shopifyOrderId ?? null,
+          // Filled in from the response below.
+          notified: true,
         }
       : null;
 
@@ -211,7 +224,13 @@ export default function Claims() {
       {
         // Resolving or denying emails the customer, so it gets a banner that
         // stays; moving a claim to "reviewing" tells nobody and needs none.
-        onSuccess: () => outcome && setStatusBanner(outcome),
+        //
+        // An older backend sends no `notified` at all, and an absent answer
+        // is read as yes -- the same thing this screen assumed before the
+        // field existed. Only an explicit false changes what is said.
+        onSuccess: (result) =>
+          outcome &&
+          setStatusBanner({ ...outcome, notified: result.notified !== false }),
         onError: (cause) => showToast(cause.message, { isError: true }),
       },
     );
@@ -332,7 +351,17 @@ export default function Claims() {
 
         {statusBanner && (
           <s-banner
-            tone={statusBanner.status === "resolved" ? "success" : "info"}
+            /*
+              A decision whose email never went is not a success, whichever
+              way the decision went: the customer is still waiting to hear.
+            */
+            tone={
+              !statusBanner.notified
+                ? "warning"
+                : statusBanner.status === "resolved"
+                  ? "success"
+                  : "info"
+            }
             heading={
               statusBanner.status === "resolved"
                 ? `Claim ${statusBanner.orderName} resolved`
@@ -341,9 +370,11 @@ export default function Claims() {
             dismissible
             onDismiss={() => setStatusBanner(null)}
           >
-            {statusBanner.status === "resolved"
-              ? "The customer has been emailed to say their claim was approved."
-              : "The customer has been emailed to say their claim wasn't approved."}
+            {!statusBanner.notified
+              ? "Saved — but we could not email the customer, so they have not been told. Check your email settings, then tell them yourself."
+              : statusBanner.status === "resolved"
+                ? "The customer has been emailed to say their claim was approved."
+                : "The customer has been emailed to say their claim wasn't approved."}
             {statusBanner.shopifyOrderId && (
               <s-button
                 slot="primary-action"

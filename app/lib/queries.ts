@@ -169,7 +169,14 @@ function useInvalidating<TData, TVariables>(
 export const useUpdateClaim = () =>
   useInvalidating(
     ({ id, ...body }: UpdateClaim) =>
-      api.patch<{ ok: boolean }>(`/claims/${id}`, body),
+      /*
+       | `notified` is whether the shopper's email reached the queue. The
+       | decision itself always saves, so this is a second fact and not an
+       | error -- but the banner used to state "the customer has been emailed"
+       | as though it were certain, and with no mail provider configured that
+       | sentence is simply untrue.
+       */
+      api.patch<{ ok: boolean; notified?: boolean }>(`/claims/${id}`, body),
     [["claims"], keys.dashboard],
   );
 
@@ -581,7 +588,16 @@ export type BillingPayload = {
 
 type Ok = { ok: boolean; message?: string; error?: string | null };
 type SaveResult = Ok & { settings: MerchantSettings };
-type BulkResult = Ok & { changed: number; skipped: number };
+/**
+ * `unnotified` counts decisions that saved but whose customer could not be
+ * emailed. Separate from `skipped`, which means the claim did not move at
+ * all: the two send a merchant looking in completely different places.
+ */
+type BulkResult = Ok & {
+  changed: number;
+  skipped: number;
+  unnotified?: number;
+};
 type SyncResult = Ok & { error?: string };
 type SubscribeResult = {
   ok: boolean;
