@@ -18,7 +18,7 @@ rather than assumed away.
 |---|---|
 | 🔴 Blocks deployment | 3 |
 | 🟠 Fix before merchants | 4 |
-| 🟡 Handover gaps | 6 |
+| 🟡 Handover gaps | 7 |
 | ✅ Checked and passing | 11 |
 
 Nothing here is a secret leak. That was the first thing checked and both
@@ -296,7 +296,45 @@ Two details that are easy to get wrong:
 
 ## 🟡 Handover gaps
 
-### 8. Both READMEs are still stock template text
+### 8. `.env.example` is complete, but its defaults are development values
+
+Checked properly: every variable the company *must* set is documented in the
+backend's `.env.example`. The ones absent from it are stock Laravel driver
+settings with working defaults in `config/` (Redis, SQS, Memcached, Postmark,
+`DB_SOCKET`, `SESSION_TABLE` and so on) — nothing the company has to discover.
+
+**WARNING: the file's own values are the development ones.** Copy it to
+`.env`, fill in the blanks, and production comes up like this:
+
+```
+APP_ENV=local
+APP_DEBUG=true
+LOG_LEVEL=debug
+MAIL_MAILER=log
+APP_URL=http://localhost:8000
+```
+
+`APP_DEBUG=true` is the dangerous one. Laravel's debug error page prints the
+environment alongside the stack trace, so the first unhandled exception in
+production shows a visitor the database password and the Shopify client secret.
+`MAIL_MAILER=log` is finding 3. `LOG_LEVEL=debug` on top of those writes far
+more shopper data to disk than it should.
+
+**Fix:** either state the production values in the comments beside each one, or
+add a deploy-time guard that refuses to boot when `APP_ENV=production` and
+`APP_DEBUG` is true. The guard is better — a comment can be skipped, a refusal
+cannot.
+
+Two more worth documenting in the same pass, both currently undocumented:
+
+- `SESSION_SECURE_COOKIE` — should be `true` in production. Low impact here,
+  since the admin authenticates by token exchange and the storefront by HMAC,
+  so no cookie carries authority. Set it anyway.
+- `APP_PREVIOUS_KEYS` — how Laravel decrypts data written under an older
+  `APP_KEY`. Irrelevant today, essential the moment finding 2 lands and
+  `APP_KEY` ever has to rotate.
+
+### 9. Both READMEs are still stock template text
 
 - Backend `README.md` is Laravel's default — framework marketing, Laracasts
   links, nothing about Kourify.
@@ -307,7 +345,7 @@ A new engineer opening the company repo learns nothing about what the project
 is, that it is two repos, how to run it, or how to deploy it. Of everything in
 this document this is the cheapest to fix and the most read.
 
-### 9. 3.8 MB of vendored agent tooling, against the repo's own instruction
+### 10. 3.8 MB of vendored agent tooling, against the repo's own instruction
 
 `.agents/` holds 41 tracked files, including six Brotli-compressed Shopify
 Admin schema dumps of roughly 500 KB each. It is 3.8 MB of a 4.2 MB repository.
@@ -318,7 +356,7 @@ to this repo."
 **Fix:** `git rm -r --cached .agents` and add it to `.gitignore`. History keeps
 the blobs unless it is rewritten, which is probably not worth it for 3.8 MB.
 
-### 10. 13 dependency advisories, none of which reach shipped code
+### 11. 13 dependency advisories, none of which reach shipped code
 
 `pnpm audit --prod` reports 2 critical, 9 high, 2 moderate. Every path traced
 to build tooling:
@@ -345,11 +383,11 @@ the rest as accepted build-time risk. `composer audit` on the backend reports
 no advisories at all. Expect the company's scanner to raise these on day one —
 better to arrive with the written explanation than to answer it later.
 
-### 11. Neither repo has a LICENSE
+### 12. Neither repo has a LICENSE
 
 Normal for a private repo, but the company's tooling may expect one. Their call.
 
-### 12. Commits are authored under two different personal addresses
+### 13. Commits are authored under two different personal addresses
 
 `git log --all --format='%an <%ae>'` shows the same name against two personal
 email addresses, in both repos. Both become visible to everyone with repository
@@ -359,7 +397,7 @@ Worth a decision now rather than a question later: either accept it, or set a
 company address with `git config user.email` for future commits. The addresses
 are deliberately not reproduced here, so this document can be read by anyone.
 
-### 13. The Shopify app belongs to a personal Partner organisation
+### 14. The Shopify app belongs to a personal Partner organisation
 
 `client_id = "05f95f63f2b874fd2f6103a4ebb7d697"` is an app in the current
 Partner org. Before the company can run `shopify app deploy`, either that app
@@ -479,8 +517,9 @@ Open items this audit did not change, listed so none is lost in the handover:
 
 1. Hosting (finding 1) — everything else is untestable without it.
 2. Encrypt the tokens (2) while there is one install to re-exchange.
-3. READMEs and the build order (7, 8) before anyone else touches the repos.
+3. READMEs, the build order and the .env defaults (7, 8, 9) before anyone
+   else touches the repos.
 4. Measure what the app proxy sends as a client IP, then fix the limiter (4).
 5. CI (6), then the prune schedule (5).
 6. Domain and mail provider (3).
-7. Dependency updates (10) before the company's scanner reports them.
+7. Dependency updates (11) before the company's scanner reports them.
