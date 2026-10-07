@@ -3,16 +3,13 @@ import { useMemo, useRef, useState } from "react";
 import { Card } from "../components/Card";
 import { InlineError, InlineLoading } from "../components/PageState";
 import { useToast } from "../components/Toast";
-import {
-  DEFAULT_TRANSLATIONS,
-  type TranslationStrings,
-} from "../lib/claim-i18n";
 import { languageChoices, merchantName } from "../lib/languages";
 import {
   useTranslationMutations,
   useTranslations,
   type Language,
   type ShopLanguage,
+  type TranslationStrings,
 } from "../lib/queries";
 import { PageBody } from "../components/PageBody";
 
@@ -71,7 +68,7 @@ export function LanguagesPanel() {
   if (error)
     return <InlineError heading="Languages" error={error} onRetry={refetch} />;
 
-  const { languages, keys, optionalKeys } = data;
+  const { languages, keys, optionalKeys, referenceEn } = data;
   const fallback = data.defaultLocale;
 
   const editing = editingLocale
@@ -100,7 +97,7 @@ export function LanguagesPanel() {
         editing={editing}
         keys={keys}
         optionalKeys={optionalKeys}
-        referenceEn={DEFAULT_TRANSLATIONS.en}
+        referenceEn={referenceEn}
         isDefault={editing.locale === data.defaultLocale}
         defaultLabel={
           languages.find((lang) => lang.locale === data.defaultLocale)?.label ??

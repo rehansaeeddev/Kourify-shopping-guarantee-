@@ -1,6 +1,16 @@
 export type ClaimWindow = { minDays: number; maxDays: number };
 export type ClaimWindows = Record<string, ClaimWindow>;
 
+/*
+ * The merchant's settings editor reads these when the stored blob is missing
+ * or malformed. They mirror ClaimWindows::defaults() in the backend, which is
+ * what actually enforces a window -- so if you change one, change both.
+ *
+ * Deliberately nothing else lives here. EVIDENCE_REQUIRED_TYPES and
+ * CLAIM_ISSUE_TYPES used to, unused by anything, while the rule they restated
+ * was enforced by IssueType in PHP and restated a third time in the shopper's
+ * claim form. The form now takes it from the server; do not add it back.
+ */
 export const DEFAULT_CLAIM_WINDOWS: ClaimWindows = {
   lost: { minDays: 0, maxDays: 30 },
   damaged: { minDays: 0, maxDays: 7 },
@@ -10,8 +20,6 @@ export const DEFAULT_CLAIM_WINDOWS: ClaimWindows = {
   wrong_item: { minDays: 0, maxDays: 14 },
 };
 
-export const EVIDENCE_REQUIRED_TYPES = ["damaged", "concealed"];
-export const CLAIM_ISSUE_TYPES = Object.keys(DEFAULT_CLAIM_WINDOWS);
 
 export function parseClaimWindows(raw: string): ClaimWindows {
   let parsed: unknown;

@@ -529,6 +529,9 @@ export type Language = {
   translatedCount: number;
 };
 
+/** One language's strings, keyed by the string's key. */
+export type TranslationStrings = Record<string, string>;
+
 export type TranslationsPayload = {
   languages: Language[];
   keys: string[];
@@ -538,6 +541,15 @@ export type TranslationsPayload = {
    * read as fully translated.
    */
   optionalKeys: string[];
+  /**
+   * The English each key is a translation of -- the grey reference above the
+   * input and its placeholder. Served with the key set rather than bundled
+   * into the admin, because the admin's own copy had fallen 13 keys behind
+   * the backend's and those fields rendered as blank boxes with no label.
+   *
+   * The optionalKeys are absent: they are the merchant's own text.
+   */
+  referenceEn: TranslationStrings;
   suggestedLabels: Record<string, string>;
   /**
    * The languages this app ships written -- the claim page and the three
