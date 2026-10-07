@@ -18,7 +18,7 @@ rather than assumed away.
 |---|---|
 | 🔴 Blocks deployment | 3 |
 | 🟠 Fix before merchants | 4 |
-| 🟡 Handover gaps | 7 |
+| 🟡 Handover gaps | 8 |
 | ✅ Checked and passing | 11 |
 
 Nothing here is a secret leak. That was the first thing checked and both
@@ -296,7 +296,58 @@ Two details that are easy to get wrong:
 
 ## 🟡 Handover gaps
 
-### 8. `.env.example` is complete, but its defaults are development values
+### 8. 13 fields in the Translations editor show the merchant nothing
+
+The claim page's English copy exists in two repos. The backend renders from
+`lang/claim/{en,fr,ar,hi}.php`. The frontend's `app/lib/claim-i18n.ts` holds a
+copy of the same strings, used for one thing: the grey English reference shown
+beside each input in the Translations editor, and that input's placeholder.
+
+Counted, per locale:
+
+| | Frontend `claim-i18n.ts` | Backend `lang/claim/*.php` |
+|---|---|---|
+| keys | 64 | 77 |
+
+The 61 keys both files quote plainly have **identical English values**, so
+nothing has drifted in wording. The problem is the 13 keys the frontend never
+got:
+
+```
+error.itemRequired       error.noClaimableItems   error.notProtected
+error.quantityRequired   field.item               field.item.loading
+field.quantity           field.quantity.hint      progress.item
+progress.item.short      review.item              step.item.copy
+step.item.title
+```
+
+Every one is item-level claim copy — the "Which item?" step — and every one is
+rendered to shoppers by `resources/views/storefront/claim-form.blade.php`.
+
+**What this does and does not break.** The editable key set comes from the API,
+not from this file (`const { languages, keys, optionalKeys } = data`), so all
+77 are editable and all four shipped languages render the item step translated.
+Nothing is missing from the claim page.
+
+What breaks is the editor. For these 13, `referenceEn[key]` is `undefined`, so:
+
+```jsx
+<s-text color="subdued">{referenceEn[key]}</s-text>   // renders nothing
+<s-text-field placeholder={referenceEn[key]} ... />   // no placeholder
+```
+
+and the field's own label is visually hidden
+(`labelAccessibilityVisibility="exclusive"`). The merchant gets an empty grey
+box above an empty input with no visible label — thirteen times, covering the
+whole item step — and no way to tell what string they are being asked to
+translate. They are most likely to leave them blank, which is the one outcome
+that looks like nothing is wrong.
+
+**Fix:** have the API return the English reference alongside the key set, so
+one list serves both and a new string cannot arrive half-registered. A test
+asserting the two key sets match is the cheap stopgap.
+
+### 9. `.env.example` is complete, but its defaults are development values
 
 Checked properly: every variable the company *must* set is documented in the
 backend's `.env.example`. The ones absent from it are stock Laravel driver
@@ -334,7 +385,7 @@ Two more worth documenting in the same pass, both currently undocumented:
   `APP_KEY`. Irrelevant today, essential the moment finding 2 lands and
   `APP_KEY` ever has to rotate.
 
-### 9. Both READMEs are still stock template text
+### 10. Both READMEs are still stock template text
 
 - Backend `README.md` is Laravel's default — framework marketing, Laracasts
   links, nothing about Kourify.
@@ -345,7 +396,7 @@ A new engineer opening the company repo learns nothing about what the project
 is, that it is two repos, how to run it, or how to deploy it. Of everything in
 this document this is the cheapest to fix and the most read.
 
-### 10. 3.8 MB of vendored agent tooling, against the repo's own instruction
+### 11. 3.8 MB of vendored agent tooling, against the repo's own instruction
 
 `.agents/` holds 41 tracked files, including six Brotli-compressed Shopify
 Admin schema dumps of roughly 500 KB each. It is 3.8 MB of a 4.2 MB repository.
@@ -356,7 +407,7 @@ to this repo."
 **Fix:** `git rm -r --cached .agents` and add it to `.gitignore`. History keeps
 the blobs unless it is rewritten, which is probably not worth it for 3.8 MB.
 
-### 11. 13 dependency advisories, none of which reach shipped code
+### 12. 13 dependency advisories, none of which reach shipped code
 
 `pnpm audit --prod` reports 2 critical, 9 high, 2 moderate. Every path traced
 to build tooling:
@@ -383,11 +434,11 @@ the rest as accepted build-time risk. `composer audit` on the backend reports
 no advisories at all. Expect the company's scanner to raise these on day one —
 better to arrive with the written explanation than to answer it later.
 
-### 12. Neither repo has a LICENSE
+### 13. Neither repo has a LICENSE
 
 Normal for a private repo, but the company's tooling may expect one. Their call.
 
-### 13. Commits are authored under two different personal addresses
+### 14. Commits are authored under two different personal addresses
 
 `git log --all --format='%an <%ae>'` shows the same name against two personal
 email addresses, in both repos. Both become visible to everyone with repository
@@ -397,7 +448,7 @@ Worth a decision now rather than a question later: either accept it, or set a
 company address with `git config user.email` for future commits. The addresses
 are deliberately not reproduced here, so this document can be read by anyone.
 
-### 14. The Shopify app belongs to a personal Partner organisation
+### 15. The Shopify app belongs to a personal Partner organisation
 
 `client_id = "05f95f63f2b874fd2f6103a4ebb7d697"` is an app in the current
 Partner org. Before the company can run `shopify app deploy`, either that app
@@ -408,6 +459,84 @@ The client secret goes into the host's secret manager. Never into a commit, an
 issue, a chat message or a CI log. If it is ever exposed, rotate it in the
 Partner Dashboard and use `SHOPIFY_API_SECRET_OLD` to keep in-flight requests
 verifying through the overlap — the backend already supports that.
+
+---
+
+## Code duplication
+
+Measured with a token-shingle detector over both repos: comments and imports
+stripped, then every run of N identical real lines reported. Run at N=6 and
+again at N=4.
+
+**The backend is clean.** At a six-line window, its 100 files in `app/` yield
+three clusters. At four lines it has a handful more, all incidental — two
+models sharing a `casts()` array, two `match` arms both ending `default =>
+null`. Nothing worth extracting.
+
+**Two things in the backend are worth extracting, both small:**
+
+- `app/Mail/ClaimSubmitted.php` and `app/Mail/ClaimStatusChanged.php` share
+  their constructor, their `content()` and their locale resolution almost line
+  for line. They already extend `SpeaksToTheShopper`, so the shared half
+  belongs in that base class.
+- The `stagedUploadsCreate` GraphQL mutation is written out twice, in
+  `app/Services/EvidenceUpload.php:243` and
+  `app/Services/ProtectionProduct.php:315`.
+
+**Two duplications in the theme extension are forced, not sloppy.** Worth
+recording so nobody "fixes" them:
+
+- `protection-cart.liquid` and `protection-product.liquid` carry nearly
+  identical `{% schema %}` blocks. A theme app extension block must declare its
+  own schema; Shopify provides no way to share one.
+- Three blocks repeat the same `assign` lines that read the brand metafields.
+  The code says why: a rendered snippet gets its own scope, so it cannot set
+  variables in its caller, and capturing the render injected Shopify's own
+  "BEGIN app snippet" comment into the output.
+
+**What is not duplicated, checked specifically.** The RTL language list exists
+once (`app/Domain/Locale.php`). Claim-window enforcement lives in the backend
+only. Translation length caps live in `ClaimTranslations::CAPS` only. The
+frontend's `.myshopify.com` regex looks like a copy of `ShopDomain` but is not
+— it validates an admin hostname before it reaches an `href`, a different job.
+
+**In the frontend admin, one file repeats itself.**
+`app/routes/app.settings.tsx` carries the same controlled-input `onChange`
+three times for money fields and twice more for day fields — parse, clamp,
+`toFixed(2)`, write back. A small typed input component would absorb all five.
+`app/routes/app.claims.tsx:440` and `app/routes/app.orders.tsx:365` also share
+a six-line row control, which is a shared-component candidate rather than a
+problem.
+
+**The duplication that matters is a business rule written three times.**
+Whether a claim needs a photo exists in three places, in three languages:
+
+| Copy | Where | Who it governs |
+|---|---|---|
+| `IssueType::requiresEvidence()` | `app/Domain/IssueType.php:42` | **authoritative** — rejects the claim |
+| `var requiredEvidence=["damaged","concealed"]` | `claim-form.blade.php:160` | the shopper's form, inline JS |
+| `EVIDENCE_REQUIRED_TYPES` | `app/lib/claim-window.ts:13` | admin only |
+
+All three read `damaged, concealed` today. The second is the one that matters:
+it is hardcoded in the shopper-facing page, it decides whether the photo field
+is even shown (`syncEvidence()`), and it is in a different repo from the PHP
+that enforces the rule. Add a seventh issue type that needs evidence and the
+server will reject claims for a field the shopper was never shown.
+
+The claim windows are duplicated too — `ClaimWindows::defaults()` in PHP,
+`DEFAULT_CLAIM_WINDOWS` in TypeScript, with the same six values (`lost 0/30`,
+`damaged 0/7`, `stolen 3/15`, `shortage 0/7`, `concealed 0/14`,
+`wrong_item 0/14`) and two implementations of the same JSON fallback parser.
+This one is less dangerous than it first looks: `claim-window.ts` is imported
+only by `app/routes/app.settings.tsx` and its own test, so it is the merchant's
+settings editor, not the shopper's form. A drift would show the merchant
+different defaults from the ones the server enforces.
+
+**Fix:** the Blade page should take `requiredEvidence` from the server that
+owns the rule — it is already rendering that page and already has
+`IssueType::requiresEvidence()` — rather than restating it in inline
+JavaScript. For the windows, a test comparing the TypeScript defaults against
+the PHP defaults starts green and only speaks up when someone edits one copy.
 
 ---
 
@@ -517,9 +646,9 @@ Open items this audit did not change, listed so none is lost in the handover:
 
 1. Hosting (finding 1) — everything else is untestable without it.
 2. Encrypt the tokens (2) while there is one install to re-exchange.
-3. READMEs, the build order and the .env defaults (7, 8, 9) before anyone
-   else touches the repos.
+3. READMEs, the build order, the .env defaults and the empty translation
+   references (7, 8, 9, 10) before anyone else touches the repos.
 4. Measure what the app proxy sends as a client IP, then fix the limiter (4).
 5. CI (6), then the prune schedule (5).
 6. Domain and mail provider (3).
-7. Dependency updates (11) before the company's scanner reports them.
+7. Dependency updates (12) before the company's scanner reports them.
