@@ -16,10 +16,11 @@ rather than assumed away.
 
 | | |
 |---|---|
-| 🔴 Blocks deployment | 3 |
+| 🔴 Blocks deployment | 2 |
 | 🟠 Fix before merchants | 4 |
-| 🟡 Handover gaps | 8 |
+| 🟡 Handover gaps | 7 |
 | ✅ Checked and passing | 11 |
+| 🛠 Fixed on 2026-10-07 | 4 |
 
 Nothing here is a secret leak. That was the first thing checked and both
 histories are clean — see "Checked and passing".
@@ -48,73 +49,32 @@ TLS certificate).
 three values and `SHOPIFY_APP_URL` in the backend `.env` updated to match, then
 `shopify app deploy`.
 
-### 2. Shopify access tokens are stored in plaintext
+### 2. ~~Shopify access tokens are stored in plaintext~~ — FIXED
 
-`app/Models/Session.php` hides `accessToken` and `refreshToken` from
-serialisation but does not encrypt them at rest:
+**Fixed 2026-10-07** in backend `a2405fd`. Kept here because the trap in the
+fix is worth knowing.
 
-```php
-protected $hidden = ['accessToken', 'refreshToken'];
+The `Session` table held a usable offline access token in the clear. `$hidden`
+kept it out of serialised output, which is not the same thing — a database
+dump, a backup, a restore into staging or a read-only reporting user each gave
+full Admin API access to every installed shop.
 
-protected function casts(): array
-{
-    return [
-        'isOnline' => 'boolean',
-        // ... no 'accessToken' => 'encrypted'
-    ];
-}
-```
+Both columns now cast to `encrypted`, and a migration widened them first.
+**That order matters and the obvious fix is wrong without it:** the columns
+were `varchar(191)` and a real ciphertext measures **256** characters. Adding
+the cast alone would have written truncated values that can never be decrypted
+again, and outside strict mode MySQL would not have complained.
 
-These are offline Admin API tokens. Anyone who can read the `Session` table —
-a database dump, a backup on a developer's laptop, a read-only analytics user,
-a managed-hosting support engineer — gets full API access to every installed
-store at the app's granted scopes: read orders, read customers, write products,
-write fulfillments, edit orders.
+Existing rows are encrypted in place rather than cleared, so the webhook
+handlers, `BillUsageEvent` and order sync keep their token. Both directions
+were run against the real row: `up()` leaves the column `text` and the token
+usable, `down()` decrypts before narrowing and preserves `nullable`.
 
-`$hidden` does not help here. It only stops the value appearing in JSON; the
-column is still plaintext.
-
-**Confirmed, not inferred.** Two checks:
-
-- No write-time encryption exists. `Crypt::`, `encrypt(`, `encryptString` and
-  `decryptString` appear nowhere in `app/`.
-- The stored value was read back raw and begins `shpat_` — a Shopify access
-  token in the clear. A Laravel-encrypted column would begin `eyJpdi`.
-
-**The obvious fix does not work on its own.** Adding `'accessToken' =>
-'encrypted'` to the casts would start truncating tokens, because the columns
-are too narrow for a ciphertext:
-
-```php
-// database/migrations/2026_09_29_000000_create_kourify_schema.php
-$table->string('accessToken', 191);
-$table->string('refreshToken', 191)->nullable();
-```
-
-Laravel's encrypted payload is a base64-encoded JSON envelope carrying an IV, a
-MAC and the value — roughly 250–350 characters for a token of this length,
-against a 191-character column. MySQL would reject or truncate it depending on
-strict mode, and a truncated ciphertext is an install that can never be
-decrypted again.
-
-**Fix, in this order, in one deploy:**
-
-1. A migration widening both columns to `TEXT`.
-2. The casts:
-
-```php
-'accessToken' => 'encrypted',
-'refreshToken' => 'encrypted',
-```
-
-3. Clear the `Session` table. Existing rows are plaintext and would fail to
-   decrypt. There is one install today, so the next admin load simply
-   re-exchanges a token — cheaper and safer than a re-encrypting backfill.
-
-**And one standing consequence.** `APP_KEY` becomes a credential that must
-survive forever. Lose it and every install breaks, because no token can be
-decrypted. It belongs in the host's secret manager with a recoverable copy —
-never regenerated on deploy.
+**One standing consequence.** `APP_KEY` is now permanent. Lose it and no
+install can be decrypted again, so it belongs in the host's secret manager
+with a recoverable copy, never regenerated on deploy. Rotate only through
+`APP_PREVIOUS_KEYS`. Nothing may query on these columns either — an encrypted
+value differs every time, so a `WHERE` would never match; lookups go by `id`.
 
 ### 3. Email cannot be delivered
 
@@ -296,56 +256,25 @@ Two details that are easy to get wrong:
 
 ## 🟡 Handover gaps
 
-### 8. 13 fields in the Translations editor show the merchant nothing
+### 8. ~~13 fields in the Translations editor show the merchant nothing~~ — FIXED
 
-The claim page's English copy exists in two repos. The backend renders from
-`lang/claim/{en,fr,ar,hi}.php`. The frontend's `app/lib/claim-i18n.ts` holds a
-copy of the same strings, used for one thing: the grey English reference shown
-beside each input in the Translations editor, and that input's placeholder.
+**Fixed 2026-10-07** in backend `2a991b1` and frontend `5735226`.
 
-Counted, per locale:
+The claim page's English lived in two repos: `lang/claim/en.php` rendered the
+page, and `app/lib/claim-i18n.ts` supplied the grey reference and placeholder
+in the Translations editor. The second had fallen 13 keys behind the first —
+the whole item step, including four validation errors — and because the editor
+hides each field's own label, those thirteen rendered as an empty box above an
+empty input with nothing naming either.
 
-| | Frontend `claim-i18n.ts` | Backend `lang/claim/*.php` |
-|---|---|---|
-| keys | 64 | 77 |
+Nothing was untranslatable: the editable key set always came from the API, and
+all four shipped languages render the step. It was the editor that showed
+nothing, and a merchant's likeliest response is to leave the fields blank.
 
-The 61 keys both files quote plainly have **identical English values**, so
-nothing has drifted in wording. The problem is the 13 keys the frontend never
-got:
-
-```
-error.itemRequired       error.noClaimableItems   error.notProtected
-error.quantityRequired   field.item               field.item.loading
-field.quantity           field.quantity.hint      progress.item
-progress.item.short      review.item              step.item.copy
-step.item.title
-```
-
-Every one is item-level claim copy — the "Which item?" step — and every one is
-rendered to shoppers by `resources/views/storefront/claim-form.blade.php`.
-
-**What this does and does not break.** The editable key set comes from the API,
-not from this file (`const { languages, keys, optionalKeys } = data`), so all
-77 are editable and all four shipped languages render the item step translated.
-Nothing is missing from the claim page.
-
-What breaks is the editor. For these 13, `referenceEn[key]` is `undefined`, so:
-
-```jsx
-<s-text color="subdued">{referenceEn[key]}</s-text>   // renders nothing
-<s-text-field placeholder={referenceEn[key]} ... />   // no placeholder
-```
-
-and the field's own label is visually hidden
-(`labelAccessibilityVisibility="exclusive"`). The merchant gets an empty grey
-box above an empty input with no visible label — thirteen times, covering the
-whole item step — and no way to tell what string they are being asked to
-translate. They are most likely to leave them blank, which is the one outcome
-that looks like nothing is wrong.
-
-**Fix:** have the API return the English reference alongside the key set, so
-one list serves both and a new string cannot arrive half-registered. A test
-asserting the two key sets match is the cheap stopgap.
+The API now returns `referenceEn` beside the key set, so one list serves both
+and a string cannot arrive half-registered. `claim-i18n.ts` is deleted. Two
+backend tests hold it: every non-optional key has non-empty English, and the
+merchant's own `custom.*` slots still carry none.
 
 ### 9. `.env.example` is complete, but its defaults are development values
 
@@ -365,16 +294,25 @@ MAIL_MAILER=log
 APP_URL=http://localhost:8000
 ```
 
-`APP_DEBUG=true` is the dangerous one. Laravel's debug error page prints the
-environment alongside the stack trace, so the first unhandled exception in
-production shows a visitor the database password and the Shopify client secret.
+`APP_DEBUG=true` is the dangerous one. **Corrected from an earlier draft of
+this document:** `spatie/laravel-ignition` is not installed and Laravel's own
+exception renderer reads no environment variables, so this is *not* the "prints
+your database password" case. What the debug page does show is the exception
+message, a stack trace with surrounding source, and the request's own headers
+and body — and that is still a leak worth closing here, because a failed
+query's message carries its bound values, which on this app means shopper names
+and order details, and the headers carry the session token.
+
 `MAIL_MAILER=log` is finding 3. `LOG_LEVEL=debug` on top of those writes far
 more shopper data to disk than it should.
 
-**Fix:** either state the production values in the comments beside each one, or
-add a deploy-time guard that refuses to boot when `APP_ENV=production` and
-`APP_DEBUG` is true. The guard is better — a comment can be skipped, a refusal
-cannot.
+**Fixed 2026-10-07** in backend `38bb320`, though the `.env.example` defaults
+are unchanged and still need reading carefully. `AppServiceProvider::boot()`
+forces `app.debug` to false when the environment is production and logs at
+critical. It overrides rather than throws deliberately: an exception raised at
+boot would be rendered by the very page being guarded against, leaking more
+than it prevented. The file's header now also lists the production values
+instead of leaving them to be inferred.
 
 Two more worth documenting in the same pass, both currently undocumented:
 
@@ -517,11 +455,17 @@ Whether a claim needs a photo exists in three places, in three languages:
 | `var requiredEvidence=["damaged","concealed"]` | `claim-form.blade.php:160` | the shopper's form, inline JS |
 | `EVIDENCE_REQUIRED_TYPES` | `app/lib/claim-window.ts:13` | admin only |
 
-All three read `damaged, concealed` today. The second is the one that matters:
-it is hardcoded in the shopper-facing page, it decides whether the photo field
-is even shown (`syncEvidence()`), and it is in a different repo from the PHP
-that enforces the rule. Add a seventh issue type that needs evidence and the
-server will reject claims for a field the shopper was never shown.
+**Fixed 2026-10-07** in backend `34143f6` and frontend `5735226`.
+`IssueType::requiringEvidence()` derives the list from `requiresEvidence()`,
+the page is handed it, and the admin's two constants — which had no importer
+anywhere — are gone. One copy remains, the one that enforces the rule.
+
+Two things about the view cost a round trip each and are worth knowing. The
+script is inside a `verbatim` block, so a Blade directive written there is
+emitted as source rather than evaluated; the value goes in beside
+`window.__I18N__`, which is why that pattern already existed. And Blade reads
+comments as well as markup, so merely *naming* that directive in a comment
+opened a second verbatim block and stopped everything below it compiling.
 
 The claim windows are duplicated too — `ClaimWindows::defaults()` in PHP,
 `DEFAULT_CLAIM_WINDOWS` in TypeScript, with the same six values (`lost 0/30`,
@@ -644,11 +588,15 @@ Open items this audit did not change, listed so none is lost in the handover:
 
 ## Suggested order
 
+**Done on 2026-10-07:** the token encryption (2), the translation references
+(8), the production debug guard (9) and the evidence-rule duplication. All
+five suites green afterwards — 504 backend tests, 51 frontend.
+
+**What is left, in order:**
+
 1. Hosting (finding 1) — everything else is untestable without it.
-2. Encrypt the tokens (2) while there is one install to re-exchange.
-3. READMEs, the build order, the .env defaults and the empty translation
-   references (7, 8, 9, 10) before anyone else touches the repos.
-4. Measure what the app proxy sends as a client IP, then fix the limiter (4).
-5. CI (6), then the prune schedule (5).
-6. Domain and mail provider (3).
-7. Dependency updates (12) before the company's scanner reports them.
+2. READMEs and the build order (7, 10) before anyone else touches the repos.
+3. Measure what the app proxy sends as a client IP, then fix the limiter (4).
+4. CI (6), then the prune schedule (5).
+5. Domain and mail provider (3).
+6. Dependency updates (12) before the company's scanner reports them.
